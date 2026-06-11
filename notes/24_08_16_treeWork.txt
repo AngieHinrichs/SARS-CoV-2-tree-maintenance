@@ -1,0 +1,180 @@
+today=2024-08-16
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# JN.1.7.4 is placed in JN.1.16.1 by 4 seqs.  prune etc.
+g England/CLIMB-CM7YEU5A/2024 sample-paths
+#... node_2354744:T22928C node_2355117:G25012T node_2355120:C25566T node_2355121:C23277T
+g node_2355117: sample-paths | g -v node_2355121: | cut -f 1 > pruneForJN.1.7.4
+wc -l pruneForJN.1.7.4
+#4 pruneForJN.1.7.4
+
+
+# Venezuela/Ara9309/2024 is now placed in JN.1.9 which is fine -- Fede and Xu pointed out that
+# LB.1.8 is probably a child of it (not LB.1), try force-move of LB.1.8 and see if it sticks.
+# If it does, weigh in on comment
+# https://github.com/cov-lineages/pango-designation/commit/05eee64fdd6e8246d20ce0c104b36a0f2ae7e32a#commitcomment-144784091
+# LB.1.8:
+g Venezuela/Bar3640/2024 sample-paths
+#... node_2357980:G22599C node_2359384:T22928C node_2360570:G22111T node_2361501:A2618G
+# To the little branch in JN.1.9:
+g Venezuela/Ara9309/2024 sample-paths
+#... node_2354070:G22111T node_2354071:A2618G
+echo -e "node_2361501\tnode_2354071" > forceMove.tsv
+
+
+# This should have been fixed, but seems like it got shuffled back to where we don't want it:
+# KP.1.1 is placed as KP.2 > A24819G but it should be child of KP.1
+# KP.1.1:
+g Australia/SA1369282/2024 sample-paths
+#... node_2283812:C7113T node_2283813:T22928C node_2297860:G22599C node_2297861:A24819G
+# KP.1:
+g Canada/ON-PHL-202404757/2024 sample-paths
+#... node_2283812:C7113T node_2283813:T22928C node_2296589:A24819G
+echo -e "node_2297861\tnode_2296589" >> forceMove.tsv
+
+
+# The new KP.2.18 is placed upstream of KP.2 with late 22599.
+g OZ080868.1 sample-paths
+#... node_2283812:C7113T node_2283813:T22928C node_2284767:C21627A node_2284768:G22599C node_2284782:T22795G
+# KP.2:
+g Australia/QLD0x014307/2024 sample-paths
+#... node_2283812:C7113T node_2283813:T22928C node_2297860:G22599C
+echo -e "node_2284768\tnode_2297860" >> forceMove.tsv
+
+
+# KP.1.1.3 is stuck on annoying rev/flip-flop branch:
+g Singapore/R38MQ106/2024 sample-paths
+#... node_2296589:A24819G node_2296601:A11727G node_2296602:G22599C node_2296604:C9565T node_2296605:G11727A node_2296606:C4999T node_2296607:T9565C
+# prune back to A11727G (rev)
+g node_2296601: sample-paths | g -v node_2296607: | cut -f 1 > pruneForKP.1.1.3
+wc -l pruneForKP.1.1.3
+#17 pruneForKP.1.1.3
+
+
+# LB.1 is placed in JN.1.16.1 instead of JN.1.9.2... was that supposed to be fixed before?
+# LB.1:
+g USA/FL-CDC-QDX98785790/2024 sample-paths
+#... node_2357980:G22599C node_2359384:T22928C node_2360570:G22111T
+# JN.1.9.2:
+g DominicanRepublic/2169100-LNSPDD/2024 sample-paths
+#... node_2354070:G22111T node_2354465:G22599C
+echo -e "node_2360570\tnode_2354465" >> forceMove.tsv
+
+
+# Cornelius points out that some sequences, maybe including these, don't actually have 21137G
+# Remove & replace in hopes of not getting those imputed
+# https://github.com/cov-lineages/pango-designation/issues/2733#issuecomment-2291199267
+# -- it is placed under LR.1 but everyone thinks it should be in JN.1.16.1... also prune on upstream
+# Senegal seq, see if the branch (Egypt/CPHL-EGY24133/2024) gets moved.
+cat > pruneForPD2733 <<EOF
+Egypt/CPHL-EGY24173/2024|EPI_ISL_19334646|2024-06-26
+Senegal/SN_IRPM_40138/2024|EPI_ISL_19273031|2024-06-24
+Senegal/SN_IRPM_40407/2024|EPI_ISL_19273041|2024-06-25
+Senegal/SN_IRPM_40081/2024|EPI_ISL_19273014|2024-06-24
+EOF
+
+
+# Fede found two branches that both get S:R346T, S:S71Y and S:K1086R but in different orders
+# https://github.com/cov-lineages/pango-designation/commit/e14d5bfd8745f3da579dd5c8a48cfe254e75589b#commitcomment-145449645
+# OK part of it might be KP.1.1.3's wack placement.
+g SouthKorea/KDCA293643/2024 sample-paths
+#... node_2283812:C7113T node_2283813:T22928C node_2297860:G22599C node_2297861:A24819G node_2298727:C21774A ...
+g Malaysia/MKAK_CL_49985/2024 sample-paths
+#... node_2283812:C7113T node_2283813:T22928C node_2296589:A24819G node_2296601:A11727G node_2296602:G22599C node_2296604:C9565T node_2296605:G11727A node_2296606:C4999T node_2296607:T9565C node_2296640:C20594T,C21774A
+# OK, that's the crazy KP.1.1.3 rec/flip-flop path, pretend those don't exist so we can compare muts:
+#... node_2283812:C7113T node_2283813:T22928C node_2296589:A24819G node_2296602:G22599C node_2296606:C4999T node_2296640:C20594T,C21774A
+
+# See how it looks after KP.1.1.3 is fixed.
+
+wc -l forceMove.tsv pruneFor*
+#   4 forceMove.tsv
+#   4 pruneForJN.1.7.4
+#  17 pruneForKP.1.1.3
+#   4 pruneForPD2733
+
+
+# Force-move first since it depends on node IDs
+$matUtils mask --move-nodes forceMove.tsv -i gisaidAndPublic.$today.masked.pb \
+    -o gisaidAndPublic.$today.masked.forceMove.pb.gz
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.forceMove.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    111m50.891s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+
+# In JN.1.7 with 22928 last?
+g England/CLIMB-CM7YEU5A/2024 sample-paths.pruned
+#... node_2357275:T22928C node_2357587:C23277T node_2357588:G25012T node_2357589:C25566T
+# Nope!  It got pulled in by that C23277T, dang.
+
+# In JN.1.9 with 22111 > 2618 before 22599,22928?
+g Venezuela/Bar3640/2024 sample-paths.pruned
+#... node_2354060:G22111T node_2354455:G22599C node_2354466:T22928C node_2354467:A2618G
+# Not the branch they intended... will see what matOptimize does too.
+
+# In KP.1 with 7113 > 22928 > 24819 before 22599?
+g Australia/SA1369282/2024 sample-paths.pruned
+#... node_2283809:C7113T node_2283810:T22928C node_2296564:A24819G node_2296802:G22599C
+# Yes.
+
+# In KP.2 with 7113 > 22928 > 22599 before 21627,22795?
+g OZ080868.1 sample-paths.pruned
+#... node_2283809:C7113T node_2283810:T22928C node_2299404:G22599C node_2305906:C21627A node_2305920:T22795G
+# Yes.
+
+# In KP.1.1 with no more rev/flip-flop?
+g Singapore/R38MQ106/2024 sample-paths.pruned
+#... node_2283809:C7113T node_2283810:T22928C node_2296564:A24819G node_2296802:G22599C node_2296803:C4999T
+# Yes.
+
+# In JN.1.9.2 with 22111 > 22599 before 22928?
+g USA/FL-CDC-QDX98785790/2024 sample-paths.pruned
+#... node_2354060:G22111T node_2354455:G22599C node_2354466:T22928C
+# Yes.
+
+# In JN.1.16.1 with T22928C > G22599C first?
+g Egypt/CPHL-EGY24133/2024 sample-paths.pruned
+#... node_2360508:G22599C node_2361912:T22928C node_2362892:G22132T node_2362893:C5239T,C7869T,G12892A,T16600C,T21653C,A22107G,C22993T,T28297C
+# Is JN.1.16.1 back in JN.1.18 or something?  Oh well, at least this little branch is there.
+# See what happens when seqs are added back.
+
+# Joined with 22599, 24819 and 21774 in same order?
+g SouthKorea/KDCA293643/2024 sample-paths.pruned
+#... node_2283809:C7113T node_2283810:T22928C node_2296564:A24819G node_2296802:G22599C node_2298691:C21774A ...
+g Malaysia/MKAK_CL_49985/2024 sample-paths.pruned
+#... node_2283809:C7113T node_2283810:T22928C node_2296564:A24819G node_2296802:G22599C node_2296803:C4999T node_2296836:C20594T,C21774A
+# Nah, they still disagree about C21774A but will have to take a look at how many seqs argue for
+# Malaysia/MKAK_CL_49985/2024 getting C21774A later.

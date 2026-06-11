@@ -1,0 +1,89 @@
+today=2023-09-30
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# Fortunately XBB.1.5 was put in the right place in today's optimization, but several
+# of these still need a prune & re-opt...
+
+# Try EG.2 again even though it may just need a force-move.
+g Japan/PG-528097/2023 sample-paths
+#... node_1195066:C11956T node_1195103:T23018C node_1195104:A22995G node_1195108:T11956C node_1195158:A27507C node_1195159:A16878T
+g node_1195158: sample-paths | g -v node_1195159: | cut -f 1 > pruneForEG.2
+wc -l pruneForEG.2
+#6 pruneForEG.2
+
+
+# A chunk of BA.5.1 (52k seqs) has 29614 first...
+g France/NOR-HMN-22062160229/2022 sample-paths
+#... node_1660986:C27889T node_1669759:C29614T node_1669760:C29666T node_1669761:T27438C
+g node_1669759: sample-paths | g -v node_1669761: | cut -f 1 > pruneForBA.5.1
+wc -l pruneForBA.5.1
+#178 pruneForBA.5.1
+
+
+# Misplaced bit of BA.5.6
+g USA/CA-CDC-LC0763521/2022 sample-paths
+#... node_1660986:C27889T node_2279111:C17402T node_2279112:C21077T node_2279113:T18957C
+g node_2279111: sample-paths | g -v node_2279113: | cut -f 1 > pruneForBA.5.6
+wc -l pruneForBA.5.6
+#21 pruneForBA.5.6
+
+
+# See if we can free JN.1 from the flip-flop on 21610.
+cat > pruneMoreForJN.1 <<EOF
+Iceland/L-4423/2023|EPI_ISL_18286817|2023-08-29
+EOF
+
+
+# And finally, lop this just-shy (missing 27889) mini-BA.5.1.
+g France/un-IHUMI-089385/2022 sample-paths
+#... node_1660181:G26529A node_2279829:T27438C node_2279830:C29666T
+g node_2279829: sample-paths | cut -f 1 > pruneForBA.5
+wc -l pruneForBA.5
+#1880 pruneForBA.5
+
+
+wc -l pruneFor*
+#  1880 pruneForBA.5
+#   178 pruneForBA.5.1
+#    21 pruneForBA.5.6
+#     6 pruneForEG.2
+#  2085 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m18.924s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+

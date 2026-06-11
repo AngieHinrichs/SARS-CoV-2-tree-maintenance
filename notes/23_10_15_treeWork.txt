@@ -1,0 +1,290 @@
+today=2023-10-15
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# A chunk of BA.5.3.1 is in BA.5-dropout-land.  :(
+g Croatia/38318/2022 sample-paths
+#... node_1600774:C27259A node_1601280:C1931A node_1601292:G26529A node_1601293:G28681T node_1601294:T28693C node_1601296:C27889T
+g node_1601280: sample-paths | g -v node_1601296: | cut -f 1 > pruneForBA.5.3.1
+wc -l pruneForBA.5.3.1
+#173 pruneForBA.5.3.1
+
+
+# B.1.160.16 is split -- rejoin.
+g Switzerland/BE-ETHZ-460763/2021 sample-paths
+#... node_96261:C27434T node_96262:C13923T,G29557T node_96263:C27964T
+g node_96262: sample-paths | g -v node_96263: | cut -f 1 > pruneForB.1.160.16
+wc -l pruneForB.1.160.16
+#3 pruneForB.1.160.16
+
+
+# Big branch of B.1.466(.2?) is split off so AU.2 and AU.3 are not sibs of AU.1... looks like removing a few oddballs might help.
+# prune back from node with C17012T
+g Indonesia/JK-EIJK201/2021 sample-paths
+#... node_84064:C22879A node_84124:C17012T node_84125:C3096T,C11195T,T22219C node_84126:C683T,C5184T,C12880T,C23604G node_84127:C3768T node_84128:C29743T node_84129:C29718T
+g node_84124: sample-paths | g -v node_84129: | cut -f 1 > pruneForB.1.466
+wc -l pruneForB.1.466
+#12 pruneForB.1.466
+
+
+# B.1.222 is annotated on a little stubby with C1545T before the defining C22879A,
+# missing most B.1.222 seqs.  Reannotate and see if that little branch can be joined in.
+g Scotland/CVR1513/2020 sample-paths
+#... node_4516:C3037T node_28953:C1545T node_28954:C22879A
+g node_28953: sample-paths | g -v node_28954: | cut -f 1 > pruneForB.1.222
+wc -l pruneForB.1.222
+#2 pruneForB.1.222
+
+
+wc -l pruneFor*
+#    3 pruneForB.1.160.16
+#    2 pruneForB.1.222
+#   12 pruneForB.1.466
+#  173 pruneForBA.5.3.1
+#  190 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    109m6.188s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13293336,with radius 1, second from start 259
+#parsimony score after optimizing: 13293324,with radius 2, second from start 351
+#parsimony score after optimizing: 13293311,with radius 4, second from start 805
+#parsimony score after optimizing: 13293308,with radius 8, second from start 3195
+#parsimony score after optimizing: 13293306,with radius 16, second from start 5536
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# Back in BA.5.3.1 proper? (G26529A > C27889T > C1931A > G28681T)
+g Croatia/38318/2022 sample-paths.pruned
+#... node_1601740:G26529A node_1602546:C27889T node_1602547:G28681T node_1602548:T28693C node_1602549:C1931A
+# Damn, not quite.  This is holding up lineageTree build and 2023-10-16 build... oh, is held up
+# by a big CNCB slow download.  So I might actually have time to fix this instead of just adding a
+# label.
+
+# Joined with B.1.160.16 main?  (C27964T > G29557T > ...)
+g Switzerland/BE-ETHZ-460763/2021 sample-paths.pruned
+#... node_96252:C27434T node_97355:C27964T node_97356:G29557T node_97357:C13923T
+# Yep good.
+
+# In B.1.466.2 proper? (C28887T > C22879A > C3768T,C5184T > ...)
+g Indonesia/JK-EIJK201/2021 sample-paths.pruned
+#... node_84053:C28887T node_84061:C22879A node_84121:C3768T,C5184T ...
+# Yep.
+
+# In B.1.222 (C22879A before C1545T)?
+g Scotland/CVR1513/2020 sample-paths.pruned
+#... node_4516:C3037T node_3687669:C22879A node_3687670:C1545T
+# Yep.
+
+
+# OK, fix that chunk of BA.5.3.1 some more.
+g node_1602547: sample-paths.pruned | g -v node_1602549: | cut -f 1 > pruneMoreForBA.5.3.1
+
+
+wc -l pruneMoreFor*
+#222 pruneMoreForBA.5.3.1
+
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(sort -u pruneMoreFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    19m3.014s
+# Wow, well I guess it didn't have that much more to do.
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13293298,with radius 1, second from start 239
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# Back in BA.5.3.1 proper? (G26529A > C27889T > C1931A > G28681T)
+g Croatia/38318/2022 sample-paths.pruned
+#... node_1601740:G26529A node_1602546:C27889T node_1611902:C1931A node_1611903:G28681T node_1611904:T28693C
+# OK, good.  2023-10-16 upCo hasn't started yet so this will make it into the build path.
+# Replace the 10-15 tree.
+
+# Does anything need re-annotating?
+wc -l clade-paths clade-paths.pruned
+#   3468 clade-paths
+#   3461 clade-paths.pruned
+# Yep.
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+#WARNING: Could not assign a node to clade XCB with 0 samples since placement node(s) did not overlap with enough clade samples!
+# Uh-oh, did I blow away a lineage?  If so... I can't use this tree to make lineageTree, crap!
+# Probably shouldn't push it out either.
+
+tawk '$3 == "XCB"' sample-clades | head -20
+#Chile/NB-8838/2023|EPI_ISL_16935369|2023-02-01  22B (BA.5)      XCB
+#Chile/NB-9440/2023|EPI_ISL_16942050|2023-02-02  22B (BA.5)      XCB
+#Chile/NB-9439/2023|EPI_ISL_16942049|2023-02-02  22B (BA.5)      XCB
+#Chile/BI-11921/2023|EPI_ISL_17084123|2023-02-13 22B (BA.5)      XCB
+#Chile/NB-13173/2023|EPI_ISL_17084234|2023-02-16 22B (BA.5)      XCB
+#...
+g EPI_ISL_16935369 prune*For*
+#/hive/data/outside/otto/sarscov2phylo/2023-10-15/pruneMoreForBA.5.3.1:Chile/NB-8838/2023|EPI_ISL_16935369|2023-02-01
+# Damn.  I'm not sure how to get BA.5.3.1 > T28693C into the right place without pruning all those
+# though... force move maybe?  I could go back and try that... but since I blew away the first
+# round of files, I would have to go back to start, re-prune and re-optimize, and then try the
+# force move.  Maybe I should just manually add back the XCB sequences, damn.
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#> BA.2.86.2
+#> BA.2.86.3
+#> DV.7.1.3
+#> JN.2
+#> JN.3
+#< XCB
+# Addition of post-v1.23 lineages OK... losing XCB not OK.
+
+tawk '$3 == "XCB"' /hive/data/outside/otto/sarscov2phylo/2023-10-15/sample-clades \
+| cut -f 1 > /data/tmp/angie/XCB.fullNames
+wc -l /data/tmp/angie/XCB.fullNames
+#67 /data/tmp/angie/XCB.fullNames
+g -v EPI_ISL /data/tmp/angie/XCB.fullNames
+#USA/VA-CAV_VAS3N_00018363_01/2023|OQ843743.1|2023-02-22
+
+# OK, shouldn't be too crazy hard to make VCF & add back...
+for epi in $(g EPI_ISL_ /data/tmp/angie/XCB.fullNames | cut -d\| -f 2); do
+    epiFa $epi \
+    | sed -re 's@^>hCo[Vv]-19/+@>@;  s/[ '"'"',()]//g;'
+done > /data/tmp/angie/XCB.fa
+faSize /data/tmp/angie/XCB.fa
+#1957039 bases (16282 N's 1940757 real 1940757 upper 0 lower) in 66 sequences in 1 files
+#Total size: mean 29652.1 sd 576.6 min 25165 (Chile/AT-23754/2023|EPI_ISL_17349841|2023-03-14) max 29841 (USA/MN-HLX-VSX-A01246/2023|EPI_ISL_18297018|2023-03-29) median 29753
+pushd /data/tmp/angie
+bash ~/github/sarscov2phylo/scripts/global_profile_alignment.sh -i XCB.fa -t 50 -o XCB.aligned.fa
+faSize XCB.aligned.fa
+#1973598 bases (16282 N's 1957316 real 0 upper 1940755 lower) in 66 sequences in 1 files
+#Total size: mean 29903.0 sd 0.0 min 29903 (Chile/NB-26231/2023|EPI_ISL_17466439|2023-03-24) max 29903 (Chile/NB-1050/2023|EPI_ISL_16660713|2023-01-03) median 29903
+popd
+ref2bit=/hive/data/genomes/wuhCor1/wuhCor1.2bit
+cat <(twoBitToFa $ref2bit stdout) /data/tmp/angie/XCB.aligned.fa \
+| faToVcf -includeNoAltN stdin stdout \
+| vcfFilter -excludeVcf=mask.vcf stdin \
+| gzip -c \
+    > XCB.vcf.gz
+usherDir=~angie/github/usher
+usher=$usherDir/build/usher-sampled
+time $usher -T 50 -A -e 5 \
+    -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    -v XCB.vcf.gz \
+    -o gisaidAndPublic.$today.treeWork.addBackXCB.pb
+#real    12m58.623s
+$matUtils extract -i gisaidAndPublic.$today.treeWork.addBackXCB.pb -C clade-paths.addBackXCB
+$matUtils extract -i gisaidAndPublic.$today.treeWork.addBackXCB.pb -c BA.2 -S sample-paths.addBackXCB &
+
+# Re-annotate again.
+tail -n+2 clade-paths.addBackXCB \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.addBackXCB \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.addBackXCB.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+#Assigning XCB to node node_1975178
+# OK, whew.
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#> BA.2.86.2
+#> BA.2.86.3
+#> DV.7.1.3
+#> JN.2
+#> JN.3
+#> JQ.1
+# OK, only new lineages added, none lost, good.
+
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.addBackXCB,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

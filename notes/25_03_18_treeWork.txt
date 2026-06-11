@@ -1,0 +1,143 @@
+today=2025-03-18
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# New lineage XEC.11.1 is split by late G25352C after G25647T
+g USA/CO-CDPHE-42539608/2024 sample-paths
+#... node_2378364:T3707C,G6533T node_2378365:G25647T node_2378366:G25352C
+g node_2378365: sample-paths | g -v node_2378366 | cut -f 1 > pruneForXEC.11.1
+wc -l pruneForXEC.11.1
+#9 pruneForXEC.11.1
+
+
+# Xu found a C21815T branch with many reversions of 21815 -- prune in case of Ns
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2492
+# Keep these:
+g USA/NC-CDC-LC1112553/2024 sample-paths
+#... node_2340413:A13121T node_2340465:C21815T node_2340471:C11479T,A11763C node_2340472:T21815C
+g USA/IL-RIPHL_33321_G/2024 sample-paths
+#... node_2340413:A13121T node_2340465:C21815T node_2340534:C1968T node_2340535:C26078T node_2340536:A19758G,C21627A,T29417A node_2340537:T21815C
+g Canada/SK-RRPL-753935/2024 sample-paths
+#... node_2340413:A13121T node_2340465:C21815T node_2340466:C25509G,T25510C node_2340467:T21815C
+g USA/CO-CDPHE-42383805/2024 sample-paths
+#... node_2340413:A13121T node_2340465:C21815T node_2340528:C1912T node_2340531:C10332T,T12766C,C27513T node_2340532:T21815C
+g USA/IVY-G56Z70I0/2024 sample-paths
+#... node_2340413:A13121T node_2340465:C21815T node_2340473:C23277T node_2340487:C20930T node_2340488:T21815C
+g Italy/VEN-ULSS8-7658292_VI/2024 sample-paths
+#... node_2340413:A13121T node_2340465:C21815T node_2340473:C23277T node_2340474:C21952T node_2340475:T6274C,C19610T,C27739T node_2340476:T21815C
+g Canada/AB-ABPHL-127502/2024 sample-paths
+#... node_2340413:A13121T node_2340465:C21815T node_2340473:C23277T node_2340474:C21952T node_2340477:C2113T,C11884T node_2340478:C8733T node_2340480:T21815C
+g Northern_Ireland/CLIMB-CM7Y8QKF/2024 sample-paths
+#... node_2340413:A13121T node_2340465:C21815T node_2340496:G18988A node_2340497:A23998G node_2340498:T21815C
+g node_2340465: sample-paths | g -v node_2340472: | g -v node_2340537: | g -v node_2340467: \
+| g -v node_2340532: | g -v node_2340488: | g -v node_2340476 | g -v node_2340480: \
+| g -v node_2340498: | cut -f 1 > pruneForLP2492
+wc -l pruneForLP2492
+#126 pruneForLP2492
+
+
+# Xu found a C10615T branch with multiple reversions -- prune
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2464
+# Keep these:
+g Brazil/RS-FIOCRUZ-13275/2024 sample-paths
+#... node_2340413:A13121T node_2345039:C10615T node_2345046:G22599C node_2345047:A8494G,C25585T node_2345048:T10615C,A22896G ...
+g USA/CO-CDPHE-42306910/2024 sample-paths
+#...node_2340413:A13121T node_2345039:C10615T node_2345043:C8597T,A26086G node_2345044:T10615C
+g node_2345039: sample-paths | g -v node_2345048: | g -v node_2345044: | cut -f 1 > pruneForLP2464
+wc -l pruneForLP2464
+#23 pruneForLP2464
+
+
+# Xu pointed out that there's another XEC S:G72R (G21776A) branch besides the one with all the designated
+# XEC.5 seqs (which has A25590G first); try to unify and make XEC.5 just S:G72R like lineage_notes.txt.
+# https://github.com/cov-lineages/pango-designation/issues/2819#issuecomment-2731549345
+# Prune the seqs with A25590G without G21776A to see if we can get G21776A first.
+g Luxembourg/LNS0805584/2024 sample-paths
+#... node_2375953:G2060A node_2377331:A25590G node_2377332:G21776A
+g node_2377331: sample-paths | g -v node_2377332: | cut -f 1 > pruneForXEC.5
+wc -l pruneForXEC.5
+#11 pruneForXEC.5
+
+
+wc -l pruneFor*
+#  23 pruneForLP2464
+# 126 pruneForLP2492
+#   9 pruneForXEC.11.1
+#  11 pruneForXEC.5
+# 169 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m45.261s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14804980,with radius 1, second from start 172
+#parsimony score after optimizing: 14804966,with radius 2, second from start 249
+#parsimony score after optimizing: 14804962,with radius 4, second from start 566
+#parsimony score after optimizing: 14804961,with radius 8, second from start 2199
+#parsimony score after optimizing: 14804958,with radius 16, second from start 5552
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# G25352C before G25647T?
+g USA/CO-CDPHE-42539608/2024 sample-paths.pruned
+#... node_2378193:T3707C,G6533T,G25352C node_2378194:G25647T
+
+# No flip-flop on 21815?
+g USA/NC-CDC-LC1112553/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2372708:C11479T,A11763C
+g USA/IL-RIPHL_33321_G/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2372770:C21627A node_2372771:C1968T,A19758G,C26078T,T29417A
+g Canada/SK-RRPL-753935/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2372705:C25509G,T25510C
+g USA/CO-CDPHE-42383805/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2372728:C1912T node_2372729:C10332T,T12766C,C27513T
+g USA/IVY-G56Z70I0/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2366018:C23277T node_2367922:C20930T
+g Italy/VEN-ULSS8-7658292_VI/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2366018:C23277T node_2367913:C21952T node_2367914:T6274C,C19610T,C27739T
+g Canada/AB-ABPHL-127502/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2366018:C23277T node_2367913:C21952T node_2367915:C2113T,C8733T,C11884T
+g Northern_Ireland/CLIMB-CM7Y8QKF/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2372709:G18988A,A23998G
+
+# No flip-flop on 10615?
+g Brazil/RS-FIOCRUZ-13275/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2365164:G22599C node_2365227:A22896G node_2365228:A8494G,C25585T ...
+g USA/CO-CDPHE-42306910/2024 sample-paths.pruned
+#... node_2340416:A13121T node_2372783:C8597T,A26086G ...
+
+# G21776A before A25590G?
+g Luxembourg/LNS0805584/2024 sample-paths.pruned
+#... node_2375908:G2060A node_2386593:G21776A node_2386594:A25590G
+
+# Good, check again tomorrow.
+

@@ -1,0 +1,201 @@
+# I'm going to work on some old lineages that aren't monophyletic in the UShER tree but might be
+# with a little prune/re-opt/re-place, so don't restrict sample-paths to B.1.1.529.
+
+today=2023-12-21
+cd $ottoDir/$today
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Flip-flop on 21137 on the way to proposed lineage:
+# https://github.com/cov-lineages/pango-designation/issues/2403
+g France/BFC-IPP18390/2023 sample-paths
+#... node_1214660:A21137G node_1214682:G27870T node_1214683:G670T,A21603G node_1214684:G21137A node_1214685:C14599T node_1214686:G25352C
+g node_1214682: sample-paths | g -v node_1214684: | cut -f 1 > pruneForPD2403
+wc -l pruneForPD2403
+#3 pruneForPD2403
+
+
+# JD.1.2 has flip-flop on 14189
+g Brazil/PA-LACENPA-150377529/2023 sample-paths
+#... node_1199649:G22927T,T22928C node_1199650:C14189T node_1199651:A19182G node_1199652:T14189C,C25046T
+g node_1199651: sample-paths | g -v node_1199652: | cut -f 1 > pruneForJD.1.2
+wc -l pruneForJD.1.2
+#2 pruneForJD.1.2
+
+
+# B.1.1.265 is split, trim to join this branch:
+g USA/MD-HP01118/2021 sample-paths
+#... node_197638:C20762T node_197640:C29296T node_197641:T760C,A1673G,C1884T,C16329T,C18120T,C18267T,C22713T node_197642:G2086T,C11005A,C11195T,C20936T,A28624T
+# prune from 29296
+g node_197640: sample-paths | g -v node_197642: | cut -f 1 > pruneForB.1.1.265
+wc -l pruneForB.1.1.265
+#2 pruneForB.1.1.265
+
+
+# B.1.1.410 is maybe split.  Try whacking branch with Ecuador/3871_S14/2020, check in 2023-12-22.
+g Ecuador/3871_S14/2020 sample-paths
+#... node_173575:G28882A node_2404921:G20709T
+g node_2404921: sample-paths > pruneForB.1.1.410
+wc -l pruneForB.1.1.410
+#18 pruneForB.1.1.410
+
+
+# I changed my mind about B.1.149.  With the Slovenia sequences on the nodes to the England/Slovenia
+# cluster to establish a late 16846 -- that's just an independent occurrence of 16846. The DRC
+# sequences clearly got 16846 right off the bat (the bat being B.1 > 15324).
+
+
+# B.1.237 is split
+g SouthAfrica/NHLS-UCT-GS-0571/2020 sample-paths
+#... node_3605097:C28854T node_3613654:C6027T node_3613655:G2164C,C16946T
+g node_3613654: sample-paths | g -v node_3613655: | cut -f 1 > pruneForB.1.237
+wc -l pruneForB.1.237
+#2 pruneForB.1.237
+
+
+# B.1.406 is split
+g Denmark/DCGC-1957/2020 sample-paths
+#... node_3603116:C28854T node_3603192:C10369T node_3603193:G25049T ...
+g node_3603192: sample-paths | g -v node_3603193: | cut -f 1 > pruneForB.1.406
+wc -l pruneForB.1.406
+#2 pruneForB.1.406
+
+
+# I'm doubtful that B.1.527 isn't just separate occurrences of 6354, but let's trim before
+# both clusters and see what happens.
+g CzechRepublic/NRL-7322-2/2020 sample-paths
+#... node_28492:G3338T node_28493:G9928T node_28494:C6354T node_28609:T3338G
+g node_28493: sample-paths | g -v node_28494: | cut -f 1 > pruneForB.1.527
+wc -l pruneForB.1.527
+#1 pruneForB.1.527
+
+g Ukraine/Uzhgorod_36/2020 sample-paths
+#... node_10114:C15720T node_10115:C6354T node_10116:C1091T,C7564T,C12242T,T18096C,T20757C,A25998G
+g node_10115: sample-paths | g -v node_10116: | cut -f 1 >> pruneForB.1.527
+wc -l pruneForB.1.527
+#2 pruneForB.1.527
+
+
+# Fede emailed about a late 22910
+g USA/LA-EVTL20313/2023 sample-paths
+#... node_1212551:T8761C,C22033A node_1212552:T7564C,C8299T node_1212553:A22910G
+g node_1212552: sample-paths | g -v node_1212553: | cut -f 1 > pruneForFede
+wc -l pruneForFede
+#4 pruneForFede
+
+
+# Ryan reported a weird flip-flop on 27476 in
+# https://github.com/cov-lineages/pango-designation/issues/2419
+g CHN/SH-HG20231125-4029/2023 sample-paths
+#... node_2202125:T27810C node_2202388:C27476T node_2202421:G17278A,T17279C node_2202424:C5986T node_2202425:T27476C
+g node_2202421: sample-paths | g -v node_2202425: | cut -f 1 > pruneForPD2419
+wc -l pruneForPD2419
+#12 pruneForPD2419
+
+
+# Just noticed that rev 21770 is making a mini-JN.1, mask it.
+
+# Rescue some re-mut stuff that got stuck on a rev branch.
+g Australia/TAS006421/2023 sample-paths
+#... node_2202125:T27810C node_2202333:T22813G node_2202334:G6183A node_2202337:A9935G node_2202338:C2644T node_2202339:A6183G node_2202340:G22813T
+g node_2202333: sample-paths | g -v node_2202340: | cut -f 1 > pruneForJN.1
+wc -l pruneForJN.1
+#42 pruneForJN.1
+
+
+wc -l pruneFor*
+#   2 pruneForB.1.1.265
+#  18 pruneForB.1.1.410
+#   2 pruneForB.1.237
+#   2 pruneForB.1.406
+#   2 pruneForB.1.527
+#   4 pruneForFede
+#   2 pruneForJD.1.2
+#  42 pruneForJN.1
+#   3 pruneForPD2403
+#  12 pruneForPD2419
+#  89 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    105m59.707s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# Flip-flop on 21137 gone?
+g France/BFC-IPP18390/2023 sample-paths.pruned
+#... node_1214981:G27870T node_1214982:G670T,A21603G node_1214983:C14599T node_1214984:G25352C
+# Yep
+
+# Flip-flop on 14189 gone?
+g Brazil/PA-LACENPA-150377529/2023 sample-paths.pruned
+#... node_1199648:G22927T,T22928C node_1202443:A19182G,C25046T
+# Yep
+
+# B.1.1.265: 28624, 11005 first?
+g USA/MD-HP01118/2021 sample-paths.pruned
+#... node_173574:G28882A node_193348:A28624T node_193349:C11005A node_193371:A1673G,C11195T node_193372:C1884T,G2086T,C16329T,C20936T,C22713T,C29296T node_193373:C18120T,C20762T node_193374:C18267T node_193375:T760C
+# Yep, but check tomorrow's build
+
+# B.1.237: 2164 first?
+g SouthAfrica/NHLS-UCT-GS-0571/2020 sample-paths.pruned
+#... node_3605061:C28854T node_3613377:G2164C node_3613378:C6027T,C16946T
+# Yep, check tomorrow
+
+# B.1.406 is split
+g Denmark/DCGC-1957/2020 sample-paths.pruned
+#... node_3603082:C28854T node_3603158:C10369T,G25049T node_3603205:C1437T,C3018T,T3739C
+# -- Still split (by 26447 first) -- maybe meant to be split, i.e. just nonmonophyletic.
+
+# B.1.527 - 6354 first?
+g CzechRepublic/NRL-7322-2/2020 sample-paths.pruned
+#... node_4021:C3037T node_165608:C6354T node_165610:G9928T
+g Ukraine/Uzhgorod_36/2020 sample-paths.pruned
+#... node_10114:C15720T node_10117:C1091T,C6354T,C7564T,C12242T,T18096C,T20757C,A25998G
+# Not meant to be.
+
+# 22910 first?
+g USA/LA-EVTL20313/2023 sample-paths.pruned
+#... node_1212548:T8761C,C22033A,A22910G node_1212550:C8299T node_1212551:T7564C
+# OK, see what happens tomorrow.
+
+# No more flip-flop on 27476?
+g CHN/SH-HG20231125-4029/2023 sample-paths.pruned
+#... node_2202116:T27810C node_2205164:C5986T,G17278A,T17279C 
+# OK, check tomorrow.
+
+# No more rev/re-mut on 22813, 6183?
+g Australia/TAS006421/2023 sample-paths.pruned
+#... node_2202116:T27810C node_2205087:C2644T node_2205088:A9935G
+# Good, check tomorrow.
+

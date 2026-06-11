@@ -1,0 +1,186 @@
+today=2023-08-25
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# mini-FL stuck in FL.3 by a few 28251+28254s
+g BHR/23020126780/2023 sample-paths
+#... node_2345135:T1753C node_2346608:C4810T node_2346617:T28251C,A28254C node_2346618:T4810C node_2346619:C28251G node_2346620:C1753T ...
+g node_2346617: sample-paths | g -v node_2346620: | cut -f 1 > pruneForFL
+#7 pruneForFL
+
+
+# HT.1 has a few sequences causing T4798C to precede T6886C, see if we can flip those around to
+# get it placed in XBB.1.5.49.
+g England/PHEP-YYGPSUD/2023 sample-paths
+#... node_2366185:A22005C node_2366186:T4798C node_2366187:T6886C
+g node_2366186: sample-paths | g -v node_2366187: | cut -f 1 > pruneForHT.1
+wc -l pruneForHT.1
+#4 pruneForHT.1
+
+
+# HZ.1 is placed as descendant of HZ.2 with rev11003.
+g USA/CA-CDC-LC1038709/2023 sample-paths
+#... node_2442082:T10721C,C11003T node_2442083:A28108T node_2442084:T11003C,C23266T node_2442085:A22995G
+g node_2442084: sample-paths | g -v node_2442085: | cut -f 1 > pruneForHZ.1
+wc -l pruneForHZ.1
+#12 pruneForHZ.1
+
+
+# FE.1 not placed in XBB.1.18.1 but probably should be (23018 and 22928 first).
+g Brazil/SP-FIOCRUZ-2793 sample-paths
+#... node_2357075:A8001G node_2357169:T26012G node_2357170:A3662G node_2357171:T23018C node_2357172:T22928C
+g node_2357169: sample-paths | g -v node_2357172: | cut -f 1 > pruneForFE.1
+wc -l pruneForFE.1
+#19 pruneForFE.1
+
+
+# XBB.1.18.1 has a direct T22928C (S:F456L) descendant, and another branch w/later T22928C... unify.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/500
+g Brazil/TO-LACENTO-170553954/2023 sample-paths
+#... node_2357075:A8001G node_2358435:T23018C node_2358693:G5739A,C23887T node_2358696:C14425T,T22928C
+g node_2358693: sample-paths | g -v node_2358696: | cut -f 1 > pruneForXBB.1.18.1
+wc -l pruneForXBB.1.18.1
+#20 pruneForXBB.1.18.1
+
+
+# misplaced bit of XBB.1.5.37
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/553
+g Japan/PG-530231/2023 sample-paths
+#...node_2366184:T10204C node_2388907:C25836T node_2388908:A24696G,A28768G
+g node_2388907: sample-paths | g -v node_2388908: | cut -f 1 > pruneForXBB.1.5.37
+wc -l pruneForXBB.1.5.37 
+#4 pruneForXBB.1.5.37
+
+
+# misplaced bit of XBB.1.5.49
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/619
+g Mexico/CMX-INMEGEN-x04-11/2023 sample-paths
+#... node_2365618:T23018C node_2443056:C13517T node_2443058:T6886C,C29272T,A29687G
+g node_2443056: sample-paths | g -v node_2443058: | cut -f 1 > pruneForXBB.1.5.49
+wc -l pruneForXBB.1.5.49
+#11 pruneForXBB.1.5.49
+
+
+wc -l pruneFor*
+#  19 pruneForFE.1
+#   7 pruneForFL
+#   4 pruneForHT.1
+#  12 pruneForHZ.1
+#  20 pruneForXBB.1.18.1
+#   4 pruneForXBB.1.5.37
+#  11 pruneForXBB.1.5.49
+#  77 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    109m18.596s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13018966,with radius 1, second from start 276
+#parsimony score after optimizing: 13018956,with radius 2, second from start 375
+#parsimony score after optimizing: 13018952,with radius 4, second from start 861
+#parsimony score after optimizing: 13018951,with radius 8, second from start 3318
+#parsimony score after optimizing: 13018950,with radius 16, second from start 5565
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# No longer in FL.3?
+g BHR/23020126780/2023 sample-paths.pruned
+#... node_2345139:T1753C node_2347107:T28251G node_2347108:C1753T,A28254C ...
+# Dang, nope, it's still there with a rev on 1753.  Really need to mask 28251+28254.
+
+# 6886 first, then 4798?
+g England/PHEP-YYGPSUD/2023 sample-paths.pruned
+#... node_2366176:A22005C node_2366241:T6886C node_2366242:T4798C
+# Yes, but still after A22005C, didn't get moved to XBB.1.5.49 as hoped for.
+
+# No more rev11003?
+g USA/CA-CDC-LC1038709/2023 sample-paths.pruned
+#... node_2442087:T10721C,C11003T node_2442088:A28108T node_2442141:T11003C,A22995G,C23266T
+# Dang, still there.
+
+# In XBB.1.18.1 (23018 first, then 22928)?
+g Brazil/SP-FIOCRUZ-2793 sample-paths.pruned
+#... node_2357076:A8001G node_2357170:T23018C node_2357600:T22928C node_2357601:T26012G node_2357602:A3662G
+# OK good, finally something worked.
+
+# 23018 then 22928, then other muts?
+g Brazil/TO-LACENTO-170553954/2023 sample-paths.pruned
+#... node_2357076:A8001G node_2357170:T23018C node_2357600:T22928C node_2358862:G5739A,C14425T,C23887T
+# Good.
+
+# In XBB.1.5.37?
+g Japan/PG-530231/2023 sample-paths.pruned
+#... node_2366175:T10204C node_2392415:A24696G node_2392416:C25836T,A28768G
+# Yep.
+
+# In XBB.1.5.49?
+g Mexico/CMX-INMEGEN-x04-11/2023 sample-paths.pruned
+#... node_2365609:T23018C node_2420295:C29272T node_2420296:T6886C,C13517T,A29687G
+# Dang, always gotta be something before 6886.  Hmmmm.
+
+# Well, some minor improvements.  Interesting that XBB.1.5.49's 6886 fragments are so stubborn.
+# Ship it.
+
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   3354 clade-paths
+#   3351 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# No output, good.
+
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

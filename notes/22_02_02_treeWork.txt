@@ -1,0 +1,106 @@
+# Removing dropout/contam sequences from the 2022-01-31 tree and reoptimizing really did clean
+# up the base of Omicron.  :)  Next I should perhaps consider doing something similar for
+# Delta & possibly others, and also perhaps chucking all the sequences from late 2021 with only
+# a few mutations... maybe come up with some minimum-plausible-muts-per-month function.
+# But first, work the dropoutContam improvements into the daily build.
+
+# Here's what I did:
+cd $ottoDir/2022-02-01
+zcat $gisaidDir/chunks/nextclade.full.tsv.gz | $scriptDir/findDropoutContam.pl > gisaid.dropoutContam
+zcat $ncbiDir/nextclade.full.tsv.gz | $scriptDir/findDropoutContam.pl > gb.dropoutContam
+zcat $cogUkDir/nextclade.full.tsv.gz | $scriptDir/findDropoutContam.pl > cog.dropoutContam
+cut -f 1 *.dropoutContam \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    > dropoutContam.ids
+# Oops, the cluster run was still going.  Work with the latest completed build:
+
+today=2022-01-31
+cd $ottoDir/$today
+g -Fwf <(cat ../badBranchSeed.ids ../2022-02-01/dropoutContam.ids) samples.$today \
+    > samples.dropoutContam
+wc -l samples.dropoutContam
+#16222 samples.dropoutContam
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s samples.dropoutContam \
+    -o gisaidAndPublic.$today.masked.dropoutPruned.pb
+$matOptimize -T 50 -r 20 -M 1 -S move_log.dropoutPruned \
+    -i gisaidAndPublic.$today.masked.dropoutPruned.pb \
+    -o gisaidAndPublic.$today.masked.dropoutPruned.opt.pb \
+    >& matOptimize.dropoutPruned.log
+
+# Make taxodium
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.dropoutPruned.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --write-taxodium gisaidAndPublic.$today.masked.dropoutPruned.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+pigz -f -p 8 gisaidAndPublic.$today.masked.dropoutPruned.opt.taxodium.pb
+# Yay, looks better!
+
+# See the mean tree depth drop:
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 9055844
+#Total Samples in Tree: 7430642
+#Total Condensed Nodes in Tree: 968668
+#Total Samples in Condensed Nodes: 4997680
+#Total Tree Parsimony: 6405914
+#Number of Clade Annotations: 2
+#Max Tree Depth: 83
+#Mean Tree Depth: 38.796879
+$matUtils summary -i gisaidAndPublic.$today.masked.dropoutPruned.opt.pb
+#Total Nodes in Tree: 9034598
+#Total Samples in Tree: 7414420
+#Total Condensed Nodes in Tree: 967579
+#Total Samples in Condensed Nodes: 4992690
+#Total Tree Parsimony: 6360724
+#Number of Clade Annotations: 2
+#Max Tree Depth: 73
+#Mean Tree Depth: 37.395737
+
+# Now matUtils annotate is in progress for the 2022-02-01 build.  Interrupt it, prune the
+# unannotated tree, then carry on from annotation onward.
+today=2022-02-01
+cd $ottoDir/$today
+g -Fwf <(cat ../badBranchSeed.ids dropoutContam.ids) samples.$today \
+    > samples.dropoutContam
+wc -l samples.dropoutContam
+#17033 samples.dropoutContam
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s samples.dropoutContam \
+    -o gisaidAndPublic.$today.masked.dropoutPruned.pb
+$matOptimize -T 50 -r 20 -M 1 -S move_log.dropoutPruned \
+    -i gisaidAndPublic.$today.masked.dropoutPruned.pb \
+    -o gisaidAndPublic.$today.masked.dropoutPruned.opt.pb \
+    >& matOptimize.dropoutPruned.log
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 9098390
+#Total Samples in Tree: 7466754
+#Total Condensed Nodes in Tree: 973992
+#Total Samples in Condensed Nodes: 5021663
+#Total Tree Parsimony: 6437066
+#Number of Clade Annotations: 0
+#Max Tree Depth: 83
+#Mean Tree Depth: 38.852970
+$matUtils summary -i gisaidAndPublic.$today.masked.dropoutPruned.opt.pb
+#Total Nodes in Tree: 9075923
+#Total Samples in Tree: 7449721
+#Total Condensed Nodes in Tree: 972629
+#Total Samples in Condensed Nodes: 5016052
+#Total Tree Parsimony: 6390026
+#Number of Clade Annotations: 0
+#Max Tree Depth: 73
+#Mean Tree Depth: 37.366730
+
+# Replace gisaidAndPublic.$today.masked.pb
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.preDropoutPruned.pb
+ln -f gisaidAndPublic.$today.masked.dropoutPruned.opt.pb gisaidAndPublic.$today.masked.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -u samples.$today
+
+prevDate=2022-01-31
+# Paste in updateCombinedTree.sh steps from "# version/description files" onward.

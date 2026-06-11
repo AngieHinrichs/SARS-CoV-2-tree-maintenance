@@ -1,0 +1,99 @@
+today=2024-10-23
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+
+# New lineage ND.1.1 is split... some samples get late A22995C after A27300G
+g USA/NY-GBW-GKPLAAAA25398/2024 sample-paths
+#... node_2275704:C13436T node_2275705:A27300G node_2275707:A22995C
+g node_2275705: sample-paths | g -v node_2275707: | cut -f 1 > pruneForND.1.1
+wc -l pruneForND.1.1
+#2 pruneForND.1.1
+
+
+# Lop KP.3.1.1 probable-artifact branch with C21654T because it's clearly making a mini-KP.3.1.1,
+# and I hope my new nextcladeToMaple will get around the mafft slip-up causing the artifact
+g Denmark/DCGC-687613/2024 sample-paths
+#... node_2344178:C21654T
+g node_2344178: sample-paths | cut -f 1 > pruneForKP.3.1.1
+wc -l pruneForKP.3.1.1
+#5838 pruneForKP.3.1.1
+
+
+# Cornelius thinks late C21627A on new LF.7.4 is an artifact, prune & replace.
+g USA/NY-PRL-240918_81B09/2024 sample-paths
+#... node_2390978:C8818T,C22792T,A22893G node_2391084:C24444T,G25494A node_2391085:C21627A
+g node_2391084: sample-paths | g -v node_2391085: | cut -f 1 > pruneForLF.7.4
+wc -l pruneForLF.7.4
+#9 pruneForLF.7.4
+
+
+# KP.2.27 is tied into KP.5 by one seq with 3811T
+g England/CLIMB-CM7YJGDD/2024 sample-paths
+#... node_2340373:C23277T node_2340382:C3811T node_2340383:C9857T,G22599C,A23080G
+g node_2340382: sample-paths | g -v node_2340383: | cut -f 1 > pruneForKP.2.27
+wc -l pruneForKP.2.27
+#1 pruneForKP.2.27
+
+
+wc -l pruneFor*
+#     1 pruneForKP.2.27
+#  5838 pruneForKP.3.1.1
+#     9 pruneForLF.7.4
+#     2 pruneForND.1.1
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# A22995C before 27300?
+g USA/NY-GBW-GKPLAAAA25398/2024 sample-paths.pruned
+#... node_2275711:C13436T node_2275717:A22995C node_2275718:A27300G
+# Good.
+
+# 21627 before 24444 etc?
+g USA/NY-PRL-240918_81B09/2024 sample-paths.pruned
+#... node_2389253:C5239T,C7869T,G12892A,T16600C node_2389254:C8818T,C22792T,A22893G node_2389257:C21627A node_2389355:C24444T node_2389358:G25494A
+# Good.
+
+# 22599 before 23277 etc?
+g England/CLIMB-CM7YJGDD/2024 sample-paths.pruned
+#... node_2340044:T22928C node_2371715:G22599C node_2371931:C3811T node_2371932:C9857T,A23080G,C23277T
+# Good.
+
+# See what happens tomorrow when the sequences in the mini-KP.3.1.1 are added back... hopefully
+# using nextclade instead of mafft helps!

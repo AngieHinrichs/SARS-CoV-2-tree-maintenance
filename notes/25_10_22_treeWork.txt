@@ -1,0 +1,62 @@
+today=2025-10-22
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Xu spotted a PQ.1 branch with reversion of PQ.1 defining mutation at 16456:
+# https://github.com/cov-lineages/pango-designation/issues/3055
+g Taiwan/CDC-F96434/2025 sample-paths
+#... node_2490724:G22865T node_2496908:T16456C node_2497263:C25162A,C25163A node_2497264:C16456T ...
+g node_2497263: sample-paths | g -v node_2497264: | cut -f 1 > pruneForNB.1.8.1
+
+
+wc -l pruneFor*
+#7 pruneForNB.1.8.1
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m51.201s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15155452,with radius 1, second from start 174
+#parsimony score after optimizing: 15155432,with radius 2, second from start 245 
+#parsimony score after optimizing: 15155428,with radius 4, second from start 577 
+#parsimony score after optimizing: 15155427,with radius 8, second from start 2263 
+#parsimony score after optimizing: 15155421,with radius 16, second from start 5554 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 16456?
+g Taiwan/CDC-F96434/2025 sample-paths.pruned
+#... node_2490730:G22865T node_2499387:C25162A,C25163A
+# Good.
+
+# When sequences are added back tomorrow, I expect that branch to stay in place but to also have a little
+# bit of PQ.1 (T16456C, the pruned sequences from today).

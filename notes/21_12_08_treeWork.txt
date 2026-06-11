@@ -1,0 +1,103 @@
+# Still some annoying back-mutations & cruft at base of Omicron tree.
+
+today=2021-12-07
+cd $ottoDir/$today
+
+# Get sequences on problematic nodes -- pretty much all the basal-cruft stuff, but exempt BA.2
+# sequences that aren't updated like CERI-KRISP-K032307 or withdrawn like QLD2584...
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths -S sample-paths
+g Botswana/R44B83_BHP_000848381/2021 sample-paths 
+#Botswana/R44B83_BHP_000848381/2021|EPI_ISL_7121204|2021-11-26   node_4732:C14408T node_4847:C241T node_4848:C3037T node_4849:A23403G node_753583:G28881A node_753584:G28883C node_753585:G28882A node_815551:C21846T node_815559:C23604A node_815560:G23012A node_817485:A23063T node_817488:T22882G,C22995A,A23013C,C23525T node_817490:C10029T,C21762T,G22578A,T22673C,C22674T,T22679C,C22686T,G22813T,G22898A,G22992A,A23012G,A23040G,G23048A,A23055G,T23075C,C23202A,T23599G,A27259C,C27807T Botswana/R44B83_BHP_000848381/2021|EPI_ISL_7121204|2021-11-26:C6402T,G7078C,C7124T,C9474T,T9916C,G15451A 
+g Singapore/8539nan/2021 sample-paths
+#Singapore/8539nan/2021|EPI_ISL_7137310|2021-12-02       node_4732:C14408T node_4847:C241T node_4848:C3037T node_4849:A23403G node_753583:G28881A node_753584:G28883C node_753585:G28882A node_815551:C21846T node_815559:C23604A node_815560:G23012A node_817485:A23063T node_817488:T22882G,C22995A,A23013C,C23525T node_817490:C10029T,C21762T,G22578A,T22673C,C22674T,T22679C,C22686T,G22813T,G22898A,G22992A,A23012G,A23040G,G23048A,A23055G,T23075C,C23202A,T23599G,A27259C,C27807T node_817491:C10449A,A18163G,C25000T,C25584T,C26270T,C26577G,G26709A node_817494:T5386G,G8393A,A11537G,T13195C,C15240T,A28461G node_817495:A2832G,A26530G,A28271T node_817496:C28311T,G28461A node_817497:C23075T,G23948T,C24130A,A24424T node_817498:C23854A,T24469A,C24503T node_817499:T23075C 
+g node_817490: sample-paths | g -v node_817499: \
+| egrep -v 'Australia/QLD2568/2021|Canada/ON-PHL-21-41647/2021|Canada/ON-PHL-21-41648/2021|Canada/ON-PHL-21-41649/2021|Canada/ON-PHL-21-41650/2021|Canada/ON-PHL-21-41651/2021' \
+| cut -f 1 > omicronPrune
+wc -l omicronPrune
+#23 omicronPrune
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s omicronPrune \
+    -O -o gisaidAndPublic.$today.masked.omiPruned.pb
+
+$matOptimize -T 50 -r 8 -M 1 -S move_log.omiPruned \
+    -i gisaidAndPublic.$today.masked.omiPruned.pb \
+    -o gisaidAndPublic.$today.masked.omiPruned.opt.pb \
+    >& matOptimize.omiPruned.log
+# Sent it a signal to halt & save after ~10 minutes because it pretty rapidly converges
+g arsimony $ottoDir/$today/matOptimize.omiPruned.log | head
+#original parsimony score:5097032
+#parsimony score after optimizing: 5096967,with radius 8, second from start 463 
+#parsimony score after optimizing: 5096956,with radius 8, second from start 475 
+#parsimony score after optimizing: 5096955,with radius 8, second from start 487 
+#parsimony score after optimizing: 5096955,with radius 8, second from start 496 
+#...
+g arsimony $ottoDir/$today/matOptimize.omiPruned.log | tail
+#...
+#parsimony score after optimizing: 5096955,with radius 8, second from start 580 
+#parsimony score after optimizing: 5096955,with radius 8, second from start 590 
+#parsimony score after optimizing: 5096955,with radius 8, second from start 600 
+#Final Parsimony score 5096955
+
+# Why oh why does matOptimize override umask?
+chmod 664 gisaidAndPublic.$today.masked.omiPruned.opt.pb
+
+# Add line to /usr/local/apache/cgi-bin-angie/hgPhyloPlaceData/wuhCor1/protobufs.tab
+# View branch in hgPhyloPlace/Nextstrain to make sure there are fewer back mutations right
+# on that node.
+# Yep, it certainly looks cleaner around the base with all those removed.
+
+# Add back the removed sequences -- but not withdrawn sequence Australia/QLD2584/2021...
+faSomeRecords <(xzcat $gisaidDir/gisaid_fullNames_$today.fa.xz) \
+    <(g EPI_ISL_ omicronPrune | g -v Australia/QLD2584/2021) \
+    omiPruned.gisaid.fa
+g -v EPI_ISL_ omicronPrune | awk -F\| '{print $1 "\t" $0;}' > omiPruned.cogToFull
+faSomeRecords <(xzcat $cogUkDir/cog_all.fasta.xz) <(cut -f 1 omiPruned.cogToFull) stdout \
+| faRenameRecords stdin omiPruned.cogToFull omiPruned.cog.fa
+cat omiPruned.gisaid.fa omiPruned.cog.fa > omiPruned.fa
+fastaSeqCount omiPruned.fa
+#22
+rm -f omiPruned.aligned.fa
+time bash ~/github/sarscov2phylo/scripts/global_profile_alignment.sh -i omiPruned.fa \
+    -o omiPruned.aligned.fa -t 50
+#real    0m2.961s
+faToVcf -includeNoAltN <(cat /data/tmp/angie/NC_045512v2.fa omiPruned.aligned.fa) stdout \
+| vcfFilter -excludeVcf=mask.vcf stdin \
+    > omiPruned.masked.vcf
+time $usher -u -T 50 -A -e 5 -v omiPruned.masked.vcf \
+    -i gisaidAndPublic.$today.masked.omiPruned.opt.pb \
+    -o gisaidAndPublic.$today.masked.omiPruned.opt.addedBack.pb >& usher.addedBack.log
+#real    2m42.496s
+g Ignoring usher.addedBack.log | wc -l
+#2
+# Should really figure out what 14 nodes are competing for sequences like this:
+#Current tree size (#nodes): 3988525     Sample name: Botswana/R43B70_BHP_4021000195/2021|EPI_ISL_6774088|2021-11-23     Parsimony score: 6      Number of parsimony-optimal placements: 14
+
+# Tree looks pretty good in Nextstrain view.  Italy/LOM-Sacco_Var_T96348/2021|EPI_ISL_6777160
+# and the ugly back-mut branch from yesterday's work break off the earliest on the main Omicron
+# branch; leave them for now.
+# Mutation path for B.1.1.529 needs to be pulled back farther so it includes
+# Botswana/R44B83_BHP_000848381/2021|EPI_ISL_7121204|2021-11-26 (called Probable Omicron
+# BA.1-like by Scorpio).
+$matUtils extract -i gisaidAndPublic.$today.masked.omiPruned.opt.addedBack.pb -S sample-paths.updated
+g Botswana/R44B83_BHP_000848381/2021 sample-paths.updated
+#Botswana/R44B83_BHP_000848381/2021|EPI_ISL_7121204|2021-11-26   node_4732:C14408T node_4847:C241T node_4848:C3037T node_4849:A23403G node_753600:G28881A node_753601:G28883C node_753602:G28882A node_815567:C21846T node_815575:C23604A node_815576:G23012A node_817501:A23063T node_817504:T22882G,C22995A,A23013C,C23525T,C24130A node_817506:C10029T,G22578A,C22674T,T22679C,C22686T,G22813T,G22992A,A23012G,A23040G,A23055G,T23075C,T23599G,A27259C,C27807T Botswana/R44B83_BHP_000848381/2021|EPI_ISL_7121204|2021-11-26:C6402T,G7078C,C7124T,C9474T,T9916C,G15451A,C21762T,T22673C,G22898A,G23048A,C23202A,A24130C 
+# --> node_817506 should be root now.  Get path:
+g node_817506: sample-paths.updated | head -1 | sed -re 's/node_[0-9]+:/> /g'
+#Botswana/R44B83_BHP_000848381/2021|EPI_ISL_7121204|2021-11-26   > C14408T > C241T > C3037T > A23403G > G28881A > G28883C > G28882A > C21846T > C23604A > G23012A > A23063T > T22882G,C22995A,A23013C,C23525T,C24130A > C10029T,G22578A,C22674T,T22679C,C22686T,G22813T,G22992A,A23012G,A23040G,A23055G,T23075C,T23599G,A27259C,C27807T Botswana/R44B83_BHP_000848381/2021|EPI_ISL_7121204|2021-11-26:C6402T,G7078C,C7124T,C9474T,T9916C,G15451A,C21762T,T22673C,G22898A,G23048A,C23202A,A24130C 
+
+# Path to BA.1: take the last node on this path:
+g Italy/LOM-Sacco_Var_T96348/2021 sample-paths.updated  | sed -re 's/node_[0-9]+:/> /g'
+#Italy/LOM-Sacco_Var_T96348/2021|EPI_ISL_6777160|2021-11-22      > C14408T > C241T > C3037T > A23403G > G28881A > G28883C > G28882A > C21846T > C23604A > G23012A > A23063T > T22882G,C22995A,A23013C,C23525T,C24130A > C10029T,G22578A,C22674T,T22679C,C22686T,G22813T,G22992A,A23012G,A23040G,A23055G,T23075C,T23599G,A27259C,C27807T > C10449A,A18163G,C23854A,G23948T,A24424T,T24469A,C25000T,C25584T,C26270T,C26577G,G26709A,A28271T,C28311T > A2832G,G8393A,A11537G,T13195C,C15240T,C21762T,T22673C,G22898A,C23202A,A26530G Italy/LOM-Sacco_Var_T96348/2021|EPI_ISL_6777160|2021-11-22:C884T,A22578G,A23854C,A24469T 
+
+# Path to BA.2: last node on this path:
+g SouthAfrica/CERI-KRISP-K032307/2021 sample-paths.updated  | sed -re 's/node_[0-9]+:/> /g'
+#SouthAfrica/CERI-KRISP-K032307/2021|EPI_ISL_6795834|2021-11-17  > C14408T > C241T > C3037T > A23403G > G28881A > G28883C > G28882A > C21846T > C23604A > G23012A > A23063T > T22882G,C22995A,A23013C,C23525T,C24130A > C10029T,G22578A,C22674T,T22679C,C22686T,G22813T,G22992A,A23012G,A23040G,A23055G,T23075C,T23599G,A27259C,C27807T > C10449A,A18163G,C23854A,G23948T,A24424T,T24469A,C25000T,C25584T,C26270T,C26577G,G26709A,A28271T,C28311T > T670G,C2790T,G4184A,C4321T,C9344T,A9424G,C9534T,C10198T,G10447A,C12880T,C15714T,C17410T,C19955T,A20055G,C21618T,T21846C,T22200G,A22688G,G22775A,A22786C,A24130C,C26060T,C26858T,G27382C,A27383T,T27384C,A29510C SouthAfrica/CERI-KRISP-K032307/2021|EPI_ISL_6795834|2021-11-17:A26530G 
+
+# Interrupt daily build & swap in the updated pb, annotate, etc.
+rm gisaidAndPublic.$today.masked.nextclade.pb gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePruneAndReplace.pb
+ln -f gisaidAndPublic.$today.masked.omiPruned.opt.addedBack.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv sample-paths{.updated,}

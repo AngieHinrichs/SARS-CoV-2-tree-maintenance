@@ -1,0 +1,67 @@
+# Just after fixing BA.4.1 etc (22_05_31_treeWork.txt), I noticed that BA.1.17.2 is split.
+# Its annotated on BA.1.17 > C23664T but most of it split off into C3241T > C23664T.
+# There are a lot of BA.1.17 > C3241T without C23664T too... but for consistency I think
+# we want to keep BA.1.17 > C23664T > C3241T.
+
+# Really need to add an automated check after dumping sample-clades for sudden drop in lineage size.
+
+today=2022-06-01
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Lop from Canada/UN-273284/2021, keep from Belgium/UZA-UA-CV2144913712/2021
+g Canada/UN-273284/2021 sample-paths
+#... node_1831001:G5924A node_1835758:C3241T
+g Belgium/UZA-UA-CV2144913712/2021 sample-paths
+#... node_1831001:G5924A node_1835758:C3241T node_1835886:C23664T
+g node_1835758: sample-paths | g -v node_1835886: | cut -f 1 > lopForBA.1.17.2
+wc -l lopForBA.1.17.2
+#867 lopForBA.1.17.2
+# That's a lot... but not so many that I'd go to the trouble of adding them back.  They'll be
+# picked up tomorrow... or today if I restart upCo from the beginning.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat lopFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    17m15.405s
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt
+g Belgium/UZA-UA-CV2144913712/2021 sample-paths.opt
+#... node_2273632:G5924A node_2279673:C23664T node_2279674:C3241T 
+# OK good, that had the intended effect.
+
+# Reannoate
+time $matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -P cladeToPath \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade
+#real    3m53.520s
+rm gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+time $matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c $ottoDir/$prevDate/lineageToName \
+    -f 0.95 \
+    -D details.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    >& annotate.pango
+#real    9m40.890s
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+#TODO
+# Update metadata & make taxonium, check BA.2.11, BA.4.1, BA.5.3 and other new lineages.
+
+#TODO
+# rebuild 2022-06-02 prevRenamed.pb, restart usher run

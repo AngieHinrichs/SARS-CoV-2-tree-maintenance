@@ -1,0 +1,582 @@
+# More work required before updating lineageTree.pb.
+today=2023-05-18
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# Biggest problem: misplaced 69k-sequence mini-BA.5.2.1 that was moved upstream of BA.5.
+g Algeria/631/2022 sample-paths
+#... node_2613919:T22917G node_2614059:A28330G node_2614060:T23525C node_2614061:G12160A,G26529A node_2614062:C1627T node_2614063:T6979G node_2614064:C23525T node_2614066:G22917T node_2614067:C27889T node_2614068:T22917G node_2614113:A3859G node_2614137:A27038G
+g node_2614059: sample-paths | g -v node_2614137: | cut -f 1 > pruneForBA.5
+wc -l pruneForBA.5
+#637 pruneForBA.5
+
+
+# Prune some other BA.5-basal crap that might have crept in when nextclade-based filter
+# wasn't working due to column order change...
+g Turkey/HSGM-IST-03340/2022 sample-paths
+#... node_2613913:C27259A node_2613914:C27382G node_3151909:T22917G,T23525C
+g node_3151909: sample-paths | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#670 pruneForBA.5
+g Turkey/HSGM-AHSL5-44/2022 sample-paths
+#... node_2613918:T23018G node_3151546:C27889T
+g node_3151546: sample-paths | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#769 pruneForBA.5
+g USA/CA-SEARCH-207443/2022 sample-paths
+#... node_2613917:G23040A node_2613918:T23018G node_3151621:G26529A
+g node_3151621: sample-paths | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#1261 pruneForBA.5
+g USA/AZ-TG1404676/2022 sample-paths
+#... node_2613917:G23040A node_2613918:T23018G node_2613919:T22917G node_3151259:G26577C
+g node_3151259: sample-paths | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#2045 pruneForBA.5
+
+
+# Even BA.5.2.20 is on an upstream of BA.5, fix that too.
+g Algeria/31697/2022 sample-paths
+#...node_2613919:T22917G node_2629147:G12160A node_3145772:C27889T node_3145779:A28330G node_3145780:C1627T node_3145781:G12310A node_3145784:C16616A node_3145785:C27012T node_3145812:T10198C node_3145813:C27513T node_3145814:C10198T node_3145818:C23707T node_3145819:G26529A
+g node_3145772: sample-paths | g -v node_3145819: | cut -f 1 > pruneForBA.5.20
+wc -l pruneForBA.5.20
+
+
+# BA.2.9 is annotated on a branch of miscBA2BA1PostSpike, not good!
+g Austria/CeMM27854/2022 sample-paths
+#... node_2043105:C27382G node_2043505:T16342C node_2043556:G26530A node_2043557:C26858T node_2043565:T10198C node_2043567:A29510C node_2043592:C10198T node_2043594:C16342T node_2043718:C22792T node_2044225:C25624T node_2044324:T22792C node_2044325:G26577C node_2044326:T27384C node_2044327:G27382C node_2044328:T25624C node_2044355:C22792T node_2044358:A27383T node_2044502:C25624T node_2044503:C26577G
+# Some other BA.2 sublineages are also in on miscBA2BA1PostSpike, ugh.
+g Austria/CeMM24183/2022 sample-paths
+#... node_2043505:T16342C node_2043556:G26530A node_2043557:C26858T node_2043565:T10198C node_2043567:A29510C node_2043592:C10198T node_2043594:C16342T node_2043718:C22792T node_2044225:C25624T node_2044324:T22792C node_2044325:G26577C node_2044326:T27384C node_2044327:G27382C node_2044328:T25624C node_2044355:C22792T node_2044358:A27383T node_2090126:A23767G node_2090600:C26577G
+# Also spare these bits:
+g France/BFC-HMN-22052090296/2022 sample-paths
+#... node_2090273:C26577G
+g Germany/NW-HHU-26538/2022 sample-paths
+#... node_2044368:C26577G
+g FRA/IHUCOVID-077246/2022 sample-paths
+#... node_2044470:C26577G
+g node_2043505: sample-paths | g -v node_2044503: | g -v node_2090600: | g -v node_2090273: \
+| g -v node_2044368: | g -v node_2044470: | cut -f 1 > pruneForBA.2.9
+wc -l pruneForBA.2.9
+#6068 pruneForBA.2.9
+
+
+# Whack this mini-BA.5 (or recombinants??) upstream of BA.4:
+g Germany/BW-RKI-I-852382/2022 sample-paths
+#... node_3153217:T23018G node_3153218:G12160A node_3153219:G27788T node_3198603:G26529A node_3198604:T27788G node_3198705:T26858C
+g node_3198705: sample-paths | cut -f 1 > pruneForBA.4_BA.5
+wc -l pruneForBA.4_BA.5
+#549 pruneForBA.4_BA.5
+
+# Also this rev-crap (or recomb?)branch of BA.4:
+g Slovenia/08-101312-MB/2022 sample-paths
+#... node_3153220:C28724T node_3172753:C27259A node_3172754:T26858C node_3172755:C27382G node_3172756:T27383A node_3172757:C27384T
+g node_3172753: sample-paths | cut -f 1 >> pruneForBA.4_BA.5
+wc -l pruneForBA.4_BA.5
+#1027 pruneForBA.4_BA.5
+
+
+# BA.2.56 is placed upstream of BA.2's C2790T
+g Australia/NSW-ICPMR-27948/2022 sample-paths
+#... node_2038535:A9424G node_3204248:C22916A node_3204250:C2790T
+g node_3204248: sample-paths | g -v node_3204250: | cut -f 1 > pruneForBA.2.56
+wc -l pruneForBA.2.56
+
+# BA.5.1_no27438 has a sizable branch that gains 27438... but also C1627T. ? probably move to 5.1.
+g Denmark/DCGC-573518/2022 sample-paths
+#... node_3117471:C29666T node_3117522:T27696C node_3117523:G28374T node_3117524:C1627T,T27438C node_3117525:C12651T
+g node_3117522: sample-paths | g -v node_3117525: | cut -f 1 > pruneForBA.5.1
+wc -l pruneForBA.5.1
+#13 pruneForBA.5.1
+
+
+# BA.5.2.62 has a flip-flop on 593
+g Austria/LB-R00087-S184/2022 sample-paths
+#... node_3015391:C16616A node_3037210:C593T node_3037262:C23520T node_3037263:T593C
+g node_3037262: sample-paths | g -v node_3037263: | cut -f 1 > pruneForBA.5.2.62
+wc -l pruneForBA.5.2.62
+#1 pruneForBA.5.2.62
+
+
+# Most of BA.4.6 has a flip-flop (rev-remut) on 26858
+g Argentina/INEI121573/2022 sample-paths
+#... node_3182180:G22599C node_3182598:T26858C node_3182603:C14599T node_3182615:C26858T
+g node_3182598: sample-paths | g -v node_3182615: | cut -f 1 > pruneForBA.4.6
+wc -l pruneForBA.4.6
+
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/28  FL.10 has 4234 flip-flop branch
+g BHR/950800767/2023 sample-paths
+#... node_2234691:G2235A node_2234781:C4234T node_2234785:T7995G node_2234786:T4234C
+g node_2234781: sample-paths | g -v node_2234786: | cut -f 1 > pruneForFL.10
+wc -l pruneForFL.10
+#219 pruneForFL.10
+
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2#issuecomment-1549462155
+# flip-flop on 27881-3
+g Reunion/ChuReu-32510801/2023 sample-paths 
+#... node_2244938:C27881T node_2244939:G27882C,C27883T node_2244940:T23018C node_2244986:G4006A,T17067C,T22928C,T26012G node_2244987:C27882G,T27883C node_2244988:T27881C
+g node_2244986: sample-paths | g -v node_2244988: | cut -f 1 > pruneForLP2
+wc -l pruneForLP2
+#6 pruneForLP2
+
+# This little branch too:
+g India/GJ-INSACOG-GBRC12099/2023 sample-paths
+#... node_2244938:C27881T node_2244939:G27882C,C27883T node_2244940:T23018C node_2244977:C27425T node_2244978:A22995G node_2244980:C21998A node_2244981:A9337G,C10078T,C16457T node_2244982:T27881C,C27882G,T27883C ...
+g node_2244980: sample-paths | g -v node_2244982: | cut -f 1 >> pruneForLP2
+#9 pruneForLP2
+
+
+# Some mini-BA.2.75's upstream of BA.2.75
+g India/DL-IGIB11306210768/2022 sample-paths
+#... node_2368603:A22190G node_2423078:T22016C
+g node_2423078: sample-paths | cut -f 1 > pruneForBA.2.75
+wc -l pruneForBA.2.75
+#89 pruneForBA.2.75
+
+g India/KA-16707/2022 sample-paths
+#... node_2368603:A22190G node_2423099:G18583A
+g node_2423099: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#214 pruneForBA.2.75
+
+g India/WB-INSACOG-193150321360/2022 sample-paths
+#... node_2368604:G22331A node_2423062:A21282G
+g node_2423062: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#245 pruneForBA.2.75
+
+g India/HR-IGIB12101056894/2022  sample-paths
+#... node_2368605:C4586T node_2368926:A22629C
+g node_2368926: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#297 pruneForBA.2.75
+
+g India/KA-RFNB-18079/2022 sample-paths
+#... node_2368605:C4586T node_2369068:C9532T
+g node_2369068: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#389 pruneForBA.2.75
+
+g India/DL-IGIB11302065693/2022 sample-paths
+#...node_2368605:C4586T node_2368613:A23283T
+g node_2368613: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#668 pruneForBA.2.75
+
+g India/KA-RFNB-16561/2022 sample-paths
+#...node_2368605:C4586T node_2368944:G18583A
+g node_2368944: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#1086 pruneForBA.2.75
+
+g India/AS-NEIST-INSACOG-R38-CID2079/2022 sample-paths
+#...node_2368605:C4586T node_2368679:T22016C
+g node_2368679: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#1854 pruneForBA.2.75
+
+g India/DL-ILBSWGS6489/2022 sample-paths
+#...node_2369088:A22001G node_2423022:C29555T
+g node_2423022: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#1884 pruneForBA.2.75
+
+g India/AP-CCMB-CID4394/2022 sample-paths
+#...node_2369088:A22001G node_2423030:G18583A
+g node_2423030: sample-paths | cut -f 1 >> pruneForBA.2.75
+wc -l pruneForBA.2.75
+#1918 pruneForBA.2.75
+
+# Reversion-mess upstream of BA.2.75_dropout... lop & see what happens.
+g SouthKorea/KDCA125774/2022 sample-paths
+#...node_2368601:G15451A node_2423151:A22033C
+g node_2423151: sample-paths | cut -f 1 >> pruneForBA.2.75
+#2231 pruneForBA.2.75
+
+wc -l pruneFor*
+#     3 pruneForBA.2.56
+#  2231 pruneForBA.2.75
+#  6068 pruneForBA.2.9
+#    43 pruneForBA.4.6
+#  1027 pruneForBA.4_BA.5
+#  2045 pruneForBA.5
+#    13 pruneForBA.5.1
+#     1 pruneForBA.5.2.62
+#   321 pruneForBA.5.20
+#   219 pruneForFL.10
+#     9 pruneForLP2
+# 11980 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Cheng recommends -m 0.00000001 instead of -r 8 (see 23_05_09)
+# It's late so I'm going to give it even more than Cheng's suggested 4 hours and just let it
+# run overnight and see what happens.
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 8 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    466m34.830s
+# Over 7.5 hours, so I bet it could have kept going.  But it did make it as far as radius 64.
+# Is that a good thing or a bad thing?  :)  Better check for new ugh branches.
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -c B.1.1.529 -S sample-paths.pruned
+
+
+# 2023-05-19
+
+# Check paths
+# Also look at BA.5-basal in taxonium
+
+# Biggest problem: misplaced 69k-sequence mini-BA.5.2.1 that was moved upstream of BA.5.
+g Algeria/631/2022 sample-paths.pruned
+#... node_2044978:G26529A node_2046341:C27889T node_2051240:A3859G node_2051241:A28330G node_2051242:A27038G node_2051243:T6979G node_2051244:C1627T
+# Closer, but ugh, still 3859 first.  Another round, maybe some permanent excludes.
+g node_2051240: sample-paths.pruned | g -v node_2051244: | cut -f 1 > pruneFor3859
+wc -l pruneFor3859
+#103 pruneFor3859
+
+
+# Even BA.5.2.20 is on an upstream of BA.5, fix that too.
+g Algeria/31697/2022 sample-paths.pruned
+#... node_2044978:G26529A node_2046341:C27889T node_2213527:A28330G node_2213605:C1627T node_2342435:G12310A node_2440531:C27513T node_2440538:C16616A node_2442732:C23707T node_2442733:C27012T
+# Closer, but C23707T first --> another round.
+g node_2442732: sample-paths.pruned | g -v node_2442733: | cut -f 1 > pruneFor23707
+wc -l pruneFor23707
+#67 pruneFor23707
+
+
+# BA.2.9 is annotated on a branch of miscBA2BA1PostSpike, not good!
+g Austria/CeMM27854/2022 sample-paths.pruned
+#... node_2038759:C2790T node_3000522:C22792T node_3097243:C25624T
+# Yes!
+
+# Some other BA.2 sublineages are also in on miscBA2BA1PostSpike, ugh.
+g Austria/CeMM24183/2022 sample-paths.pruned
+#... node_2038759:C2790T node_3000522:C22792T node_3087868:A23767G
+# Yes!
+
+# Also spare these bits:
+g France/BFC-HMN-22052090296/2022 sample-paths.pruned
+#... node_2038759:C2790T node_3000522:C22792T node_3087868:A23767G node_3087869:C6651T
+g Germany/NW-HHU-26538/2022 sample-paths.pruned
+#... node_2038759:C2790T node_3000522:C22792T node_3142394:T21765C node_3142395:C25413T
+g FRA/IHUCOVID-077246/2022 sample-paths.pruned
+#... node_2038759:C2790T node_3000522:C22792T node_3097219:G17427T
+# Good.
+
+
+# BA.2.56 is placed upstream of BA.2's C2790T
+g Australia/NSW-ICPMR-27948/2022 sample-paths.pruned
+#... node_2038759:C2790T node_2038760:C22916A
+# Good.
+
+# BA.5.1_no27438 has a sizable branch that gains 27438... but also C1627T. ? probably move to 5.1.
+g Denmark/DCGC-573518/2022 sample-paths.pruned
+#... node_2046341:C27889T node_2460067:C29666T node_2460138:T27438C node_2460139:C1627T node_2460140:C12651T,T27696C,G28374T
+# Good.
+
+# BA.5.2.62 has a flip-flop on 593
+g Austria/LB-R00087-S184/2022 sample-paths.pruned
+#... node_2046341:C27889T node_2213527:A28330G node_2213605:C1627T node_2342435:G12310A node_2352586:C27012T node_2352592:C27513T node_2352607:C16616A node_2439219:C23520T
+
+# Oh wait, how many quads do we have now?  Above we have G12310A > C27513T > C16616A > ... > C27012T
+# but here we have G12310A > C27012T > C27513T > C16616A, argh....
+# Actually it looks like the larger quad is more poorly anchored.  Well, prune that too in the next
+# round.
+g Albania/280033/2022 sample-paths.pruned
+#node_2213605:C1627T node_2342435:G12310A node_2352586:C27012T node_2352592:C27513T node_2352607:C16616A
+g node_2352586: sample-paths.pruned | g -v node_2352607: | cut -f 1 > pruneForQuad
+wc -l pruneForQuad
+#124 pruneForQuad
+
+# Most of BA.4.6 has a flip-flop (rev-remut) on 26858
+g Argentina/INEI121573/2022 sample-paths.pruned
+#... node_3150867:C28724T node_3172131:A23535G node_3179652:C8140T node_3179658:G22599C node_3180261:C14599T
+# Good.
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/28  FL.10 has 4234 flip-flop branch
+g BHR/950800767/2023 sample-paths.pruned
+#... 713546:C11956T node_2713548:T23018C node_2716533:G2235A node_2716715:T7995G
+# Good.
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2#issuecomment-1549462155
+# flip-flop on 27881-3
+g Reunion/ChuReu-32510801/2023 sample-paths.pruned
+#... node_2733109:T17124C node_2733925:T23018C node_2766915:T22928C node_2766916:G4006A,T17067C,C17124T,T26012G 
+# Good I guess?  Maybe take a look in taxonium.  Yep, good.
+
+# This little branch too:
+g India/GJ-INSACOG-GBRC12099/2023 sample-paths.pruned
+#... node_2796672:C17124T node_2799015:C27425T,G28079T node_2799016:A22995G node_2799017:A9337G,C10078T,C16457T node_2799020:T12688C,C21998A,G25770A
+# Good I guess?  Maybe take a look in taxonium.  Yep.
+
+
+# Look at BA.2.75-basal in taxonium.  After the 2023-05-19 build (which might need to be stopped
+# and restarted in order to use the results of this) adds back the lopped sequences, check on
+# everything all over again.  :)
+
+# BQ.1_17039 has flip-flops on 27910 and 14424:
+g Aruba/AW-RIVM-121926/2022 sample-paths.pruned
+#... node_2119387:A17039G node_2126240:T27910C node_2126276:A14424C node_2126708:C22599G node_2126731:C14424A node_2126732:C27910T
+g node_2126240: sample-paths.pruned | g -v node_2126276: | cut -f 1 > pruneForBQ.1_17039
+wc -l pruneForBQ.1_17039
+#160 pruneForBQ.1_17039
+g node_2126708: sample-paths.pruned | g -v node_2126732: | cut -f 1 >> pruneForBQ.1_17039
+wc -l pruneForBQ.1_17039
+#262 pruneForBQ.1_17039
+
+wc -l pruneFor3859 pruneFor23707 pruneForQuad pruneForBQ.1_17039
+#  103 pruneFor3859
+#   67 pruneFor23707
+#  124 pruneForQuad
+#  262 pruneForBQ.1_17039
+#  556 total
+
+# Prune again.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(cat pruneFor3859 pruneFor23707 pruneForQuad pruneForBQ.1_17039) \
+    -O -o gisaidAndPublic.$today.repruned.pb
+
+# This time limit it to two hours -- hopefully that will be enough to fix what I want to fix
+# without discovering any new ughs, and the clock is ticking for today's daily build too.
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.repruned \
+    -i gisaidAndPublic.$today.repruned.pb \
+    -o gisaidAndPublic.$today.repruned.opt.pb \
+    >& matOptimize.repruned.log
+#real    105m5.638s
+
+g radius $ottoDir/2023-05-18/matOptimize.repruned.log
+#Will double radius after each iteration
+#parsimony score after optimizing: 12516995,with radius 1, second from start 245 
+#parsimony score after optimizing: 12516972,with radius 2, second from start 341 
+#parsimony score after optimizing: 12516960,with radius 4, second from start 824 
+#parsimony score after optimizing: 12516937,with radius 8, second from start 3170 
+#parsimony score after optimizing: 12516924,with radius 16, second from start 5523 
+# It was at just over 1.5 hours when it finished r16, so it quit after that.
+# We'll see what damage r16 does I guess.  :)  Setting it to 1 hour should limit to r8.
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.pb \
+    -O -o gisaidAndPublic.$today.repruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.repruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.O.pb \
+    -c B.1.1.529 -S sample-paths.pruned
+
+# Check paths
+
+# Biggest problem: misplaced 69k-sequence mini-BA.5.2.1 that was moved upstream of BA.5.
+g Algeria/631/2022 sample-paths.pruned
+#... node_2046337:C27889T node_2198513:A28330G node_2198591:C1627T node_2198592:A27038G node_2199723:A22910G node_2199736:T6979G node_2199737:A3859G node_2199738:G22910A
+# Hmmm, flip-flop on 22910 but hopefully not a show-stopper, check in taxonium.
+
+
+# What's the path to the big quad now?
+g Albania/280033/2022 sample-paths.pruned
+#... node_2198591:C1627T node_2342328:G12310A node_2353426:C27513T node_2353433:C16616A node_2355646:C27012T
+
+
+# Even BA.5.2.20 is on an upstream of BA.5, fix that too.
+g Algeria/31697/2022 sample-paths.pruned
+#... node_2198591:C1627T node_2342328:G12310A node_2353426:C27513T node_2353433:C16616A node_2355646:C27012T node_2355647:C23707T
+# Yay!  Looks like we have a unified quad, check in taxonium.
+
+
+# BQ.1_17039 has flip-flops on 27910 and 14424:
+g Aruba/AW-RIVM-121926/2022 sample-paths.pruned
+#... node_2077648:T14257C node_2079012:T22942A node_2103084:G22599C node_2104442:A17039G node_2178445:C22599G
+# OK, still in its super-annoying rev22559 place, but no extra flip-flops.
+
+
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   2961 clade-paths
+#   2950 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.repruned.opt.O.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#< BQ.1.1.62
+# DAMN I nuked its branch, no samples found.  Argh, try to figure out where it was...
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BQ.1.1.62 -C damn
+# Oh, the -c doesn't restrict clade-paths, nice.
+g BQ.1.1.62 damn
+#... node_2126241 ... G22599C > A17039G > T27910C > T17400C,C23423T
+# Damn, T27910C was part of what I pruned for BQ.1_17039.  Should have looked more closely for
+# necessary exceptions.  Well, for now I guess I can spare node_2126241 and hope the flip-flop is
+# still resolved... so annoying...
+
+# Get the correct sample-paths:
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -c B.1.1.529 -S sample-paths.firstpruned
+# Reconstruct pruneForBQ.1_17039
+g node_2126240: sample-paths.firstpruned | g -v node_2126276: | g -v node_2126241: \
+| cut -f 1 > pruneForBQ.1_17039
+wc -l pruneForBQ.1_17039
+#41 pruneForBQ.1_17039
+g node_2126708: sample-paths.firstpruned | g -v node_2126732: | cut -f 1 >> pruneForBQ.1_17039
+wc -l pruneForBQ.1_17039
+#143 pruneForBQ.1_17039
+
+# Since we're doing another round, fix the flip-flop on 22910 on the way to the antsy 69k branch.
+# Might steal away some incomplete BF.14s guessing from taxonium.  And I hate flip-flops.
+g node_2199723: sample-paths.pruned | g -v node_2199738: | cut -f 1 > pruneFor22910
+#43 pruneFor22910
+
+wc -l pruneFor3859 pruneFor23707 pruneForQuad pruneForBQ.1_17039 pruneFor22910
+#  103 pruneFor3859
+#   67 pruneFor23707
+#  124 pruneForQuad
+#  143 pruneForBQ.1_17039
+#   43 pruneFor22910
+#  480 total
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(cat pruneFor3859 pruneFor23707 pruneForQuad pruneForBQ.1_17039) \
+    -O -o gisaidAndPublic.$today.repruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.repruned \
+    -i gisaidAndPublic.$today.repruned.pb \
+    -o gisaidAndPublic.$today.repruned.opt.pb \
+    >& matOptimize.repruned.log
+#real    105m38.842s
+
+g radius $ottoDir/2023-05-18/matOptimize.repruned.log
+#Will double radius after each iteration
+#parsimony score after optimizing: 12517117,with radius 1, second from start 249
+#parsimony score after optimizing: 12517095,with radius 2, second from start 342
+#parsimony score after optimizing: 12517082,with radius 4, second from start 832
+#parsimony score after optimizing: 12517058,with radius 8, second from start 3274
+#parsimony score after optimizing: 12517042,with radius 16, second from start 5562
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.pb \
+    -O -o gisaidAndPublic.$today.repruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.repruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.O.pb \
+    -c B.1.1.529 -C clade-paths.pruned -S sample-paths.pruned
+
+# Check paths
+
+# Biggest problem: misplaced 69k-sequence mini-BA.5.2.1 that was moved upstream of BA.5.
+g Algeria/631/2022 sample-paths.pruned
+#... node_2198617:C1627T node_2198618:A27038G node_2199749:A22910G node_2199762:T6979G node_2199763:A3859G node_2199764:G22910A
+# DOH I made pruneFor22910 and forgot to add it to the prune command.
+
+# What's the path to the big quad now?
+g Albania/280033/2022 sample-paths.pruned
+#... node_2198617:C1627T node_2342354:G12310A node_2353452:C27513T node_2353459:C16616A node_2355672:C27012T
+
+# Even BA.5.2.20 is on an upstream of BA.5, fix that too.
+g Algeria/31697/2022 sample-paths.pruned
+#... node_2198617:C1627T node_2342354:G12310A node_2353452:C27513T node_2353459:C16616A node_2355672:C27012T node_2355673:C23707T
+
+# BQ.1_17039 has flip-flops on 27910 and 14424:
+g Aruba/AW-RIVM-121926/2022 sample-paths.pruned
+#... node_2077648:T14257C node_2079012:T22942A node_2103084:G22599C node_2104442:A17039G node_2178471:C22599G
+
+# OK, well at least none of those got worse, let's see if BQ.1.1.62 is still there.
+
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   2961 clade-paths
+#   2951 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.repruned.opt.O.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# OK, good now.
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+# Restart 2023-05-19 build.

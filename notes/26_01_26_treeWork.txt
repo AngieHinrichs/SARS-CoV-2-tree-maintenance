@@ -1,0 +1,73 @@
+today=2026-01-26
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+
+# Fede found a flip-flop on 17674:
+# https://github.com/cov-lineages/pango-designation/issues/3173
+g France/ARA-RELAB-HCL725000094901/2025 sample-paths
+#... node_2535497:C23896T node_2535519:A17674G node_2535520:C9510T,G11335T node_2535521:T28672C node_2535522:G17674A
+g node_2535519: sample-paths | g -v node_2535522: | cut -f 1 > pruneForPD3173
+wc -l pruneForPD3173
+#9 pruneForPD3173
+
+
+# Xu found a misplaced chunk of QF.7s missing 22792 (late 25606):
+# https://github.com/cov-lineages/pango-designation/issues/3174
+g Chile/CO-91217/2025 sample-paths
+#... node_2366859:T23600C node_2368209:T22792C node_2368210:G25606A
+g node_2368209: sample-paths | g -v node_2368210: | cut -f 1 > pruneForPD3174
+wc -l pruneForPD3174
+#1 pruneForPD3174
+
+
+wc -l pruneFor*
+#  9 pruneForPD3173
+#  1 pruneForPD3174
+# 10 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    107m6.692s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+
+# Check paths
+
+# No more flip-flop on 17674?
+g France/ARA-RELAB-HCL725000094901/2025 sample-paths.pruned
+#... node_2535499:C23896T node_2535654:C9510T,T28672C node_2535655:G11335T 
+# Yep, check tomorrow.
+
+# 25606 before reversion on 22792?
+g Chile/CO-91217/2025 sample-paths.pruned
+#... node_2366862:T23600C node_2368645:G25606A node_2368646:T22792C
+# Yep, check tomorrow.
+

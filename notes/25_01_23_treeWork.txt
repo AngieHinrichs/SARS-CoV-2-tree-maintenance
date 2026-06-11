@@ -1,0 +1,95 @@
+today=2025-01-23
+cd $ottoDir/$today
+# Do all-Omicron because there are issues in BA.1
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c B.1.1.529 -S sample-paths
+
+# BA.1.1.18 is on a crap branch in BA.1 which caused a bunch of BA.1.1 --> BA.1 in candidate
+# lineageTree.  Make sure all nearby BA.1.1-ish branches are also removed.
+g Canada/AB-ABPHL-49643/2022 sample-paths
+#... node_533362:G23048A node_907203:C2470T node_907204:C7926T node_907205:G22599A
+# That's distinct from the two trouble branches yesterday (before & after prune&opt).
+g node_907203: sample-paths | g -v node_907205: | cut -f 1 > pruneForBA.1.1.18
+wc -l pruneForBA.1.1.18
+#523 pruneForBA.1.1.18
+
+# Look for yesterday's trouble branches (BA.1 > 29632 that then got BA.1.1 muts) and lop.
+g Bulgaria/22BG-EU_015359_Pl144/2022 sample-paths
+#... node_533362:G23048A node_684139:C29632T node_701060:C2470T
+g node_701060: sample-paths | cut -f 1 >> pruneForBA.1.1.18
+wc -l pruneForBA.1.1.18
+#805 pruneForBA.1.1.18
+# Lop this run-of at the base, give mini-BA.1 a chance at replacement:
+g Brazil/CE-REDE-L2BC02LACE/2022 sample-paths
+#... node_533362:G23048A node_684139:C29632T node_697997:A26993G,C26994T ...
+g node_697997: sample-paths | cut -f 1 > pruneForBA.1
+wc -l pruneForBA.1
+#4187 pruneForBA.1
+
+# Also lop this big multi-rev branch that becomes a mini-BA.1.
+g Australia/NSW-ICPMR-20043/2022 sample-paths
+#... node_533362:G23048A node_549987:C22673T 
+g node_549987: sample-paths | cut -f 1 > pruneForBA.1Revs
+wc -l pruneForBA.1Revs
+#32230 pruneForBA.1Revs
+
+
+# Xu found a flip-flop branch that started attracting XEC and XEC.2
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2375
+# It's very small relative to XEC, just lop the whole thing.
+# Hmmm, sprinkled with env/Germany, I know what Cornelius would say.
+g env/Germany/BY-LGL-6342392/2024 sample-paths
+#...node_2341910:C23039G node_2377833:T21738C
+g node_2377833: sample-paths | cut -f 1 > pruneForXEC
+wc -l pruneForXEC
+#132 pruneForXEC
+
+
+wc -l pruneFor*
+#   4187 pruneForBA.1
+#    805 pruneForBA.1.1.18
+#  32230 pruneForBA.1Revs
+#    132 pruneForXEC
+#  37354 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m13.690s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# In BA.1.1 finally?
+g Canada/AB-ABPHL-49643/2022 sample-paths.pruned
+#... node_533364:G23048A node_693045:G22599A node_693046:C2470T node_693047:C7926T
+# Whew!  finally.

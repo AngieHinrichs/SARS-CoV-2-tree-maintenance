@@ -1,0 +1,233 @@
+# Let's do some pruning -- of duplicates like the one Theo found (see 22_03_17_looseEnds.txt),
+# misplaced recombinants (22_03_16_recombinantPaths.txt) and maybe some other garbos.
+
+# As I start, the daily build is in the matOptimize stage.  Get sample names from merged pb.
+today=2022-03-17
+cd $ottoDir/$today
+$matUtils extract -i merged.deltaMasked.pb -u samples.$today
+
+# Make idToName
+awk -F\| '{ if ($3 == "") { print $1 "\t" $0; } else { print $2 "\t" $0; } }' samples.$today \
+| sort \
+    > idToName
+
+# Find dup IDs
+cut -f 1 idToName | uniq -c | awk '$1 > 1 {print $2;}' > dupIds
+wc -l dupIds
+#11 dupIds
+# Not as bad as usual!
+cat dupIds
+#MZ266382.1
+#MZ266391.1
+#MZ266460.1
+#Northern_Ireland/NORT-YBT888/2022
+#Northern_Ireland/NORT-YBTCJ6/2022
+#Northern_Ireland/NORT-YBTCYO/2022
+#Northern_Ireland/NORT-YBTCZB/2022
+#Northern_Ireland/NORT-YBTDNI/2022
+#Northern_Ireland/NORT-YBTKWJ/2022
+#Northern_Ireland/NORT-YBTMXU/2022
+#Northern_Ireland/NORT-YBTPR8/2022
+# Theo's example BS003162.1 is not in there... ah, I see he said it was duplicated in metadata,
+# not in the tree.  OK, look at that later.
+g -Fwf dupIds samples.$today
+#HKG/HKPU-00033/2020|MZ266382.1|2020-03-26
+#HKG/HKPU-00036/2020|MZ266382.1|2020-03-27
+#HKG/HKPU-00042/2020|MZ266391.1|2020-07-12
+#HKG/HKPU-00051/2020|MZ266391.1|2020-07-07
+#HKG/HKPU-00111/2020|MZ266460.1|2020-12-04
+#HKG/HKPU-00112/2020|MZ266460.1|2020-12-03
+#NorthernIreland/NORT-YBTCYO/2022|Northern_Ireland/NORT-YBTCYO/2022|2022-01-02
+#Northern_Ireland/NORT-YBTCYO/2022|2022-01-02
+#...
+# The usual stupid _ problem for NorthernIreland vs Northern_Ireland.  Look up correct dates
+# for Hong Kong sequences:
+g MZ266382 $ncbiDir/ncbi_dataset.plusBioSample.tsv
+#MZ266382.1              2020-03-26      Hong Kong       Homo sapiens    SARS-CoV-2/human/HKG/HKPU-00033/2020    complete        29782
+g MZ266391 $ncbiDir/ncbi_dataset.plusBioSample.tsv
+#MZ266391.1              2020-07-12      Hong Kong       Homo sapiens    SARS-CoV-2/human/HKG/HKPU-00042/2020    complete        29782
+g MZ266460 $ncbiDir/ncbi_dataset.plusBioSample.tsv
+#MZ266460.1              2020-12-04      Hong Kong       Homo sapiens    SARS-CoV-2/human/HKG/HKPU-00111/2020    complete        29782
+cat > gbDupsToRemove <<EOF
+HKG/HKPU-00036/2020|MZ266382.1|2020-03-27
+HKG/HKPU-00051/2020|MZ266391.1|2020-07-07
+HKG/HKPU-00112/2020|MZ266460.1|2020-12-03
+NorthernIreland/NORT-YBTCYO/2022|Northern_Ireland/NORT-YBTCYO/2022|2022-01-02
+NorthernIreland/NORT-YBTCZB/2022|Northern_Ireland/NORT-YBTCZB/2022|2022-01-03
+NorthernIreland/NORT-YBTCJ6/2022|Northern_Ireland/NORT-YBTCJ6/2022|2022-01-02
+NorthernIreland/NORT-YBTKWJ/2022|Northern_Ireland/NORT-YBTKWJ/2022|2022-01-02
+NorthernIreland/NORT-YBTMXU/2022|Northern_Ireland/NORT-YBTMXU/2022|2022-01-02
+NorthernIreland/NORT-YBTPR8/2022|Northern_Ireland/NORT-YBTPR8/2022|2022-01-02
+NorthernIreland/NORT-YBTDNI/2022|Northern_Ireland/NORT-YBTDNI/2022|2022-01-02
+NorthernIreland/NORT-YBT888/2022|Northern_Ireland/NORT-YBT888/2022|2022-01-02
+EOF
+wc -l gbDupsToRemove
+#11 gbDupsToRemove
+
+# Now for some misplaced recombinants... just prune and let the daily build replace them.
+g France/GES-HMN-22012200931/2022 $ottoDir/2022-03-15/sample-paths
+# ...  node_780836:C14407T,G22578A,T22673C,C22674T,T22679C, ...
+g node_780836: $ottoDir/2022-03-15/sample-paths | cut -f 1 > misplacedRecombToRemove
+wc -l misplacedRecombToRemove
+#12 misplacedRecombToRemove
+
+g England/PLYM-316F18A/2022 $ottoDir/2022-03-15/sample-paths
+# ... node_1157021:G210T,G2832A,C4891T,C5310T, ...
+g node_1157021: $ottoDir/2022-03-15/sample-paths | cut -f 1 >> misplacedRecombToRemove
+wc -l misplacedRecombToRemove
+#15 misplacedRecombToRemove
+
+# I don't see any dire mini-Deltas... there's accumulating garbage at the Omicron base, but
+# whatever.  Just prune what we've got, and then try masking some of the really noisy muts
+# in BA.1 from 22_03_17_looseEnds.txt.
+
+$matUtils extract -i merged.deltaMasked.pb \
+    -p -s <(cat gbDupsToRemove misplacedRecombToRemove) \
+    -O -o test.pb
+$matUtils summary -i merged.deltaMasked.pb
+#Total Nodes in Tree: 10378091
+#Total Samples in Tree: 8537806
+#Total Condensed Nodes in Tree: 0
+#Total Samples in Condensed Nodes: 0
+#Total Tree Parsimony: 7400394
+#Number of Clade Annotations: 0
+#Max Tree Depth: 92
+#Mean Tree Depth: 37.716286
+$matUtils summary -i test.pb
+#Total Nodes in Tree: 10378052
+#Total Samples in Tree: 8537780
+#Total Condensed Nodes in Tree: 1097078
+#Total Samples in Condensed Nodes: 5704977
+#Total Tree Parsimony: 7400335
+#Number of Clade Annotations: 0
+#Max Tree Depth: 92
+#Mean Tree Depth: 37.716282
+expr 8537806 - 8537780
+#26
+mv test.pb test.pruned.pb
+
+# Now add 22813, 22898, 22882, 22917, 23854 for BA.1 to maskDelta.sh, run it, optimize,
+# make protobuf and check lineage-defining mutations for wacky paths.
+time $scriptDir/maskDelta.sh test.pruned.pb test.pruned.extraMasked.pb
+#real    9m49.010s
+
+$matOptimize -T 50 -r 8 -M 2 -S move_log.extraMasked -i test.pruned.extraMasked.pb \
+    -o test.pruned.extraMasked.opt.pb \
+    >& matOptimize.extraMasked.log
+chmod 664 test.pruned.extraMasked.opt*.pb
+
+# Look at it in taxonium...
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat $ottoDir/2022-03-16/gisaidAndPublic.2022-03-16.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i test.pruned.extraMasked.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium test.pruned.extraMasked.opt.taxonium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f test.pruned.extraMasked.opt.taxonium.pb
+
+# Check sample-paths for crazy paths...
+$matUtils extract -i test.pruned.extraMasked.opt.pb -S sample-paths.pruned.extraMasked.opt
+# BA.1.1.1 is on a sorta wonky path, can we move it?
+g Italy/LAZ-AMC-2201175133-DS/2022 sample-paths.pruned.extraMasked.opt \
+| sed -re 's/node_[0-9]+:/> /g'
+#... > G22599A > C2470T > G26530A > T2470C > T25000C > A26530G > A16064G 
+# Ah crud, the 25000 reversion keeps 26530 and 2470 from completely canceling out, ugh.
+# We could move it to a G22599A > T25000C node, is there one?
+# Oh wait, most are on this path:
+g Italy/LAZ-AMC-220120942-DS/2022 sample-paths.pruned.extraMasked.opt | sed -re 's/node_[0-9]+:/> /g'
+#... > G22599A > C2470T > G26530A > T2470C > T25000C > A26530G > A16064G > C25000T 
+# but ARGH that's after the A16064G what a pita!
+# Well, at least most of the A16064G's are there.  Also a significant clump at
+# G22599A > C2470T > G26530A > T2470C > A16064G
+# Is there a G22599A > G26530A node?  Nope, don't see one, nor G22599A > T25000C.
+
+# Crud, looks like most of BA.1.1.15 (G13570A) is split off on this (+C14117T):
+#England/PLYM-2FD7067/2021|OV343487.1|2021-12-23 ... G22599A > C2470T > C14117T > G13570A
+# Could try to fix by temporarily lopping the C2470T > C14117T-only samples and re-optimizing.
+g England/PLYM-2FD7067/2021 sample-paths.pruned.extraMasked.opt
+# ... node_1229820:G22599A node_1229822:C2470T node_1306150:C14117T node_1306156:G13570A 
+g node_1306150: sample-paths.pruned.extraMasked.opt \
+| g -v node_1306156: \
+| cut -f 1 > lopForBA.1.1.15
+#21 lopForBA.1.1.15
+
+# A little tiny slice of BA.1.5 is split off by SouthAfrica/NICD-N22039/2021
+g SouthAfrica/NICD-N22039/2021 samples.$today > lopForBA.1.5
+
+# BA.1.9 path is wonky:
+#Chile/RM-197339/2021... G22599A > C2470T > G26530A > T2470C > A10449C > A22599G > C10449A > C23673T 
+# Again, no easy move... and again, 26530 making trouble... but masking that would mess with XD. :(
+# (And masking 10449 would mess with most delta/omicron recombinants)
+
+# BA.1.17 is split -- some on G23048A > G5924A where expected, but more on
+#England/MILK-33F95F0/2022... G23048A > C3241T > C23664T > G5924A 
+# Interesting, 3241 shows up in a couple recombinants.  23664 in diff recomb, Delta, Beta.
+g England/MILK-33F95F0/2022 sample-paths.pruned.extraMasked.opt
+# ... node_1148959:G23048A node_1170555:C3241T node_1170556:C23664T node_1170557:G5924A
+g node_1170555: sample-paths.pruned.extraMasked.opt \
+| g -v node_1170557: \
+| cut -f 1 > lopForBA.1.17
+wc -l lopForBA.1.17
+#55 lopForBA.1.17
+
+# 22882 should be masked in BA.2 too.  22813 actually doesn't look so bad there.
+
+# OK, lop & re-opt.
+
+$matUtils extract -i test.pruned.extraMasked.opt.pb \
+    -p -s <(cat lopForBA.1.1.15 lopForBA.1.17) \
+    -o test.extraPruned.pb
+#Large sample input; building subtree by pruning all but 8537704 samples.
+expr 8537780 - 8537704
+#76
+
+# Optimize...
+$matOptimize -T 50 -r 8 -M 2 -S move_log.extraPruned -i test.extraPruned.pb \
+    -o test.extraPruned.opt.pb \
+    >& matOptimize.extraPruned.log
+chmod 664 test.extraPruned.opt*.pb
+
+# Look in taxonium...
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat $ottoDir/2022-03-16/gisaidAndPublic.2022-03-16.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i test.extraPruned.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium test.extraPruned.opt.taxonium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f test.extraPruned.opt.taxonium.pb
+
+# Yay!  BA.1.1.15 (G13570A) is back together.  BA.1.17 (G5924A) too!  :)
+# Even BA.1.9 got better -- on BA.1 + 26530 + revs now instead of BA.1.1 + more revs.
+# Still quite a bit of noise on 5924.
+
+# Now the build can proceed.
+$matUtils extract -i test.extraPruned.opt.pb \
+        --max-parsimony 20 \
+        --max-branch-length 45 \
+        --max-path-length 150 \
+        -O -o gisaidAndPublic.$today.masked.pb
+time $scriptDir/updateCombinedTree.sh 2022-03-16 2022-03-17 $problematicSitesVcf \
+    >& updateCombinedTree.continue.log
+
+# And in a different screen, finally get today's started so it gets some overnight cluster time:
+cd $ottoDir/2022-03-18
+time $scriptDir/updateCombinedTree.sh 2022-03-17 2022-03-18 $problematicSitesVcf \
+    >& updateCombinedTree.log
+
+# Next to consider masking in BA.1: 22673, 22674, 22679, 22686 (as long as we don't get
+# recombinants with breakpoints down that low)
+
+# Also, keep an eye on the lineages "fixed" above as the lopped sequences get added back
+# to the tree starting with the 2022-03-18 build...

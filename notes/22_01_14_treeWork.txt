@@ -1,0 +1,370 @@
+# Uh-oh, mini-Omicrons popping up in B-land.
+
+today=2022-01-13
+cd $ottoDir/$today
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths -S sample-paths
+#real    4m27.672s
+
+lastNodes () {
+    grep -F "$1" sample-paths \
+    | cut -f 2 \
+    | sed -re 's!'"$1"'.*!!' \
+    | awk '{print $(NF-2) "\t" $(NF-1) "\t" $NF;}'
+}
+
+# Permanently exclude from USA/CA-CDC-ASC210631679/2021 but exempt 2020 and anything from 
+# * USA/UT-UPHL-220109395110/2022
+# * common ancestor of (England/MILK-302BEEE/2021, SouthAfrica/NICD-N22163/2021)
+lastNodes USA/CA-CDC-ASC210631679/2021
+#node_4284:T241C node_4295:C28311T       node_4296:A28271T
+g node_4296: sample-paths | g -v /2020 | cut -f 1 > lopToday
+wc -l lopToday
+#718 lopToday
+lastNodes USA/UT-UPHL-220109395110/2022
+#node_4458:G22917T,A26530G,T27874C       node_4461:A22995C       node_4495:G5515T
+lastNodes England/MILK-302BEEE/2021
+#node_4519:G22578A       node_4520:C22674T,T22679C,C22686T,G22775A,G22992A,A23013C,A23040G,A23055G,A23063T,T23075C       node_4521:C29311T
+lastNodes SouthAfrica/NICD-N22163/2021
+#node_4519:G22578A       node_4520:C22674T,T22679C,C22686T,G22775A,G22992A,A23013C,A23040G,A23055G,A23063T,T23075C       node_4522:G22813T
+g node_4296: sample-paths | g -v /2020 \
+| g -v node_4495: \
+| g -v node_4520: \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    > badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#318 badBranchSeeds.ids
+
+# Permanently exclude from USA/TX-CDC-ASC210627679/2021 but exempt 2020 and anything from
+# * USA/UT-UPHL-211230299872/2021
+# * USA/UT-UPHL-220103074623/2021
+# * USA/UT-UPHL-220109035208/2021
+lastNodes USA/TX-CDC-ASC210627679/2021
+#node_883453:C28311T     node_883457:A28271T     node_883459:A11537G,T13195C,C15240T
+lastNodes USA/UT-UPHL-211230299872/2021
+#node_883690:C21762T     node_883692:C21846T     node_883693:C3037T,C10029T,T24469A,C24503T,G28881A,G28882A,G28883C
+lastNodes USA/UT-UPHL-220103074623/2021
+#node_883731:A2832G,A22992G,A22995C      node_883732:C3037T,G28882A,G28883C      node_883792:G5515T
+lastNodes USA/UT-UPHL-220109035208/2021
+#node_883490:A11537G,C21846T     node_883491:C10029T,T24469A,C24503T     node_883492:A2832G
+g node_883459: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#1593 lopToday
+g node_883459: sample-paths | g -v /2020 \
+| g -v node_883693: \
+| g -v node_883792: \
+| g -v node_883492: \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#582 badBranchSeeds.ids
+
+# Permanently exclude from Turkey/HSGM-D21142/2021 but exempt 2020 and anything from
+# * Senegal/10003231/2021
+lastNodes Turkey/HSGM-D21142/2021
+#node_10561:A23403G      node_882682:T22917G     node_882759:C22995A
+lastNodes Senegal/10003231/2021
+#node_882682:T22917G     node_882759:C22995A     node_882930:A10323G
+g node_882759: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2128 lopToday
+g node_882759: sample-paths | g -v /2020 \
+| g -v node_882930: \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1116 badBranchSeeds.ids
+
+# Permanently exclude from SouthAfrica/NICD-N10654/2021
+lastNodes SouthAfrica/NICD-N10654/2021
+#node_877397:G4181T      node_877398:G28461A     node_877399:G28881A,G28882A,G28883C
+g node_877399: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2324 lopToday
+g node_877399: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1312 badBranchSeeds.ids
+
+# Permanently exclude from USA/CA-CDPH-2000052817/2021
+lastNodes USA/CA-CDPH-2000052817/2021
+#node_107918:T6402C      node_875890:T210G       node_875891:A15451G
+g node_875891: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2381 lopToday
+g node_875891: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1369 badBranchSeeds.ids
+
+# Permanently exclude from env/USA/CA-SEARCH-63613/2021
+lastNodes env/USA/CA-SEARCH-63613/2021
+#node_108276:C6402T      node_513456:T22679C     node_513458:G22578A,G22599A,T22673C,C22674T,C22686T
+g node_513458: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2392 lopToday
+g node_513458: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1380 badBranchSeeds.ids
+
+# Permanently exclude from USA/UT-UPHL-211224857975/2021
+lastNodes USA/UT-UPHL-211224857975/2021
+#node_803002:T9053G      node_803010:C27638T     node_803016:C3037T
+g node_803016: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2486 lopToday
+g node_803016: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1474 badBranchSeeds.ids
+
+# Permanently exclude from common ancestor of India/GJ-INSACOG-GBRC3818/2021,
+# England/DHSC-CYDPOIH/2021
+lastNodes India/GJ-INSACOG-GBRC3818/2021
+#node_802695:T28916G     node_802911:T24469A,C24503T     node_802912:T29742G
+lastNodes England/DHSC-CYDPOIH/2021
+#node_802911:T24469A,C24503T     node_802913:G8393A,A24424T      node_802925:G11332A,T13195C,C25614T,T27874C,T29402G
+g node_802911: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2508 lopToday
+g node_802911: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1496 badBranchSeeds.ids
+
+# Permanently exclude from USA/CA-CDC-FG-210145/2021
+lastNodes USA/CA-CDC-FG-210145/2021
+#node_802713:G23604A     node_802714:G8393A,C21762T,C23525T,T23599G,C24503T      node_802718:T5386G,A11537G,T13195C,A24424T
+g node_802718: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2525 lopToday
+g node_802718: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1513 badBranchSeeds.ids
+
+# Permanently exclude from Ghana/TRA-2393/2021
+lastNodes Ghana/TRA-2393/2021
+#node_742044:T18877C     node_742058:T25563G     node_742143:C23604A
+g node_742143: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2607 lopToday
+g node_742143: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1595 badBranchSeeds.ids
+
+# Permanently exclude from env/USA/CA-SEARCH-63615/2021
+lastNodes env/USA/CA-SEARCH-63615/2021
+#node_570858:C27807T     node_570861:T5386G,T16466C,T19220C      node_570862:T22882G,G22898A,G22917T,C23525T,T23599G,G23604A
+g node_570862: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2609 lopToday
+g node_570862: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1597 badBranchSeeds.ids
+
+# Permanently exclude from Botswana/R50B80_BHP_AAC28525/2021
+lastNodes Botswana/R50B80_BHP_AAC28525/2021
+#node_570268:A11537G,C15240T,T27807C     node_570269:C13195T,C26767T     node_570271:G22813T,T28881A,T29742G
+g node_570271: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2652 lopToday
+g node_570271: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1640 badBranchSeeds.ids
+
+# Permanently exclude from USA/MA-CDCBI-CRSP_LBPHBIUEGYHSA6OM/2021
+lastNodes USA/MA-CDCBI-CRSP_LBPHBIUEGYHSA6OM/2021
+#node_248070:T7124C      node_248071:G11332A     node_248076:A11537G,G21618C,C21762T,C26270T,A26530G,C26577G,G26709A
+g node_248076: sample-paths | g -v /2020 | cut -f 1 >> lopToday
+wc -l lopToday
+#2665 lopToday
+g node_248076: sample-paths | g -v /2020 \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#1653 badBranchSeeds.ids
+
+# Omicron basal crap:
+# Lop at England/PHEC-3W080W41/2021, keep Austria/LB-R00052-S071/2022, USA/CA-CDC-FG-210079/2021
+#*** NOTE: keeping from Austria/... was a mistake that led to lopping BA.2 and BA.3!  :(
+#*** Needed to keep from the parent of its node, node_1044148.  Fixed below...
+lastNodes England/PHEC-3W080W41/2021
+#node_1025864:C10029T    node_1025865:C27807T    node_1025866:T22679C,C25584T
+lastNodes Austria/LB-R00052-S071/2022
+#node_1044147:C15714T,T21762C,G26530A    node_1044148:T15240C,C22673T,A23202C    node_1044448:T15714C
+lastNodes USA/CA-CDC-FG-210079/2021
+#node_1025930:C13195T,T24469A    node_1025931:T7124C,C10449A,A23048G,A24130C     node_1025932:G8393A,A11537G,T13195C
+g node_1025866: sample-paths | g -v /2020 \
+| g -v node_1044448: \
+| g -v node_1025932: \
+| cut -f 1 \
+    >> lopToday
+wc -l lopToday
+#5903 lopToday
+g node_1025866: sample-paths | g -v /2020 \
+| g -v node_1044448: \
+| g -v node_1025932: \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#4891 badBranchSeeds.ids
+
+# AY.38 messed up by back-mut like AY.46.6 was...
+# Lop at India/RJ-CCMB-CIA3282/2021, keep Indonesia/JK-NIHRD-WGS11276/2021,
+# keep USA/MS-UMMC-X3F7-210927000281/2021
+lastNodes India/RJ-CCMB-CIA3282/2021
+#node_20942:C13019T      node_21041:C22227T      node_72808:T29742G
+lastNodes Indonesia/JK-NIHRD-WGS11276/2021
+#node_73328:G20679T      node_73329:C18657T      node_73330:C18828T,C21812T
+lastNodes USA/MS-UMMC-X3F7-210927000281/2021
+#node_21041:C22227T      node_72808:T29742G      node_72809:C2509T
+g node_72808: sample-paths | g -v /2020 \
+| g -v node_73330: \
+| g -v node_72809: \
+| cut -f 1 \
+    >> lopToday
+wc -l lopToday
+#6085 lopToday
+g node_72808: sample-paths | g -v /2020 \
+| g -v node_73330: \
+| g -v node_72809: \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> badBranchSeeds.ids
+wc -l badBranchSeeds.ids
+#5073 badBranchSeeds.ids
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s lopToday -o gisaidAndPublic.$today.masked.pruned.pb
+
+# How disruptive was that to clade & lineage assignments?
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.pb -C clade-paths.pruned
+wc -l clade-paths*
+#  1570 clade-paths
+#  1567 clade-paths.pruned
+comm -3 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.pruned | sort)
+#21L (Omicron)
+#BA.2
+#BA.3
+
+# Well, some reannotation will be required before replacing the current results - maybe not worth
+# it at almost 5pm on a Friday.
+
+# Meanwhile, swap in pruned pb as base of today's usher cluster run.
+prevDate=$today
+today=2022-01-14
+cd $ottoDir/$today
+baseProtobuf=$ottoDir/$prevDate/gisaidAndPublic.$prevDate.masked.pruned.pb
+$matUtils extract -i $baseProtobuf -p -s dupsToRemove -o prevDupTrimmed.pb
+$matUtils mask -r prevTree.renaming -i prevDupTrimmed.pb -o prevRenamed.pb >& rename2.out
+ssh ku "cd /hive/data/outside/otto/sarscov2phylo/$today && para stop"
+ssh ku "cd /hive/data/outside/otto/sarscov2phylo/$today && para push"
+
+
+# Make the permanent exclusion permanent.  (Also add in EPI_ISL's corresponding to excluded
+# public IDs.)
+today=2022-01-13
+cd $ottoDir/$today
+wc -l ../badBranchSeed.ids
+#10334 ../badBranchSeed.ids
+cat badBranchSeeds.ids >> ../badBranchSeed.ids
+wc -l ../badBranchSeed.ids
+#15407 ../badBranchSeed.ids
+g -Fwf badBranchSeeds.ids $epiToPublic | cut -f 1 >> ../badBranchSeed.ids
+wc -l ../badBranchSeed.ids
+#15764 ../badBranchSeed.ids
+
+
+# 2022-01-16:
+# DOH I permanently excluded most of BA.2 and BA.3 by not keeping quite the right node in
+# one spot above (see NOTE).  Remove those IDs from ../badBranchSeed.ids so they'll be added back.
+g node_1044148: sample-paths | wc -l
+#3039
+wc -l ../badBranchSeed.ids
+#15764 ../badBranchSeed.ids
+g node_1044148: sample-paths | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    > oopsIAxedBA.2and3.ids
+wc -l oopsIAxedBA.2and3.ids
+#3039 oopsIAxedBA.2and3.ids
+g -Fwf oopsIAxedBA.2and3.ids $epiToPublic | cut -f 1 > oopsIAxedBA.2and3.ids.publicToEpi
+wc -l oopsIAxedBA.2and3.ids.publicToEpi
+#37 oopsIAxedBA.2and3.ids.publicToEpi
+g -vFwf <(cat oopsIAxedBA.2and3.ids*) ../badBranchSeed.ids > tmp
+wc -l tmp
+#12690 tmp
+mv tmp ../badBranchSeed.ids
+
+# Yesterday evening when Russ pointed out that BA.2 and BA.3 were gone I rolled back to 2022-01-13
+# on hgwdev and commented out the script parts that would update to the next daily builds.
+# Hopefully tomorrow (2022-01-17) we'll find that the 2022-01-16 build restored BA.2 and BA.3
+# because they're no longer in ../badBranchSeeds.ids, and then it will be time to uncomment the
+# link-updating parts.
+
+# Meanwhile there's still a problem with 2022-01-13: BA.2 was annotated on a mini-Omicron not the
+# main Omicron.  :(  Manually add that node annotation and regenerate files...
+g BA.2 clade-paths
+#BA.2    node_4528        > C241T > G28881A > G28882A > G28883C > T241C > C28311T > A28271T > C241T,A24424T,T24469A,C24503T > C10449A > T13195C > C3037T,C10029T > C15240T,C26270T > C27807T > C14408T,T15240C,A23403G,C23604A > A11537G,C23525T,T23599G > C21762T,C21846T,C22995A > A18163G,T24503C,G26709A,A27259C > T670G,C832T,G4184A,C4321T,C9534T,G10447A,C11235T,G11537A,C12880T,C13195T,C15714T,C26060T,C26577G,C26858T,A29510C > C23854A,G23948T > G22578A > C22674T,T22679C,C22686T,G22775A,G22992A,A23013C,A23040G,A23055G,A23063T,T23075C > G22813T > T22882G > T832C,A4184G,T11235C,T15714C,T21762C,T21846C,A22688G,C25000T,C25584T,G27382C,A27383T,T27384C > C2790T,C9344T,C17410T,T22200G,A22786C > G4184A,A9424G,C15714T,C21618T > C9866T,C19955T,A20055G > C10198T
+# -- See how that path does not start on B.1 but on a bogus little partial-B.1-plus-B.1.1,
+# and ends up with a suspiciously low node number.
+
+# Now, what should we have annotated as BA.2...
+g -F BA.2 annotate.pango
+#Mutations above the specified frequency in clade BA.2: C241N, T670G, C2790T, C3037T, G4184A, C4321T, C9344T, A9424G, C9534T, C9866N, C10029T, C10198T, G10447A, C10449A, C12880T, C14408T, C15714T, C17410T, A18163G, C19955T, A20055G, C21618T, T22200G, G22578A, C22674T, T22679C, C22686T, A22688G, G22775A, A22786C, G22813T, T22882G, G22992A, C22995A, A23013C, A23040G, A23055G, A23063T, T23075C, A23403G, C23525T, T23599G, C23604A, C23854A, G23948T, A24424T, T24469A, C25000T, C25584T, C26060T, C26270T, A26530N, C26577G, G26709A, C26858T, A27259C, G27382C, A27383T, T27384C, C27807T, A28271T, C28311T, G28881A, G28882A, G28883C, A29510C
+#Finding best node for clade BA.2.
+#BA.2    0       *       node_4528       ...
+#BA.2    0       -       node_1044233    node_1: > node_10439:C14408T > node_10559:C241T > node_10560:C3037T > node_10561:A23403G > node_959914:G28881A > node_959915:G28883C > node_959916:G28882A > node_1023822:C21846T > node_1025864:C10029T > node_1025865:C27807T > node_1025866:T22679C,C25584T > node_1025867:A2832G,C22995A,A27259C,A28461G > node_1025868:C7124T,G22578A,C23604A > node_1025869:G2832A,C21762T > node_1025882:T7124C,T27807C > node_1025883:G8393A,A23040G,A23055G,A23063T,T23075C,T27638C > node_1025888:G210T,C21618G,G22992A,A23013C,G23048A,C23202A,C23525T,T23599G,G29742T > node_1025889:A8393G,G22813T,T22882G,G22898A > node_1025890:T210G,G21618C,T22673C,C22674T,C22686T,C25000T,C27638T,G28461A,T29742G > node_1025891:C7124T,C27807T > node_1025918:G5924A,A11537G,G26709A > node_1025919:A18163G,A28271T > node_1025920:G23599T,A23604C,A24424T,C26577G > node_1025921:A5924G > node_1025922:T23525C > node_1025924:C26270T,A26530G,C28311T > node_1025925:T13195C,C15240T,G23948T > node_1025926:C10449A > node_1025927:G11537A > node_1025928:T23599G,C23604A,C23854A,C24130A > node_1025929:A10449C,C23525T > node_1025930:C13195T,T24469A > node_1025931:T7124C,C10449A,A23048G,A24130C > node_1044146:T21846C,A22898G > node_1044147:C15714T,T21762C,G26530A > node_1044148:T15240C,C22673T,A23202C > node_1044149:T670G,G4184A,C12880T,G22775A,C26060T,C26858T,A29510C > node_1044150:C19955T,A20055G,C21618T,A22688G,A22786C,G27382C,A27383T,T27384C > node_1044151:G670T,A4184G,C17410T,T22200G > node_1044153:C2790T,C4321T,C9344T,G10447A > node_1044154:T670G > node_1044155:G4184A > node_1044156:A9424G,C9534T > node_1044157:C9866T > node_1044158:C22792T > node_1044163:C10198T > node_1044233:T22792C
+
+# Actually, from Taxonium, it looks like node_1044158 or even node_1044157 would be a better start.
+# --> tweak pango.clade-mutations.tsv to change C10198T to C10198N.
+g -F BA.2 $scriptDir/pango.clade-mutations.tsv > test.tsv
+$matUtils annotate -T 50 -i gisaidAndPublic.$today.masked.pb -M test.tsv -o test.pb
+#Assigning BA.2 to node node_1044156
+# So it takes it back even one earlier... that's fine though, go with it, pangoLEARN (scorpio??)
+# calls even a couple nodes before that (though not completely consistently).
+
+# OK, manually add that node annotation and update metadata, public etc.
+g -E '^[A-Z]' clade-paths \
+| cut -f 1,2 \
+    > reassign.BA.2.nodes
+echo -e "BA.2\tnode_1044156" >> reassign.BA.2.nodes
+g -F BA.2 reassign.BA.2.nodes
+#BA.2    node_4528
+#BA.2    node_1044156
+$matUtils annotate -T 50 -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -C reassign.BA.2.nodes -o test.pb
+mv test.pb gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Now public:
+g -F BA.2 annotate.pango.public 
+#BA.2    0       *       node_552190     node_1: > node_4422:C14408T > node_4444:C241T > node_4445:C3037T > node_4446:A23403G > node_520732:G28881A > node_520733:G28882A,G28883C > node_542404:C21846T > node_543015:C10029T,T22679C,C25584T,C27807T > node_543016:C21762T,G22578A,C22995A,C23604A,A27259C,T27807C,A28461G > node_543017:G8393A,A23040G,A23055G,A23063T,T23075C,T27638C > node_543018:A8393G,T22673C,C22674T,C22686T,G22813T,T22882G,G22898A,G22992A,A23013C,G23048A,C23202A,C23525T,T23599G,C25000T,C27638T,G28461A > node_543019:C7124T,C27807T > node_543022:C10449A,A11537G,T13195C,C15240T,A18163G,T23525C,G23599T,A23604C,G23948T,A24424T,C26270T,A26530G,C26577G,G26709A,A28271T,C28311T > node_543024:A10449C,G11537A,C13195T,C23525T,T23599G,C23604A,C23854A,C24130A,T24469A > node_543025:T7124C,C10449A,A23048G,A24130C > node_552183:T670G,G4184A,C12880T,T15240C,C15714T,T21762C,T21846C,C22673T,G22775A,A22898G,A23202C,C26060T,G26530A,C26858T,A29510C > node_552189:C2790T,C4321T,C9344T,A9424G,C9534T,C9866T,G10447A,C17410T,C19955T,A20055G,C21618T,T22200G,A22688G,A22786C,G27382C,A27383T,T27384C > node_552190:C10198T,C22792T
+# Ah, actually that's fine, I guess there's no mini-Omicron there (or at least not enough of one)
+# so it was annotated on the right node.

@@ -1,0 +1,74 @@
+today=2025-06-05
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# MC.41 is on a now on a 25429 flip-flop branch instead of 16376
+g USA/CA-PFZ04851/2025 sample-paths
+#... node_2344194:A13121T node_2361748:G25429T node_2361749:G19962A,G23856T node_2361750:T25429G node_2361751:T6322C,G22599C
+g node_2361749: sample-paths | g -v node_2361751: | cut -f 1 > pruneForMC.41
+wc -l pruneForMC.41
+#2 pruneForMC.41
+
+
+# New lineage XFG.3 is still split with late 13608 after C10615T
+g Scotland/CLIMB-CM7YRG8F/2025 sample-paths
+#... node_2332822:C23277T,C29409T node_2332979:C10615T node_2332981:C13608T node_2332982:C18885T,T28822G
+g node_2332979: sample-paths | g -v node_2332981: | cut -f 1 > pruneForXFG.3
+wc -l pruneForXFG.3
+#12 pruneForXFG.3
+
+
+wc -l pruneFor*
+#  2 pruneForMC.41
+# 12 pruneForXFG.3
+# 14 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    103m10.642s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 25429?
+g USA/CA-PFZ04851/2025 sample-paths.pruned
+#... node_2344195:A13121T node_2378883:G22599C node_2378884:T6322C,G19962A,G23856T
+# Good.
+
+# 13608 first?
+g Scotland/CLIMB-CM7YRG8F/2025 sample-paths.pruned
+#... node_2332825:C23277T,C29409T node_2332969:C13608T node_2332970:C10615T node_2332971:C18885T,T28822G
+# Good.
+
+# Of course check results in 2025-06-06 build.
+
+

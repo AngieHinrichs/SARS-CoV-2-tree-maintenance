@@ -1,0 +1,398 @@
+# Been noticing little problems here and there.
+
+today=2022-07-18
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# mini-BA.4.1 bad seeds, hopefully optimization without these will fix it.
+g USA/NJ-CDC-LC0596281/2022 sample-paths
+#...node_1350754:T22917G node_1352125:C5281T
+g USA/DC-CDC-LC0747191/2022 sample-paths
+#... node_1350754:T22917G node_1352125:C5281T node_1352126:T21570G
+g node_1352125: sample-paths | g -v node_1352126: | cut -f 1 > pruneForBA.4.1
+wc -l pruneForBA.4.1
+7 pruneForBA.4.1
+
+# mini-BA.4 on not-quite-BA.4 branch... remove for now, let them get added back tomorrow,
+# they might land in BA.4 now.  Also remove some basal cruft.
+g Netherlands/ZH-NMDL-01981/2022 sample-paths
+#... node_1350722:C28724T node_1350730:G27788T
+g SouthAfrica/NICD-N41599/2022 sample-paths
+#... node_1350722:C28724T node_1350730:G27788T node_1350731:G12160A node_1350751:G23040A node_1350752:T23018G node_1350753:T9866C 
+g node_1350730: sample-paths | g -v node_1350753 | cut -f 1 > pruneForBA.4
+
+# Reversion with mini-BA.2.12.1 and some other re-mut little branches...
+g India/KA-NIMH-4552/2022 sample-paths
+#... node_1322322:C2790T node_1322323:T16342C node_1323251:G28287A
+g India/TN-CDFD-W8-458/2022 sample-paths
+#...node_1322322:C2790T node_1322323:T16342C node_1323251:G28287A node_1323255:G23599T,A23604C node_1323256:T23525C node_1323257:A28287G node_1323260:C16342T node_1323467:C25416T node_1323468:A22812C node_1323473:C12789T,G22340A,G28300T node_1323474:C23525T,T23599G,C23604A
+g India/HR-0606000898854/2022 sample-paths
+#... node_1322322:C2790T node_1322323:T16342C node_1323251:G28287A node_1323255:G23599T,A23604C node_1323256:T23525C node_1323257:A28287G node_1323260:C16342T node_1323261:C23525T node_1323262:C25416T
+g node_1323251: sample-paths | g -v node_1323474: | g -v node_1323262: | cut -f 1 \
+    > pruneForBA.2.12.1
+
+# Oh damn, today's tree has BA.2.75 as a child of BA.2.76... though it has no 22599 or 22304, ugh.
+# OK, looks like it's getting pulled in by one sequence that shares 5 muts, weird, may need to add
+# that to badSeeds.  Overlaps 22000-23000 so not exactly recombinant.
+g India/DL-ILBSWGS5844/2022 sample-paths
+#... node_1717567:T22304A node_1717952:G15451A node_1717956:C3796T,C3927T,A12444G,T22942G,G23040A
+g India/TN-CDFD-J-1099/2022 sample-paths
+#... node_1717567:T22304A node_1717952:G15451A node_1717956:C3796T,C3927T,A12444G,T22942G,G23040A node_1717957:C22033A,A22304T,G22577C,C22599G,G22898A,A26275G
+g node_1717956: sample-paths | g -v node_1717957: | cut -f 1 > pruneForBA.2.75
+wc -l pruneForBA.2.75
+#1 pruneForBA.2.75
+echo EPI_ISL_13769402 >> ../badBranchSeed.ids
+
+# Triple-rev crap branch with some re-muts:
+g Belize/CML-499/2022 sample-paths
+#... node_1343782:G23055A node_1343916:T23063A node_1343961:C23075T node_1344552:C22792T node_1344647:C25624T node_1344668:A24433G node_1344679:A3314G
+g Mexico/CAM_LANGEBIO_IMSS_6589/2022 sample-paths
+#... node_1343782:G23055A node_1343916:T23063A node_1343961:C23075T node_1344552:C22792T node_1344647:C25624T node_1344668:A24433G node_1344679:A3314G node_1344680:C3923T,T19728C,A22012C node_1344681:C21952T node_1344682:G7320A node_1344683:A23055G,A23063T,T23075C
+g node_1344679: sample-paths | g -v node_1344683: | cut -f 1 > pruneForBA.2
+wc -l pruneForBA.2
+#11 pruneForBA.2
+
+g Mexico/CMX-INMEGEN-68-60/2022 sample-paths
+#... node_1343782:G23055A node_1343916:T23063A node_1343961:C23075T node_1344552:C22792T node_1344647:C25624T node_1344668:A24433G node_1344673:G1583A,C6027T,G25352T,C28807T
+g Mexico/CMX-INMEGEN-70-26/2022 sample-paths
+#... node_1343782:G23055A node_1343916:T23063A node_1343961:C23075T node_1344552:C22792T node_1344647:C25624T node_1344668:A24433G node_1344673:G1583A,C6027T,G25352T,C28807T node_1344674:A23055G,A23063T node_1344675:T23075C
+g node_1344673: sample-paths | g -v node_1344675 | cut -f 1 >> pruneForBA.2
+wc -l pruneForBA.2
+#13 pruneForBA.2
+
+# Really, masking would be better, just need to figure out how to spare recombinants...
+
+# Oh, it continues to a quadruple-reversion with a mini-BA.2.3 (USA/FL-CDC-ASC210734233/2022) --
+# but still with all the reversions, no obvious way to free it without masking.
+# And then there is a mini-BA.2 (and BA.4) with this streak:
+#  C197T, G199T, T200A, T201C, G204A, T212C, C214G, G216A, C217G, C218A
+# And BA.2.38 starts on a 241 reversion branch and then gets 25416, ugh.  :(
+# So... do some extra masking, and then two rounds of optimization (in the past that has seemed
+# necessary to get the full benefits after masking).
+BA2Node=$(grep India/KA-CBR-1402HAV021/2022 sample-paths \
+          | awk '{print $(NF-1);}' | sed -re 's/:.*//;')
+
+# In order to keep the node_ IDs stable for masking, mask first, then prune samples, then optimize.
+for i in 197 198 199 203 204 206 207 214 216 217 218 219 221 222 223 224 225 228 230 231 232 233 239 241 242 243 245 246 29766 ; do
+    echo -e "N${i}N\t$BA2Node"
+done > newMaskingForBA.2
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m newMaskingForBA.2 \
+    -o gisaidAndPublic.$today.masked.extraBA.2masked.pb
+#real    2m1.509s
+
+$matUtils extract -i gisaidAndPublic.$today.masked.extraBA.2masked.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    35m18.043s
+
+# Extra round of optimization
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch.reOpt \
+    -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -o gisaidAndPublic.$today.masked.pruned.reOpt.pb \
+    >& matOptimize.usher_branch.pruned.reOpt.log
+#real    29m3.773s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.reOpt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+
+# Hopefully in BA.4.1 now:
+g USA/DC-CDC-LC0747191/2022 sample-paths.opt
+#... node_1635288:C2790T node_2036354:C25416T node_2039698:T9866C node_2039723:G26577C node_2039725:T25416C node_2039726:C28724T node_2039727:G12160A node_2039728:T23018G,G23040A node_2039729:C26577G,G27788T node_2045643:T21570G node_2045825:T22917G node_2051939:C5281T
+# Wait, is BA.4 misplaced on BA.2 > 25416 now?  Damn.
+g -F BA.4$'\t' clade-paths clade-paths.opt
+#clade-paths:BA.4      ... > C2790T > C28724T > G27788T > G12160A > G23040A > T23018G > T9866C
+#clade-paths.opt:BA.4  ... > C2790T > C25416T > T9866C > G26577C > T25416C > C28724T > G12160A > T23018G,G23040A > C26577G,G27788T
+
+# OK, so we need another round of pruning to fix that.  :b  Check the others anyway.
+
+# Maybe in BA.4?
+g SouthAfrica/NICD-N41599/2022 sample-paths.opt
+#... node_1635288:C2790T node_2036354:C25416T node_2039698:T9866C node_2039723:G26577C node_2039725:T25416C node_2039726:C28724T node_2039727:G12160A node_2039728:T23018G,G23040A node_2039729:C26577G,G27788T
+# That's the new misplaced BA.4.
+
+# Hopefully BA.2 > 25416 > 22812 > few randos
+g India/TN-CDFD-W8-458/2022 sample-paths.opt
+#... node_1635288:C2790T node_1635289:T16342C node_1636369:G28287A node_1636373:G23599T,A23604C node_1636374:T23525C node_1636375:A28287G node_1636378:C16342T node_1636590:C25416T node_1636591:A22812C node_1636597:C12789T,G22340A,G28300T node_1636598:C23525T,T23599G,C23604A
+# Doh, still stuck on the wrong branch with muts/back-muts on 16342, 28287, 23599, 23604, 23525...
+# Ah, the C25416T > A22812C > C12789T,G22340A,G28300T before the final back-muts are probably
+# holding it in place, damn.
+
+# Hopefully BA.2 > 25416
+#... g India/HR-0606000898854/2022 sample-paths.opt
+node_1635288:C2790T node_1635289:T16342C node_1636369:G28287A node_1636373:G23599T,A23604C node_1636374:T23525C node_1636375:A28287G node_1636378:C16342T node_1636379:C23525T node_1636380:C25416T
+# Yeah, no re-mut on 23599 & 23604 to undo, oh well.
+
+# Hopefully based on BA.2 not BA.2.76:
+g India/TN-CDFD-J-1099/2022 sample-paths.opt
+#... node_1635288:C2790T node_2036354:C25416T node_2039451:G23040A node_2039460:C22033A node_2039461:C3796T,C3927T,A12444G,G22577C,G22898A,T22942G,A26275G
+# Yes, that's more like it.
+
+# Hopefully BA.2 > C22792T > C25624T > randos:
+g Mexico/CAM_LANGEBIO_IMSS_6589/2022 sample-paths.opt
+#... node_1635288:C2790T node_1811835:C22792T node_1910401:C25624T node_1918276:A24433G node_1920934:A3314G,C3923T,G7320A node_1920935:T19728C node_1920936:A22012C node_1920937:C21952T
+# Good.
+
+# Hopefully BA.2 > C22792T > C25624T > other randos:
+g Mexico/CMX-INMEGEN-70-26/2022 sample-paths.opt
+#... node_1635288:C2790T node_1811835:C22792T node_1910401:C25624T node_1918276:A24433G node_1920929:C6027T,G25352T,C28807T node_1920930:G1583A
+# Good.
+
+# BA.2.38 hopefully starts on BA.2 > 25416 now:
+g India/TN-CDFD-W8-336/2022 sample-paths.opt
+#... node_1635288:C2790T node_2036354:C25416T node_2128437:A22812C
+# Yay!
+# This was the start of BA.2.38 when it started on 241 rev > 25416:
+g India/RJ-SMS-ICMR-INSACOG-TS-11559/2022 sample-paths.opt
+#... node_1635288:C2790T node_2036354:C25416T node_2128437:A22812C
+# Good.
+
+wc -l clade-paths*
+#   1882 clade-paths
+#   1881 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.3.9_rev241
+# Ah yes, there will be no need for BA.2*_rev241 any more.
+
+# But first we need to fix the messed up placement of BA.4... and I think, to do that, I need
+# to look at it in taxonium.
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.reOpt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.masked.taxonium.jsonl.gz
+
+g Nepal/NPHL-S-1507/2022 sample-paths.opt
+#... node_1635288:C2790T node_2036354:C25416T node_2039698:T9866C node_2039723:G26577C node_2039725:T25416C node_2039726:C28724T
+g Colombia/DC-INS-VG-20533/2022 sample-paths.opt
+#... node_1635288:C2790T node_2036354:C25416T node_2039698:T9866C node_2039723:G26577C node_2039725:T25416C node_2039726:C28724T node_2039727:G12160A node_2039728:T23018G,G23040A node_2039729:C26577G,G27788T
+g node_2039726: sample-paths.opt | g -v node_2039729 | cut -f 1 > pruneForBA.4.reOpt
+wc -l pruneForBA.4.reOpt
+#7 pruneForBA.4.reOpt
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.reOpt.pb \
+    -p -s pruneForBA.4.reOpt \
+    -o gisaidAndPublic.$today.masked.rePruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.rePruned.pb \
+    -o gisaidAndPublic.$today.masked.rePruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    28m46.492s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.rePruned.opt.pb -C clade-paths.opt \
+    -S sample-paths.opt
+g -F BA.4$'\t' clade-paths clade-paths.opt
+#clade-paths:BA.4      ... > C2790T > C28724T > G27788T > G12160A > G23040A > T23018G > T9866C
+# No longer in clade-paths.opt, let's see the sample paths.
+
+# Hopefully in BA.4.1 now:
+g USA/DC-CDC-LC0747191/2022 sample-paths.opt
+#... node_1635288:C2790T node_1980765:T9866C node_2025046:T4321C node_2025050:G23040A node_2025051:G27788T node_2025052:C4321T,G12160A,T23018G,C28724T node_2030966:T21570G node_2031148:T22917G node_2037263:C5281T
+# I don't like the rev/re-mut on 4321 but that's still better than before.  Keep an eye on it
+# tomorrow.
+
+# Maybe in BA.4?
+g SouthAfrica/NICD-N41599/2022 sample-paths.opt
+#... node_1635288:C2790T node_1980765:T9866C node_2025046:T4321C node_2025050:G23040A node_2025051:G27788T node_2025052:C4321T,G12160A,T23018G,C28724T
+
+# Hopefully BA.2 > 25416 > 22812 > few randos
+g India/TN-CDFD-W8-458/2022 sample-paths.opt
+#... node_1635288:C2790T node_1635289:T16342C node_1636369:G28287A node_1636373:G23599T,A23604C node_1636374:T23525C node_1636375:A28287G node_1636378:C16342T node_1636590:C25416T node_1636591:A22812C node_1636597:C12789T,G22340A,G28300T node_1636598:C23525T,T23599G,C23604A
+# Nope, too many messy seqs
+
+# Hopefully BA.2 > 25416
+g India/HR-0606000898854/2022 sample-paths.opt
+#... node_1635288:C2790T node_1635289:T16342C node_1636369:G28287A node_1636373:G23599T,A23604C node_1636374:T23525C node_1636375:A28287G node_1636378:C16342T node_1636379:C23525T node_1636380:C25416T
+# Nope.
+
+# Hopefully based on BA.2 not BA.2.76:
+g India/TN-CDFD-J-1099/2022 sample-paths.opt
+#... node_1635288:C2790T node_2048990:C25416T node_2052089:G23040A node_2052098:C22033A node_2052099:C3796T,C3927T,A12444G,G22577C,G22898A,T22942G,A26275G
+# Good.
+
+# Hopefully BA.2 > C22792T > C25624T > randos:
+g Mexico/CAM_LANGEBIO_IMSS_6589/2022 sample-paths.opt
+#... node_1635288:C2790T node_1811858:C22792T node_1910437:C25624T node_1918316:A24433G node_1920251:A3314G node_1920282:C3923T,G7320A node_1920283:T19728C node_1920284:A22012C node_1920285:C21952T
+# Good.
+
+# Hopefully BA.2 > C22792T > C25624T > other randos:
+g Mexico/CMX-INMEGEN-70-26/2022 sample-paths.opt
+#... node_1635288:C2790T node_1811858:C22792T node_1910437:C25624T node_1918316:A24433G node_1921028:C6027T node_1921029:G25352T,C28807T node_1921030:G1583A
+# Good.
+
+# BA.2.38 hopefully starts on BA.2 > 25416 now:
+g India/TN-CDFD-W8-336/2022 sample-paths.opt
+#... node_1635288:C2790T node_2048990:C25416T node_2128512:A22812C
+# This was the start of BA.2.38 when it started on 241 rev > 25416:
+g India/RJ-SMS-ICMR-INSACOG-TS-11559/2022 sample-paths.opt
+#... node_1635288:C2790T node_2048990:C25416T node_2128512:A22812C
+# Whew.  :)
+
+wc -l clade-paths*
+#   1882 clade-paths
+#   1878 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.3.9_rev241
+#BA.2.9
+#BA.4
+#BA.5.2
+# Weird, wonder what happened to BA.2.9.
+g Denmark/DCGC-456333/2022 sample-paths.opt
+#node_1635288:C2790T node_1811858:C22792T node_1910437:C25624T
+# Dunno why that wouldn't be in clade-paths.opt, oh well.
+
+# So we'll need to do a quick re-annotate before replacing the main pb with this.
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.rePruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.opt
+wc -l clade-paths clade-paths.opt
+#   1882 clade-paths
+#   1881 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.3.9_rev241
+
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+chmod 664 g*pb
+
+mv clade-paths{,.prePrune}
+mv clade-paths{.opt,}
+mv sample-paths{.opt,}
+
+# Paste in steps after annotation from upCo.
+
+# 2022-07-19 -- NCBI fetch died with a badCRC error so we're running ~6 hours behind and have
+# time for a bit more tweaking.  ChenWei's odd sequence needs a bit more masking.
+# BA.4 and BA.5 have moved in together on BA.2 > 9866rev which is nice! (And, Cornelius thinks,
+# ancestral to BA.2 although there are too many seqs missing 10198 and 2790 for UShER to ever
+# see that).  However, a small number of sequences are causing a 4321 rev & re-mut on the way
+# to BA.4, and it would be nice to get rid of that.
+g Belgium/rega-28933/2022 sample-paths
+#... node_1635288:C2790T node_1980765:T9866C node_2025046:T4321C
+g SouthAfrica/NICD-N41599/2022 sample-paths
+#... node_1635288:C2790T node_1980765:T9866C node_2025046:T4321C node_2025050:G23040A node_2025051:G27788T node_2025052:C4321T,G12160A,T23018G,C28724T
+g node_2025046: sample-paths | g -v node_2025052 | cut -f 1 > pruneForBA.4.4321
+wc -l pruneForBA.4.4321
+#39 pruneForBA.4.4321
+
+# What the heck, do the mask - prune - opt - opt thing again.
+BA2Node=$(grep India/KA-CBR-1402HAV021/2022 sample-paths \
+          | awk '{print $(NF-1);}' | sed -re 's/:.*//;')
+for i in 200 201; do
+    echo -e "N${i}N\t$BA2Node"
+done > moreNewMaskingForBA.2
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m moreNewMaskingForBA.2 \
+    -o gisaidAndPublic.$today.masked.extraBA.2masked.pb
+#real    1m55.589s
+
+$matUtils extract -i gisaidAndPublic.$today.masked.extraBA.2masked.pb \
+    -p -s pruneForBA.4.4321 \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    28m33.186s
+
+# Extra round of optimization
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch.reOpt \
+    -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -o gisaidAndPublic.$today.masked.pruned.reOpt.pb \
+    >& matOptimize.usher_branch.pruned.reOpt.log
+#real    29m13.102s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.reOpt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+g -F BA.4$'\t' clade-paths clade-paths.opt
+# No longer in clade-paths.opt, see paths...
+
+# Hopefully in BA.4.1 now:
+g USA/DC-CDC-LC0747191/2022 sample-paths.opt
+#... node_1635288:C2790T node_1980758:T9866C node_2025038:G12160A node_2025039:T23018G,G23040A node_2025040:G27788T,C28724T node_2030952:T21570G node_2031134:T22917G node_2037217:C5281T
+# OK, looking good now (although the 22917 flakiness is a bummer).
+
+# Hopefully BA.4-basal:
+g SouthAfrica/NICD-N41599/2022 sample-paths.opt
+#... node_1635288:C2790T node_1980758:T9866C node_2025038:G12160A node_2025039:T23018G,G23040A node_2025040:G27788T,C28724T
+
+# Hopefully based on BA.2 not BA.2.76:
+g India/TN-CDFD-J-1099/2022 sample-paths.opt
+#... node_1635288:C2790T node_2048940:C25416T node_2052039:G23040A node_2052048:C22033A node_2052049:C3796T,C3927T,A12444G,G22577C,G22898A,T22942G,A26275G
+# Good.
+
+# Hopefully BA.2 > C22792T > C25624T > randos:
+g Mexico/CAM_LANGEBIO_IMSS_6589/2022 sample-paths.opt
+#... node_1635288:C2790T node_1811854:C22792T node_1910429:C25624T node_1918307:A24433G node_1920242:A3314G node_1920265:C3923T,G7320A node_1920266:T19728C node_1920267:A22012C node_1920268:C21952T
+
+# Hopefully BA.2 > C22792T > C25624T > other randos:
+g Mexico/CMX-INMEGEN-70-26/2022 sample-paths.opt
+#... node_1635288:C2790T node_1811854:C22792T node_1910429:C25624T node_1918307:A24433G node_1921007:C6027T node_1921008:G25352T,C28807T node_1921009:G1583A
+
+# BA.2.38 hopefully starts on BA.2 > 25416 now:
+g India/TN-CDFD-W8-336/2022 sample-paths.opt
+#... node_1635288:C2790T node_2048940:C25416T node_2128435:A22812C
+# This was the start of BA.2.38 when it started on 241 rev > 25416:
+g India/RJ-SMS-ICMR-INSACOG-TS-11559/2022 sample-paths.opt
+#... node_1635288:C2790T node_2048940:C25416T node_2128435:A22812C
+
+# What about Chenwei's?
+g EPI_ISL_13787385 sample-paths.opt
+#node_1635288:C2790T node_1665728:G210T node_1667513:T212C node_1667585:T22917G,T23018G,G23040A Australia/QLD0x00FB3D/2022|EPI_ISL_13787385|2022-06-23:C10681T,C12534T,C13592T,T23269C,A27038G,C28087T,A28293G
+# OK, it's still on a 210+212 branch, should see what else is there... if more seqs are found
+# then maybe they'll break out of 210+212 jail.
+
+wc -l clade-paths*
+#   1881 clade-paths
+#   1880 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.4
+
+# So we'll need to do a quick re-annotate before replacing the main pb with this.
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.reOpt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.opt
+wc -l clade-paths clade-paths.opt
+#   1881 clade-paths
+#   1881 clade-paths.opt
+
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+chmod 664 g*pb
+
+mv clade-paths{.opt,}
+mv sample-paths{.opt,}
+
+# Paste in steps after annotation from upCo.

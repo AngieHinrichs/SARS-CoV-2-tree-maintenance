@@ -1,0 +1,113 @@
+# The 2022-04-02 build finally finished its usher cluster run with a crazy number of new seqs,
+# but it was the first matOptimize after adding some new masking, and the BA.1 tree is a crazy
+# mess of split branches and weird reversion-ridden paths.
+# BA.1.17 is split, with most of it on a bogus path in BA.15.1, and some on a bogus path in BA.1.16.
+# BA.1.18 is on a bogus path in BA.1.1.
+# At least BA.1.19 is intact although it still has a big back-mut branch.
+# Run matOptimize again.  Then, if problems remain, do some pruning and reoptimizing.
+
+today=2022-04-02
+prevDate=2022-03-30
+cd $ottoDir/$today
+
+$matOptimize -T 80 -r 8 -M 2 -S move_log.reopt \
+    -i gisaidAndPublic.$today.masked.pb \
+    -o gisaidAndPublic.$today.masked.reopt.pb \
+    >& matOptimize.reopt.log
+
+# Make taxonium (using previous build's metadata, $today's doesn't have lineages annotated yet)
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat ../$prevDate/gisaidAndPublic.$prevDate.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.reopt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.reopt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+pigz -p 8 -f gisaidAndPublic.$today.masked.reopt.taxodium.pb
+
+# Much better!  BA.1.15, BA.1.15.1 and BA.1.17 are where they should be.
+# Unfortunately BA.1.18 is still on some bogus path as a sibling of BA.1.16 (which is OK).
+# So, let's do a round of pruning and re-optimizing and hope for the best.
+$matUtils extract -i gisaidAndPublic.$today.masked.reopt.pb -S sample-paths.reopt
+g England/MILK-343EFE1/2022 sample-paths.reopt
+#... node_1196528:G23048A node_1374571:C29632T node_1379533:T27384C 
+g SouthAfrica/NICD-N22312/2021 sample-paths.reopt
+#... node_1196528:G23048A node_1374571:C29632T node_1379533:T27384C node_1379636:C5055T node_1379637:T29632C node_1379640:T5055C node_1379641:C27384T node_1379701:C5730T 
+# Also spare this chunk:
+g England/BRBR-2E862CC/2021 sample-paths.reopt
+#... node_1196528:G23048A node_1374571:C29632T node_1379533:T27384C node_1379636:C5055T node_1379637:T29632C node_1379640:T5055C node_1379641:C27384T node_1385859:C2902T 
+g node_1379533: sample-paths.reopt | g -v node_1379701: | g -v node_1385859: | cut -f 1 \
+    > pruneForBA.1.18
+wc -l pruneForBA.1.18
+#1320 pruneForBA.1.18
+
+# Also remove dups found in 2022-03-30 (see 22_04_04_gisaidNamesForChris.txt).
+$matUtils extract -i gisaidAndPublic.$today.masked.reopt.pb \
+    -p -s <(cat pruneForBA.1.18 ../$prevDate/dupsToPruneDangit) \
+    -o gisaidAndPublic.$today.masked.reopt.prune.pb
+
+$matOptimize -T 150 -r 8 -M 2 -S move_log.reopt.prune \
+    -i gisaidAndPublic.$today.masked.reopt.prune.pb \
+    -o gisaidAndPublic.$today.masked.reopt.prune.opt.pb \
+    >& matOptimize.reopt.prune.log
+
+# Taxonium... and sample-paths just in case another round is required.
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat ../$prevDate/gisaidAndPublic.$prevDate.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.reopt.prune.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.reopt.prune.opt.taxodium.pb
+pigz -p 8 -f gisaidAndPublic.$today.masked.reopt.prune.opt.taxodium.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.reopt.prune.opt.pb -S sample-paths.reopt.prune.opt
+
+# OK, BA.1.18, BA.1.15 and BA.1.17 looking good!
+
+# Crap, a chunk of BA.1 got moved down into BA.1.1...
+g USA/AZ-CDC-ASC210585573/2022 sample-paths.reopt.prune.opt
+#... node_1196529:G23048A node_1243498:G22599A node_1368026:C11950T 
+g USA/NY-SUNYQBR-55210128202839/2021 sample-paths.reopt.prune.opt
+#... node_1196529:G23048A node_1243498:G22599A node_1368026:C11950T node_1368027:A22599G ...
+# There are a lot more C11950T samples without G22599A than with it.  
+g node_1368027: sample-paths.reopt.prune.opt | wc -l
+#20639
+# OK, 20k sequences are worth one more round of pruning & optimizing.
+g node_1368026: sample-paths.reopt.prune.opt | g -v node_1368027: | cut -f 1 > pruneFor11950
+wc -l pruneFor11950
+#9 pruneFor11950
+
+$matUtils extract -i gisaidAndPublic.$today.masked.reopt.prune.opt.pb \
+    -p -s pruneFor11950 \
+    -o gisaidAndPublic.$today.masked.reopt.reprune.pb
+$matOptimize -T 150 -r 8 -M 2 -S move_log.reopt.reprune \
+    -i gisaidAndPublic.$today.masked.reopt.reprune.pb \
+    -o gisaidAndPublic.$today.masked.reopt.reprune.opt.pb \
+    >& matOptimize.reopt.reprune.log
+
+# Taxonium... and sample-paths just in case another round is required.
+time $matUtils extract -i gisaidAndPublic.$today.masked.reopt.reprune.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.reopt.reprune.opt.taxodium.pb
+pigz -p 8 -f gisaidAndPublic.$today.masked.reopt.reprune.opt.taxodium.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.reopt.reprune.opt.pb \
+    -S sample-paths.reopt.reprune.opt
+# Finally!  Looks good at a birds-eye view, no giant chunks out of place.  Replace & continue
+# build and start next build.
+
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePruneOpt.pb
+ln -f gisaidAndPublic.$today.masked.reopt.reprune.opt.pb gisaidAndPublic.$today.masked.pb
+
+# Needs annotation onward.
+

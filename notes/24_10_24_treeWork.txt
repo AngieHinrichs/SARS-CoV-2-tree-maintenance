@@ -1,0 +1,20 @@
+today=2024-10-24
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86.1 -S sample-paths
+
+# How many samples might be affected by mafft / 21654 artifact in BA.2.86.1?
+g Belgium/AZDelta-2344-07672/2023 sample-paths
+#... node_2260966:A6183G
+
+g node_2260966: sample-paths | g C21654T | wc -l
+#8384
+
+# That is definitely in the noise of a daily build.  Nuke'm.
+g node_2260966: sample-paths | g C21654T | cut -f 1 > pruneFor21654
+wc -l pruneFor21654
+#8384 pruneFor21654
+
+# Just use the pruned tree as the basis for tomorrow's build.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.masked.useMe.pb

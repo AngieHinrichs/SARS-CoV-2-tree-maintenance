@@ -1,0 +1,70 @@
+today=2025-04-01
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Xu thinks sequences that don't appear to have T111C on this branch probably do but have Ns
+# https://github.com/cov-lineages/pango-designation/issues/2922
+# Prune from G25429C on, keep all these that get late T111C:
+g Singapore/R66MQ3/2024 sample-paths
+#... node_2329816:G25429C node_2329861:T111C
+g DEU/BY-USAFSAM-S23299/2024 sample-paths
+#... node_2329816:G25429C node_2329817:C25624T node_2329855:T111C
+g Singapore/R67MQ167/2024 sample-paths
+#... node_2329816:G25429C node_2329817:C25624T node_2329818:C6027T,C7688T node_2329819:G20397A node_2329820:T111C
+g Singapore/Y25R4MSC30/2025 sample-paths
+#... node_2329816:G25429C node_2329817:C25624T node_2329818:C6027T,C7688T node_2329819:G20397A node_2329822:A17645G,A27809G node_2329823:T111C
+g Denmark/DCGC-690387/2024 sample-paths
+#... node_2329816:G25429C node_2329817:C25624T node_2329818:C6027T,C7688T node_2329833:T111C
+g node_2329816: sample-paths | g -v node_2329861: | g -v node_2329855: | g -v node_2329820: \
+| g -v node_2329823 | g -v node_2329833: | cut -f 1 > pruneForPD2922
+wc -l pruneForPD2922
+#22 pruneForPD2922
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m45.261s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# T111C lumped with G25429C (or at least before C25624T) now?
+g Singapore/R66MQ3/2024 sample-paths.pruned
+#... node_2329818:T111C,G25429C
+g DEU/BY-USAFSAM-S23299/2024 sample-paths.pruned
+#... node_2329818:T111C,G25429C node_2329819:C25624T
+g Singapore/R67MQ167/2024 sample-paths.pruned
+#... node_2329818:T111C,G25429C node_2329819:C25624T node_2329820:C6027T,C7688T node_2329821:G20397A
+g Singapore/Y25R4MSC30/2025 sample-paths.pruned
+#... node_2329818:T111C,G25429C node_2329819:C25624T node_2329820:C6027T,C7688T node_2329821:G20397A node_2329822:A17645G,A27809G
+g Denmark/DCGC-690387/2024 sample-paths.pruned
+#... node_2329818:T111C,G25429C node_2329819:C25624T node_2329820:C6027T,C7688T
+# Good, see what happens when sequences are added back...

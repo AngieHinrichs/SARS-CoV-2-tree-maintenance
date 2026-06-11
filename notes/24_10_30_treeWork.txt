@@ -1,0 +1,135 @@
+today=2024-10-30
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# Fede spotted a bit of MC.10 with late 16332
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2015#issuecomment-2439690224
+g USA/CO-CDPHE-42194317/2024 sample-paths
+#... node_2341821:A19722G node_2357564:A10323G node_2357576:C16332T
+g node_2357564: sample-paths | g -v node_2357576: | cut -f 1 > pruneForMC.10
+wc -l pruneForMC.10
+#57 pruneForMC.10
+
+
+# LY.1 should be child of JN.1.18.6 but is on a multi-rev branch in KP.2.10...
+g USA/CO-CDPHE-42195361/2024 sample-paths
+#... node_2377717:T21756A node_2377718:T17334G node_2377719:A22110C,T24872G node_2377720:T20367C node_2377721:T7113C
+g node_2377718: sample-paths | g -v node_2377721: | cut -f 1 > pruneForLY.1
+wc -l pruneForLY.1
+#4 pruneForLY.1
+
+
+# MB.1 should be child of JN.1.49.1 but it's on a rev branch:
+g USA/IL-CDC-QDX93824686/2024 sample-paths
+#... node_2387426:T24872G node_2395828:T17334G node_2395829:C25658T,T29637A node_2395830:T7113C,C8917T,C21654T,C22928G
+g node_2395828: sample-paths | g -v node_2395830: | cut -f 1 > pruneForMB.1
+wc -l pruneForMB.1
+#13 pruneForMB.1
+
+
+# KP.3.1.1 > 21654 branch is a bit of a mini-, maybe try some forceMoves to put child branches
+# in their pangolin-assigned lineage branches?
+# Spain/CU-83517/2024 sample-paths
+# Running low on time -- some other night.
+
+
+# Misplaced chunk of MC.16 on rev branch:
+g France/NAQ-HCL724000244701/2024 sample-paths
+#... node_2343091:C7728T node_2343107:G2890A node_2343108:G625T node_2343109:T7728C node_2343111:C21654T node_2343112:T625G
+g node_2343107: sample-paths | g -v node_2343112: | cut -f 1 > pruneForMC.16
+wc -l pruneForMC.16
+#21 pruneForMC.16
+
+
+# Once again JN.1.16.1 is on a multi-rev branch from KP.2... permanently exclude some seqs
+g CHN/SH-HG20240229-601/2024 sample-paths
+#... node_2376390:G22599C node_2387426:T24872G node_2387427:T7113C node_2387428:T17334G
+# Spare MB.1 (above) which is also on this multi-rev branch
+g node_2387426: sample-paths | g -v node_2387428: | g -v node_2395830: | cut -f 1 > pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#162 pruneForJN.1.16.1
+
+# Permanently exclude this one sequence that makes the 7113 rev and ties in the final 17334 rev
+# to JN.1.16.1.
+# USA/AZ-CDC-QDX20255808/2024|PQ041107.1|2024-07-02
+echo PQ041107.1 >> ../badBranchSeed.ids
+g PQ041107.1 $epiToPublic
+# No results, so no EPI_ISL to exclude for it.
+# Also permanently exclude this one GBW sequence that ties in MB.1:
+# USA/NY-GBW-GKPLAAAA11706/2024|PQ427980.1|2024-09-19
+echo PQ427980.1 >> ../badBranchSeed.ids
+g PQ427980.1 $epiToPublic
+#EPI_ISL_19445440        PQ427980.1      USA/NY-GBW-GKPLAAAA11706/2024   2024-09-19
+echo EPI_ISL_19445440 >> ../badBranchSeed.ids
+
+
+wc -l pruneFor*
+#  162 pruneForJN.1.16.1
+#    4 pruneForLY.1
+#   13 pruneForMB.1
+#   57 pruneForMC.10
+#   21 pruneForMC.16
+#  257 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# 16332 before 10323?
+g USA/CO-CDPHE-42194317/2024 sample-paths.pruned
+#... node_2341827:A19722G node_2351436:C16332T node_2351437:A10323G
+# Good.
+
+# No more rev on 17334, 7113?
+g USA/CO-CDPHE-42195361/2024 sample-paths.pruned
+#... node_2266826:T27810C node_2340557:G17334T node_2340596:G24872T node_2392139:G22599C node_2392141:T21737C node_2392148:T22928C node_2392149:T17334G node_2392150:C21737T node_2392151:T24872G node_2392152:T21738C node_2392153:T20367C,T21756A,A22110C
+# Doh, still a rev on 17334... and a new one on 21737.  More exclusions...
+
+# No more rev on 17334, 7113, 24872?
+g USA/IL-CDC-QDX93824686/2024 sample-paths.pruned
+#... node_2266826:T27810C node_2340557:G17334T node_2340596:G24872T node_2392139:G22599C node_2392141:T21737C node_2392148:T22928C node_2392149:T17334G node_2392150:C21737T node_2392151:T24872G node_2400279:C22928G node_2400280:C8917T,C21654T,C25658T,T29637A
+# Same problem with 17334, 21737
+
+# No more 7728, 625; 2890 first?
+g France/NAQ-HCL724000244701/2024 sample-paths.pruned
+#... node_2341827:A19722G node_2353981:G2890A node_2353982:C21654T
+# Good.
+
+# No more rev on 17334, 7113, 24872?
+g CHN/SH-HG20240229-601/2024 sample-paths.pruned
+#... node_2266826:T27810C node_2340557:G17334T node_2340596:G24872T node_2392139:G22599C node_2392141:T21737C node_2392148:T22928C node_2392149:T17334G node_2392150:C21737T node_2392151:T24872G 
+# Same problem with 17334, 21737

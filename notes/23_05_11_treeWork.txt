@@ -1,0 +1,155 @@
+today=2023-05-11
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# Flip-flop on the way to XBB.1.5.37:
+g France/GES-IPP06749/2023 sample-paths
+#... node_1938925:T10204C node_1953077:C16260T node_1953079:A24696G node_1953161:T16260C
+g node_1953077: sample-paths | g -v node_1953079: | cut -f 1 > pruneForXBB.1.5.37
+wc -l pruneForXBB.1.5.37
+#11 pruneForXBB.1.5.37
+
+
+# XBB.1.5.4 has a flip-flop on 22200
+g USA/NY-SUNYQB-X4947/2023 sample-paths
+#... node_1903920:T23018C node_1907849:A22200T node_1907854:C24210T node_1907855:T22200A
+g node_1907849: sample-paths | g -v node_1907855: | cut -f 1 > pruneForXBB.1.5.4
+wc -l pruneForXBB.1.5.4
+#47 pruneForXBB.1.5.4
+
+
+# XBB.1.5.51 is not in XBB.1.5 - late 23018
+g USA/WA-S22846/2023 sample-paths
+#... node_1903661:T17124C node_1967361:C25553T node_1967362:A9291C node_1967363:T23018C
+# Spare a couple other little late-23018 clusters too
+g Australia/TAS005230/2023 sample-paths
+#... node_1967361:C25553T node_1967362:A9291C node_1967673:A1904C,T28853C node_1967674:T23018C
+g USA/HI-H2320326/2023 sample-paths
+#... node_1967361:C25553T node_1967362:A9291C node_1967694:C22530T node_1967695:T23018C
+g node_1967361: sample-paths | g -v node_1967363: | g -v node_1967674: | g -v node_1967695: \
+| cut -f 1 > pruneForXBB.1.5.51
+wc -l pruneForXBB.1.5.51
+#36 pruneForXBB.1.5.51
+
+
+cat > pruneForOmicronBasal <<EOF
+Ecuador/USFQ-2567/2021|EPI_ISL_9489290|2021-01-06
+TrinidadandTobago/120600/2022|EPI_ISL_9402879|2022-01-27
+AntiguaandBarbuda/118851/2022|EPI_ISL_9402726|2022-01-14
+USA/TG1163026/2021|ON517242.1|2021-12-27
+Chile/VS-7541/2022|EPI_ISL_9196974|2022-01-10
+USA/TG1141825/2021|ON515945.1|2021-11-15
+USA/TG1142527/2022|ON516048.1|2022-01-04
+USA/TG1142821/2022|ON515968.1|2022-01-09
+Romania/IS-13466/2022|EPI_ISL_11154570|2022-02-19
+India/KA-RFNB-12352/2021|EPI_ISL_13825302|2021-04
+India/KA-RFNB-11746/2021|EPI_ISL_13825303|2021-04
+EOF
+
+# Permanently exclude those.
+cut -d \| -f 2 pruneForOmicronBasal | g -Fwf - $epiToPublic 
+# No output -- none of the GenBank ones are in GISAID.
+cut -d \| -f 2 pruneForOmicronBasal \
+    >> $ottoDir/badBranchSeed.ids
+
+wc -l pruneFor*
+#  11 pruneForOmicronBasal
+#  11 pruneForXBB.1.5.37
+#  47 pruneForXBB.1.5.4
+#  36 pruneForXBB.1.5.51
+# 105 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Cheng recommends -m 0.00000001 instead of -r 8 (see 23_05_09)
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    227m10.120s
+# Well, it does take a lot closer to the 4 hours...
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# No more flip-flop on 16260?
+g France/GES-IPP06749/2023 sample-paths.pruned
+#... node_2774939:T10204C node_2800434:A24696G
+# Yep.
+
+# No more flip-flop on 22200?
+g USA/NY-SUNYQB-X4947/2023 sample-paths.pruned
+#... node_2733804:T23018C node_2808445:C24210T
+# Yep.
+
+# On XBB.1.5 now?  (23018 first)
+g USA/WA-S22846/2023 sample-paths.pruned
+#... node_2733804:T23018C node_2733805:A9291C,C25553T
+g Australia/TAS005230/2023 sample-paths.pruned
+#... node_2733804:T23018C node_2733805:A9291C,C25553T node_2733806:A1904C,T28853C
+g USA/HI-H2320326/2023 sample-paths.pruned
+#... node_2733804:T23018C node_2733805:A9291C,C25553T node_2733828:C22530T
+# Yep.
+
+
+# Look at Omicron base in taxonium
+
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   2955 clade-paths
+#   2949 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+# Wow, just running annotate on the output of matOptimize, even with clade annotations in
+# lineageToPath update, it couldn't find *1341* paths -- I suspect some extra mutationless nodes
+# or something.  Fix with matUtils extract, then annotate.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.recondensed.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.recondensed.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#< B.1.1.529_dropout
+#> XBB_dropout
+# Hmmm, might need to manually add in B.1.1.529_dropout for lineageTree update.
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

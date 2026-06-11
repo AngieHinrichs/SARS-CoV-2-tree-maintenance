@@ -1,0 +1,176 @@
+today=2024-07-30
+cd $ottoDir/$today
+# Go all the way back to BA.2 this time, to fix something stuck in BA.5_dropout
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# new MH.1 is LB.1.3 > 23277 > 28244 but it should be LB.1.3 > 28244 (LB.1.3.2) > 23277
+# MH.1:
+g England/CLIMB-CM7YK64E/2024 sample-paths
+#... node_2357094:C18131T node_2357508:C23277T node_2357511:C24844T ...
+# LB.1.3.2:
+g France/NOR-IPP06946/2024 sample-paths
+#... node_2357094:C18131T node_2357172:C24844T
+echo -e "node_2357511\tnode_2357172" > forceMove.tsv
+
+
+# KP.1.1 is placed as KP.2 > A24819G but it should be child of KP.1
+# KP.1.1:
+g Australia/SA1369282/2024 sample-paths
+#... node_2285232:T22928C node_2295027:G22599C node_2298619:A24819G
+# KP.1:
+g Canada/ON-PHL-202404757/2024 sample-paths
+#... node_2285232:T22928C node_2301963:A24819G
+echo -e "node_2298619\tnode_2301963" >> forceMove.tsv
+
+
+# JN.1.7.8 is misplaced as child of JN.1.7.5 with rev on JN.1.7.5 defining mut
+g Mexico/CMX-INER-INMEGEN-3049/2024 sample-paths
+#... node_2346517:G25012T node_2348902:C10448T node_2349069:C7840T node_2349070:C2695T node_2349071:T10448C node_2349073:C29367T node_2349077:T22930A
+# prune from C7840T
+g node_2349069: sample-paths | g -v node_2349077: | cut -f 1 > pruneForJN.1.7.8
+wc -l pruneForJN.1.7.8
+#19 pruneForJN.1.7.8
+
+
+# A chunk of BA.5.1 got pulled up into BA.5_dropout...
+g Spain/AN-CBA-27840/2022 sample-paths
+#... node_1648875:C27259A node_1648896:T27438C node_1649140:T27412G node_1649143:C29666T node_1649147:C27889T node_1649150:G27412T
+# prune back to T27438C
+g node_1648896: sample-paths | g -v node_1649150: | cut -f 1 > pruneForBA.5.1
+wc -l pruneForBA.5.1
+#1654 pruneForBA.5.1
+
+
+# email from Fede -- JN.1.16.1 is placed in JN.1.18.  JN.1.18.6 is placed in JN.1.16.1.
+# Move JN.1.16.1 to JN.1.16 and JN.1.18.6 to JN.1.18.
+# JN.1.16.1:
+g Canada/AB-ABPHL-116302/2024 sample-paths
+#... node_2266552:T27810C node_2354131:G22599C node_2355398:T22928C
+# JN.1.16: 
+g Australia/TAS007134/2024 sample-paths
+#... node_2266552:T27810C node_2351778:T22928C
+echo -e "node_2355398\tnode_2351778" >> forceMove.tsv
+
+# JN.1.18.6:
+g Australia/SA1475073/2024 sample-paths
+#... node_2266552:T27810C node_2354131:G22599C node_2355398:T22928C node_2358381:T21738C
+# JN.1.18:
+g Argentina/INEI126431/2024 sample-paths
+#... node_2266552:T27810C node_2354131:G22599C
+echo -e "node_2358381\tnode_2354131" >> forceMove.tsv
+
+
+# Fede spotted a predecessor branch of the lineage currently known as LB.1.8, which probably
+# should be right on JN.1 but is on a 9979 rev branch:
+# https://github.com/cov-lineages/pango-designation/commit/05eee64fdd6e8246d20ce0c104b36a0f2ae7e32a#commitcomment-144784091
+g Venezuela/Ara9309/2024 sample-paths
+#... node_2271143:C9979T node_2271174:G22111T node_2271176:A2618G node_2271177:T9979C
+# prune back to G22111T
+g node_2271174: sample-paths | g -v node_2271177: | cut -f 1 > pruneForLB.1.8
+wc -l pruneForLB.1.8
+#3 pruneForLB.1.8
+
+
+# Xu spotted a misplaced chunk of LB.1.2
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1792
+g Israel/SMC-7117788/2024 sample-paths
+#... node_2355398:T22928C node_2356527:G22111T node_2357082:C23277T node_2357083:G19669A
+g node_2357082: sample-paths | g -v node_2357083: | cut -f 1 > pruneForLB.1.2
+wc -l pruneForLB.1.2
+#4 pruneForLB.1.2
+
+
+wc -l forceMove.tsv pruneFor*
+#    4 forceMove.tsv
+# 1654 pruneForBA.5.1
+#   19 pruneForJN.1.7.8
+#    4 pruneForLB.1.2
+#    3 pruneForLB.1.8
+
+
+# Force-move first since it depends on node IDs
+$matUtils mask --move-nodes forceMove.tsv -i gisaidAndPublic.$today.masked.pb \
+    -o gisaidAndPublic.$today.masked.forceMove.pb.gz
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.forceMove.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    111m50.891s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14297102,with radius 1, second from start 297
+#parsimony score after optimizing: 14297091,with radius 2, second from start 402
+#parsimony score after optimizing: 14297082,with radius 4, second from start 899
+#parsimony score after optimizing: 14297081,with radius 8, second from start 3440
+#parsimony score after optimizing: 14297074,with radius 16, second from start 5565
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# Is MH.1 at C24844T > C23277T?
+g England/CLIMB-CM7YK64E/2024 sample-paths.pruned
+#... node_2353571:C24844T node_2353628:C23277T ...
+# Yep
+
+# Is KP.1.1 at A24819G > G22599C?
+g Australia/SA1369282/2024 sample-paths.pruned
+#... node_2300032:A24819G node_2300966:G22599C
+# Yep
+
+# No more flip-flop 10448 for JN.1.7.5?
+g Mexico/CMX-INER-INMEGEN-3049/2024 sample-paths.pruned
+#... node_2346057:G25012T node_2348691:C7840T node_2348693:C2695T,T22930A,C29367T
+# Yep
+
+# In BA.5.1 proper?
+g Spain/AN-CBA-27840/2022 sample-paths.pruned
+#... node_1649787:C27889T node_1840944:C29666T node_1840945:T27438C node_1840946:A26529G
+# Yep, just with a rev on 26529.
+
+# Is JN.1.16.1 in JN.1.16?  (T22928C > G22599C)
+g Canada/AB-ABPHL-116302/2024 sample-paths.pruned
+#... node_2351315:T22928C node_2351809:G22599C
+# Yep
+
+# Is JN.1.18.6 in JN.1.18 not JN.1.16.1?  (G22599C > T21738C > T22928C)
+g Australia/SA1475073/2024 sample-paths.pruned
+#... node_2356679:G22599C node_2357157:T21738C node_2357158:T22928C
+# Yep
+
+# Is predecessor-of-LB.1.8 on JN.1? (no 9979 flip-flop)
+g Venezuela/Ara9309/2024 sample-paths.pruned
+#... node_2266136:T27810C node_2350638:G22111T node_2350639:A2618G
+# Yep
+
+# Is this back in LB.1.2? (G22599C > T22928C > G19669A > G22111T > C23277T)
+g Israel/SMC-7117788/2024 sample-paths.pruned
+#... node_2351315:T22928C node_2351809:G22599C node_2352938:G22111T node_2354599:G19669A node_2354600:C23277T
+# Not quite... still getting G22111T before G19669A.  Probably could do a force-move...
+# see what matOptimize does with the 2024-07-31 build.

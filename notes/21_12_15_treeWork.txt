@@ -1,0 +1,69 @@
+# There are now thousands of Omicron sequences, and some nasty back-mutation-filled little branches,
+# some of which also have some familiar Delta mutations here and there.  Time to do some permanent
+# pruning.
+
+today=2021-12-14
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.2021-12-14.masked.pb -C clade-paths -S sample-paths
+
+# Between looking at the Nextstrain view and sample-paths, extract some IDs to prune...
+g node_861905: sample-paths | g -v node_861906: | cut -f 1 > baddiesToPrune
+wc -l baddiesToPrune
+#6 baddiesToPrune
+g node_861907: sample-paths | g -v node_861909: | cut -f 1 >> baddiesToPrune 
+#103 baddiesToPrune
+g node_862122: sample-paths | cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#125 baddiesToPrune
+g node_862139: sample-paths | g -v node_862169: | g -v node_862156: | cut -f 1 >> baddiesToPrune 
+wc -l baddiesToPrune
+#240 baddiesToPrune
+g node_862328: sample-paths | cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#251 baddiesToPrune
+
+# How would these be placed from scratch after pruning?  Pangolin/scorpio doesn't call them
+# as BA.1...
+# Israel/ICH-760598216/2021|EPI_ISL_7552186
+# Israel/ICH-760596806/2021|EPI_ISL_7265940
+# Israel/ICH-760598496/2021|EPI_ISL_7552634
+# SouthAfrica/NICD-N21778/2021|EPI_ISL_7337522
+# SouthAfrica/NHLS-UCT-LA-Z750/2021|EPI_ISL_7544030
+# England/PHEC-3V052V4E/2021
+# SouthAfrica/NHLS-UCT-GS-AF26/2021|EPI_ISL_7544628
+# Mexico/MEX-INMEGEN-41-66/2021|EPI_ISL_7565722
+# Nepal/NPHL-S-263/2021|EPI_ISL_7196120
+# Nepal/NPHL-S-264/2021|EPI_ISL_7196121
+# Nepal/NPHL-S-269/2021|EPI_ISL_7391051
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s baddiesToPrune \
+    -O -o gisaidAndPublic.$today.masked.baddiesPruned.pb
+
+# Do a little optimization...
+$matOptimize -T 50 -r 8 -M 1 -S move_log.baddiesPruned \
+    -i gisaidAndPublic.$today.masked.baddiesPruned.pb \
+    -o gisaidAndPublic.$today.masked.baddiesPruned.opt.pb \
+    >& matOptimize.baddiesPruned.log
+#Run kill -s SIGUSR2 39093 to apply all the move found immediately, then output and exit.
+# In another terminal:
+tail -F matOptimize.baddiesPruned.log | g arsimony
+#original parsimony score:5282023
+#parsimony score after optimizing: 5281922,with radius 8, second from start 306 
+#parsimony score after optimizing: 5281919,with radius 8, second from start 318 
+#parsimony score after optimizing: 5281919,with radius 8, second from start 328 
+#parsimony score after optimizing: 5281919,with radius 8, second from start 338 
+
+# When it stabilizes:
+kill -s SIGUSR2 39093
+# Add a line to protobufs.tab, check it out in hgPhyloPlace
+# Argh
+chmod 664 gisaidAndPublic.$today.masked.baddiesPruned.opt.pb
+
+# Looks good in hgPhyloPlace.  Replace, reannotate, etc.
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+rm gisaidAndPublic.$today.masked.nextclade.pb gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+ln -f gisaidAndPublic.$today.masked.baddiesPruned.opt.pb gisaidAndPublic.$today.masked.pb
+
+# Unfortunately this is too late for today's build so will have to be repeated, once that
+# progresses past merge & maskDelta.

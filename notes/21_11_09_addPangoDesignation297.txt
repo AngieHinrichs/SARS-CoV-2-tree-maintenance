@@ -1,0 +1,112 @@
+# The sequences in pango-designation-297 are on such a long branch that they're getting knocked
+# out by the branch length filter in usher before they can accumulate.  Add them to the tree in
+# a custom run without the branch length filter, and move the branch length out of usher and
+# back into the matUtils extract that does the filter on leaves with parsimony score >= 30.
+
+cat > /data/tmp/angie/pango-designation-297.epis <<EOF
+EPI_ISL_5481688
+EPI_ISL_5619557
+EPI_ISL_5592661
+EPI_ISL_5531392
+EPI_ISL_5588295
+EPI_ISL_5655471
+EPI_ISL_5655472
+EPI_ISL_5655473
+EPI_ISL_5655474
+EPI_ISL_5655475
+EPI_ISL_5655478
+EPI_ISL_5655479
+EPI_ISL_5655480
+EPI_ISL_5796708
+EPI_ISL_5926666
+EPI_ISL_5914084
+EPI_ISL_6077271
+EPI_ISL_6077280
+EPI_ISL_6077285
+EPI_ISL_6077286
+EPI_ISL_6077287
+EPI_ISL_6077288
+EPI_ISL_6077289
+EPI_ISL_6095997
+EOF
+
+# These sequences have not too many EPPs on first try (from usher.addNew.log), add them first::
+# France/IDF-CERBAHC-10287496/2021|EPI_ISL_5926666|2021-10-25 (1)
+# Congo/FCRM-100-A32.28.09.21/2021|EPI_ISL_5592661|2021-09-28 (2)
+
+# These sequences have too many, but might not after those sequences are placed:
+#Switzerland/VD-ETHZ-34362364/2021|EPI_ISL_5531392|2021-10-06
+#France/IDF-CERBAHC-10167435/2021|EPI_ISL_5588295|2021-10-16
+#France/PAC-HCL021184595901/2021|EPI_ISL_5914084|2021-10-12
+#Italy/LAZ-IFO-10233054/2021|EPI_ISL_5796708|2021-10-23
+#France/BRE-CHURENNES-8600727084/2021|EPI_ISL_5655473|2021-10-14
+#France/BRE-CHURENNES-8600727092/2021|EPI_ISL_5655474|2021-10-12
+#France/BRE-CHURENNES-8600727078/2021|EPI_ISL_5655479|2021-10-18
+#France/BRE-CHURENNES-8600727096/2021|EPI_ISL_5655475|2021-10-18
+#France/BRE-CHURENNES-8600727075/2021|EPI_ISL_5655471|2021-10-12
+#France/BRE-CHURENNES-8600727095/2021|EPI_ISL_5655480|2021-10-12
+#France/BRE-CHURENNES-8600727081/2021|EPI_ISL_5655472|2021-10-18
+#England/PHEC-3M04EMF0/2021|2021-10-11
+#Scotland/QEUH-27D6EB1/2021|2021-10-18
+
+# Get VCF column indices for those two sets of sequences and make VCFs for them:
+zcat new.masked.vcf.gz | head | g ^#CHROM | tl > /data/tmp/angie/colIxs
+g -Fwf /data/tmp/angie/pango-designation-297.epis /data/tmp/angie/colIxs
+zcat new.masked.vcf.gz | cut -f1-9,15184,1525 > pango-designation-297.lo-epps.vcf
+zcat new.masked.vcf.gz | cut -f1-9,4356,5148,5182,5253,5286,5320,5353,5390,6778,19941,22285,23494,24990 \
+    > pango-designation-297.hi-epps.vcf
+
+# Interrupt daily build and move aside gisaidAndPublic.$today.masked.preTrim.pb.
+mv gisaidAndPublic.$today.masked.preTrim{,.prePangoDesignation297}.pb
+
+# Run usher to add the not-too-many-epps:
+time $usher -u -T 50 \
+    -i gisaidAndPublic.$today.masked.preTrim.prePangoDesignation297.pb \
+    -v pango-designation-297.lo-epps.vcf \
+    -o gisaidAndPublic.$today.masked.preTrim.lo-epps.pb \
+    >& usher.pango-designation-297.lo-epps.log
+#real    1m18.343s
+# They were added at the same node, yay.
+
+# Now add the ones that had too many epps but hopefully won't now:
+time $usher -u -T 50 \
+    -i gisaidAndPublic.$today.masked.preTrim.lo-epps.pb \
+    -v pango-designation-297.hi-epps.vcf \
+    -o gisaidAndPublic.$today.masked.preTrim.pb \
+    >& usher.pango-designation-297.hi-epps.log
+#real    1m50.156s
+# All were placed together with the first two and pars scores <= 10 *except*
+# France/IDF-CERBAHC-10167435/2021|EPI_ISL_5588295|2021-10-16
+# which had 5 EPPs, a pars score of 23, and none of those placements seemed to have anything
+# to do with the other sequences.
+#Sample mutations:       |G210T| |C241T| |G1048T| |C1191T| |C1758T| |C3037T| |G4181T| |C5392T| |C6402T| |C7124T| |C8986T| |G9053T| |C10029T| |C14408T| |G15451A| |C16466T| |C19220T| |C19245T| |C21588T| |G21848C| |G22104T| |A22600C| |A22743G| |A23403G| |C23604A| |C24138A| |A26492T| |T26767C| |C27874T| |T28297C| |G28337T| |C28887T| |T29377C| |G29405C| |G29742T| |G29779T| 
+#Best node (child)*: node_451941 Mutations: |C14408T| > |C241T| > |C3037T| > |A23403G| > |G29742T| > |T22917G| > |T27638C| > |G28881T| > |G210T| > |C21618G| > |G29402T| > |C23604G| > |C25469T| > |C22995A| > |C27752T| > |A28461G| > |C16466T| > |T26767C| > |G15451A| > |C10029T| > |C19220T| > |G28916T| > |G4181T| > |C27874T| > |C6402T| > |C7124T| > |G9053T| > |C8986T| > |T6402C| > |A11332G| > |A11201G| > |C6402T| > |C27638T| > |T27752C| > |T29402G| > |G21618C| > |T7124C| > |T28916G| > |T28881G| > |C7124T| > |G22917T| > |A22995C|
+#Best node (child): node_451996  Mutations: |C14408T| > |C241T| > |C3037T| > |A23403G| > |G29742T| > |T22917G| > |T27638C| > |G28881T| > |G210T| > |C21618G| > |G29402T| > |C23604G| > |C25469T| > |C22995A| > |C27752T| > |A28461G| > |C16466T| > |T26767C| > |G15451A| > |C10029T| > |C19220T| > |G28916T| > |G4181T| > |C27874T| > |C6402T| > |C7124T| > |G9053T| > |C8986T| > |T6402C| > |A11332G| > |A11201G| > |C6402T| > |C27638T| > |T27752C| > |T29402G| > |G21618C| > |T7124C| > |T28916G| > |T28881G| > |C7124T| > |G22917T| > |A22995C| > |T7124C| > |G28461A|
+#Best node (sibling): Austria/CeMM12497/2021|EPI_ISL_2985516|2021-06-24  Mutations: |C14408T| > |C241T| > |C3037T| > |A23403G| > |G29742T| > |T22917G| > |T27638C| > |G28881T| > |G210T| > |C21618G| > |G29402T| > |C23604G| > |C25469T| > |C22995A| > |C27752T| > |A28461G| > |C16466T| > |T26767C| > |G15451A| > |C10029T| > |C19220T| > |G28916T| > |G4181T| > |C27874T| > |C6402T| > |C7124T| > |G9053T| > |C8986T| > |T6402C| > |A11332G| > |A11201G| > |C6402T| > |C27638T| > |T27752C| > |T29402G| > |G28461A| > |T28916G| > |T29742G| > |T28881G| > |T27874C| > |C26767T| > |T25469C| > |A22995C| > |G11201A|G11332A| > |G1048T|G14187T|G22093T|G22225T|A26802G|C27527T|
+#Best node (sibling): USA/CA-CDC-FG-105978/2021|OL307195.1|2021-08-27    Mutations: |C14408T| > |C241T| > |C3037T| > |A23403G| > |G29742T| > |T22917G| > |T27638C| > |G28881T| > |G210T| > |C21618G| > |G29402T| > |C23604G| > |C25469T| > |C22995A| > |C27752T| > |A28461G| > |C16466T| > |T26767C| > |G15451A| > |C10029T| > |C19220T| > |G28916T| > |G4181T| > |C27874T| > |C6402T| > |C7124T| > |G9053T| > |C8986T| > |T6402C| > |A11332G| > |A11201G| > |C6402T| > |C27638T| > |T27752C| > |T29402G| > |G28461A| > |T28916G| > |T29742G| > |T28881G| > |T27874C| > |C26767T| > |T25469C| > |A22995C| > |G11201A|G11332A| > |G7328T|T9053G|C26681T|C27998T|A28272T|C28887T|C29362T|
+#Best node (sibling): USA/TX-CDC-ASC210406609/2021|OK496451.1|2021-09-12 Mutations: |C14408T| > |C241T| > |C3037T| > |A23403G| > |G29742T| > |T22917G| > |T27638C| > |G28881T| > |G210T| > |C21618G| > |G29402T| > |C23604G| > |C25469T| > |C22995A| > |C27752T| > |A28461G| > |C16466T| > |T26767C| > |G15451A| > |C10029T| > |C19220T| > |G28916T| > |G4181T| > |C27874T| > |C6402T| > |C7124T| > |G9053T| > |C8986T| > |T6402C| > |A11332G| > |A11201G| > |C6402T| > |C27638T| > |T27752C| > |T29402G| > |G21618C| > |T7124C| > |T28916G| > |T28881G| > |C7124T| > |G22917T| > |A22995C| > |T7124C| > |G28461A| > |T4181G| > |G2527A|G7393T|C10228T|G11201A|C17010T|C18928T|C23625T|G26107C|
+
+# Now filter -- hopefully the branches are now short enough for them to be kept.
+$matUtils extract -i gisaidAndPublic.$today.masked.preTrim.pb \
+    --max-parsimony 20 \
+    --max-branch-length 30 \
+    -O -o gisaidAndPublic.$today.masked.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -u samples.$today
+grep -Fwf <(cat <(vcfSamples pango-designation-297.lo-epps.vcf) \
+                <(vcfSamples pango-designation-297.hi-epps.vcf)) \
+    samples.$today
+#Congo/FCRM-100-A32.28.09.21/2021|EPI_ISL_5592661|2021-09-28
+#France/BRE-CHURENNES-8600727095/2021|EPI_ISL_5655480|2021-10-12
+#Italy/LAZ-IFO-10233054/2021|EPI_ISL_5796708|2021-10-23
+#France/PAC-HCL021184595901/2021|EPI_ISL_5914084|2021-10-12
+#France/BRE-CHURENNES-8600727078/2021|EPI_ISL_5655479|2021-10-18
+#France/BRE-CHURENNES-8600727096/2021|EPI_ISL_5655475|2021-10-18
+#France/BRE-CHURENNES-8600727092/2021|EPI_ISL_5655474|2021-10-12
+#France/BRE-CHURENNES-8600727084/2021|EPI_ISL_5655473|2021-10-14
+#France/BRE-CHURENNES-8600727081/2021|EPI_ISL_5655472|2021-10-18
+#France/BRE-CHURENNES-8600727075/2021|EPI_ISL_5655471|2021-10-12
+#Scotland/QEUH-27D6EB1/2021|2021-10-18
+#England/PHEC-3M04EMF0/2021|2021-10-11
+#Switzerland/VD-ETHZ-34362364/2021|EPI_ISL_5531392|2021-10-06
+
+# Continue the daily build.

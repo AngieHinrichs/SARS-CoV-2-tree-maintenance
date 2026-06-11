@@ -1,0 +1,263 @@
+today=2024-04-22
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# Messy rev branch makes mini-JN.1 (email from FedeGueli)
+g Spain/CT-HUJ23-09056/2023 sample-paths
+#... node_2253863:T27810C node_2264462:C23054A node_2264466:C23018T,C23019T node_2264467:A23054C
+g node_2264466: sample-paths | g -v node_2264467: | cut -f 1 > pruneForMiniJN.1
+wc -l pruneForMiniJN.1
+#29 pruneForMiniJN.1
+
+
+# Yat-Sing Ng found that most of JN.1.1 is misplaced on flip-flop 21535branch
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1525
+g France/CVL-HCL723001703401/2023 sample-paths
+#... node_2253863:T27810C node_2275777:G21535C node_2275778:C1762A node_2275779:C11747T node_2275799:C21535G
+g node_2275778: sample-paths | g -v node_2275799 | cut -f 1 > pruneForLP1525
+wc -l pruneForLP1525
+#96 pruneForLP1525
+
+
+# Yat-Sing also reported a lot of splitting of JN.1.1> C9142T> G2035A -- and I see a lot of
+# late-9142.  Some of those late-9142's look pretty solid, i.e. there are a lot more sequences
+# with some mutation and no 9142 that with that mutation plus 9142.  Makes me wonder how many
+# have 9142N in each case.  Well, there is a big C9142T branch with >12k sequences... so try to
+# join in ones where 9142T-first isn't completely implausible.
+
+g France/BRE-CHUP-8604095919/2023 sample-paths
+#... node_2275799:C21535G node_2276502:C313T node_2276505:C9142T
+g node_2276502: sample-paths | g -v node_2276505: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#111 pruneForLP1525
+
+g Brazil/PB-000178-IEC/2023 sample-paths
+#... node_2275799:C21535G node_2276422:C11878T node_2276424:C9142T
+g node_2276422: sample-paths | g -v node_2276424: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#116 pruneForLP1525
+
+g France/PAC-HCL723001617201/2023 sample-paths
+#... node_2275799:C21535G node_2277383:G22200T node_2277387:C9142T
+g node_2277383: sample-paths | g -v node_2277387: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#155 pruneForLP1525
+
+g Brazil/TO-FIOCRUZ-13252/2023 sample-paths
+#... node_2275799:C21535G node_2276633:C7528T node_2276639:C9142T
+g node_2276633: sample-paths | g -v node_2276639: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#167 pruneForLP1525
+
+g Germany/BY-MVP-000023522/2023 sample-paths
+#... node_2275799:C21535G node_2276048:C21772T node_2276049:C9142T
+g node_2276048: sample-paths | g -v node_2276049: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#175 pruneForLP1525
+
+g Philippines/PH-SPMC-4-249/2023 sample-paths
+#... node_2275799:C21535G node_2276726:C335T node_2276728:C9142T
+g node_2276726: sample-paths | g -v node_2276728: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#178 pruneForLP1525
+
+g USA/OH-UHTL3796/2024 sample-paths
+#... node_2275799:C21535G node_2277371:C26894T node_2277374:C9142T ...
+g node_2277371: sample-paths | g -v node_2277374: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#185 pruneForLP1525
+
+g France/HDF-IPP00418/2023 sample-paths
+#... node_2275799:C21535G node_2276825:C11962T node_2276826:C9142T ...
+g node_2276825: sample-paths | g -v node_2276826: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#191 pruneForLP1525
+
+g USA/CA-HLX-STM-5KMH6GHNN/2024 sample-paths
+#... node_2275799:C21535G node_2277817:C27810T node_2277818:C9142T
+g node_2277817: sample-paths | g -v node_2277818: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#195 pruneForLP1525
+
+g Scotland/CLIMB-CM7YRTH1/2023 sample-paths
+#... node_2275799:C21535G node_2278194:C14724T node_2278195:C9142T
+g node_2278194: sample-paths | g -v node_2278195: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#197 pruneForLP1525
+
+g Japan/SUPCRC-6090/2024 sample-paths
+#... node_2275799:C21535G node_2276859:C22323T node_2276860:C9142T
+g node_2276859: sample-paths | g -v node_2276860: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#201 pruneForLP1525
+
+g USA/HI-H2327644/2024 sample-paths
+#... node_2275799:C21535G node_2277337:C10369T node_2277339:C9142T
+g node_2277337: sample-paths | g -v node_2277339: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#207 pruneForLP1525
+
+g USA/MN-MDH-39322/2023 sample-paths
+#... node_2275799:C21535G node_2275861:C21855T node_2275862:C9142T
+g node_2275861: sample-paths | g -v node_2275862: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#209 pruneForLP1525
+
+g Canada/QC-L00693913001/2024 sample-paths
+#... node_2275799:C21535G node_2276984:C7764T node_2276985:C9142T
+g node_2276984: sample-paths | g -v node_2276985: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#215 pruneForLP1525
+
+g Brazil/CE-FIOCRUZ-179389CE/2023 sample-paths
+#... node_2275799:C21535G node_2277682:C9246T node_2277683:C9142T
+g node_2277682: sample-paths | g -v node_2277683: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#219 pruneForLP1525
+
+g France/OCC-ChuMtp-99233212141/2023 sample-paths
+#... node_2275799:C21535G node_2276849:T16456C node_2276850:C9142T ...
+g node_2276849: sample-paths | g -v node_2276850: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#220 pruneForLP1525
+
+g Brazil/PB-000187-IEC/2023 sample-paths
+#... node_2275799:C21535G node_2276721:C21774T node_2276724:C9142T
+g node_2276721: sample-paths | g -v node_2276724: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#226 pruneForLP1525
+
+g USA/CT-DPH-1198645001/2024 sample-paths
+#... node_2275799:C21535G node_2276417:C1288T node_2276419:C9142T
+g node_2276417: sample-paths | g -v node_2276419: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#231 pruneForLP1525
+
+g Scotland/CLIMB-CM7YRJH4/2024 sample-paths
+#... node_2275799:C21535G node_2277380:C27059T node_2277382:C9142T
+g node_2277380: sample-paths | g -v node_2277382: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#236 pruneForLP1525
+
+g France/CVL-ChuTo-287669/2024 sample-paths
+#... node_2275799:C21535G node_2277068:C18568T node_2277069:C9142T ...
+g node_2277068: sample-paths | g -v node_2277069: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#239 pruneForLP1525
+
+g Denmark/DCGC-669603/2023 sample-paths
+#... node_2275799:C21535G node_2276870:C23575T node_2276871:C9142T
+g node_2276870: sample-paths | g -v node_2276871: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#240 pruneForLP1525
+
+g Japan/PG-588470/2023 sample-paths
+#... node_2275799:C21535G node_2278282:C22629A node_2278284:C9142T
+g node_2278282: sample-paths | g -v node_2278284: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#246 pruneForLP1525
+
+g Brazil/CE-FIOCRUZ-175032CE/2023 sample-paths
+#... node_2275799:C21535G node_2277063:C10834T node_2277065:C9142T
+g node_2277063: sample-paths | g -v node_2277065: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#249 pruneForLP1525
+
+g Japan/PG-599153/2024 sample-paths
+#... node_2275799:C21535G node_2277678:C21306T node_2277679:C9142T ...
+g node_2277678: sample-paths | g -v node_2277679: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#251 pruneForLP1525
+
+g Greece/PHLnetwork_KEDY_17511/2023 sample-paths
+#... node_2275799:C21535G node_2277559:C10279T node_2277560:C9142T ...
+g node_2277559: sample-paths | g -v node_2277560: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#253 pruneForLP1525
+
+g Brazil/AL-FIOCRUZ-1194/2024 sample-paths
+#... node_2275799:C21535G node_2277364:C1722T node_2277365:C9142T ...
+g node_2277364: sample-paths | g -v node_2277365: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#254 pruneForLP1525
+
+# Whew.
+
+# But none of those have 2035.  Oh man, it was actually late 2035 on 9142 that Yat-Sing was
+# pointing out.  OK, clean those up too.
+g CHN/CDCDC-2024-19-CX384/2024 sample-paths
+#... node_2278707:C9142T node_2281188:T14451C node_2281189:G2035A,A24694G ...
+g node_2281188: sample-paths | g -v node_2281189: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#255 pruneForLP1525
+
+g CHN/CDCDC-2024-19-CX511/2024 sample-paths
+#... node_2278707:C9142T node_2279126:C26529G node_2279133:G2035A
+g node_2279126: sample-paths | g -v node_2279133: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#272 pruneForLP1525
+
+g CHN/BZCDC-20240014/2024 sample-paths
+#... node_2278707:C9142T node_2281727:C7423T node_2281728:G2035A
+g node_2281727: sample-paths | g -v node_2281728: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#273 pruneForLP1525
+
+g CHN/YBCDC-2024XGCX080/2024 sample-paths
+#... node_2278707:C9142T node_2281314:G22616T node_2281315:G2035A,A19020G
+g node_2281314: sample-paths | g -v node_2281315: | cut -f 1 >> pruneForLP1525
+wc -l pruneForLP1525
+#274 pruneForLP1525
+
+
+# JN.1.8.1 is on rev/flip-flop branch.
+g USA/FL-CDC-QDX91310684/2024 sample-paths
+#... node_2253863:T27810C node_2275002:C22679T node_2275003:C23277T node_2275004:A12928G node_2275005:C27476T node_2275006:T22679C
+g node_2275002: sample-paths | g -v node_2275006: | cut -f 1 > pruneForJN.1.8.1
+wc -l pruneForJN.1.8.1
+#33 pruneForJN.1.8.1
+
+
+wc -l pruneFor*
+#   33 pruneForJN.1.8.1
+#  274 pruneForLP1525
+#   29 pruneForMiniJN.1
+#  336 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#TODO
+#real    107m4.003s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+

@@ -1,0 +1,199 @@
+today=2022-07-16
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# BA.2.36 bogus branch ate big branch (23767) with BA.13 & others.
+g Denmark/DCGC-431402/2022 sample-paths
+#... node_1480393:C22792T node_1555630:T21765C node_1556783:C28087T node_1557546:C21765T
+g Austria/CeMM24183/2022 sample-paths
+#... node_1480393:C22792T node_1555630:T21765C node_1556783:C28087T node_1557546:C21765T node_1557547:A23767G node_1557548:T28087C
+g node_1557546: sample-paths | g -v node_1557548: | cut -f 1 > pruneFor23767
+wc -l pruneFor23767
+#70 pruneFor23767
+
+# That big 23767 branch also has a growing mini-BA.2 on a bogus German 11524+11537 branch...
+g -F OW673411.1 sample-paths
+#... node_1557548:T28087C node_1558588:A11537G node_1558589:T11524C
+# Spare a bunch of little branches that got sucked in...
+g Germany/SN-RKI-I-653932/2022 sample-paths
+#... node_1563526:C11524T,G11537A 
+g CzechRepublic/NRL_s2206/2022 sample-paths
+#... node_1563593:C11524T node_1563594:G11537A
+g Germany/SH-RKI-I-655943/2022 sample-paths
+#... node_1563509:C11524T,G11537A
+g -F OW651355.1 sample-paths
+#... node_1562996:C11524T,G11537A
+g Germany/RP-RKI-I-740059/2022 sample-paths
+#... node_1563086:C11524T,G11537A
+g OW642600.1 sample-paths
+#... node_1563025:C11524T,G11537A
+g Germany/BE-RKI-I-843786/2022 sample-paths
+#... node_1563163:C11524T,G11537A
+g Germany/SN-RKI-I-710201/2022 sample-paths
+#... node_1562950:C11524T,G11537A
+g Germany/BY-RKI-I-835087/2022 sample-paths
+#... node_1562908:C11524T node_1562909:G11537A
+g Germany/HH-RKI-I-750403/2022 sample-paths
+#... node_1562886:G11537A node_1562887:C11524T
+g Germany/BW-RKI-I-720968/2022 sample-paths
+#... node_1562199:C11524T node_1562203:C18591G node_1562204:G11537A
+g OW719915.1 sample-paths
+#... node_1562651:C11524T,G11537A
+g USA/MN-CDC-ASC210847345/2022 sample-paths
+#... node_1562349:C11524T,G11537A
+g England/PHEC-YYRY8T1/2022 sample-paths
+#... node_1562415:C11524T node_1562416:G11537A
+g Germany/RP-RKI-I-706969/2022 sample-paths
+#... node_1561629:C11524T node_1561630:G11537A
+g OW557588.1 sample-paths
+#... node_1561489:C11524T,G11537A
+g Germany/BW-RKI-I-747318/2022 sample-paths
+#... node_1561325:G11537A,C23604A
+g Netherlands/UT-RIVM-96681/2022 sample-paths
+#... node_1561398:C11524T,G11537A
+g Germany/MV-RKI-I-683930/2022 sample-paths
+#... node_1561382:G11537A node_1561383:C11524T
+g Germany/HH-RKI-I-755523/2022 sample-paths
+#... node_1561304:C11524T,G11537A
+g Germany/BW-RKI-I-573080/2022 sample-paths
+#... node_1559666:C11524T,G11537A
+g Germany/NW-HHU-23251/2022 sample-paths
+#... node_1559691:C11524T node_1559692:G11537A
+g OW803490.1 sample-paths
+#... node_1561411:C11524T,G11537A
+g Germany/RP-RKI-I-716271/2022 sample-paths
+#... node_1558754:C11524T,G11537A
+g USA/NMDOH-2022065138/2022 sample-paths
+#... node_1558798:C11524T,G11537A
+g OW572414.1 sample-paths
+#... node_1558785:C11524T,G11537A
+g Germany/BE-ChVir-LB-220325-85812/2022 sample-paths
+#... node_1558727:C11524T,G11537A
+g Germany/BY-RKI-I-731926/2022 sample-paths
+#... node_1558976:C11524T,G11537A
+g OW791817.1 sample-paths
+#... node_1558882:C11524T,G11537A
+g OW652844.1 sample-paths
+#... node_1559077:C11524T node_1559078:G11537A
+# Finally chop all the way out to a big mini-BA.2.3:
+g Australia/QLD0x00EB77/2022 sample-paths
+#... node_1557548:T28087C node_1558588:A11537G node_1558589:T11524C node_1558594:G23767A node_1558596:T22792C node_1559747:A23604C node_1559748:C11524T node_1559750:C25416T node_1559751:C18591G node_1559752:G11537A node_1559756:T25416C node_1559757:C8991T,C25810T node_1559758:C23604A node_1559759:G18591C
+g node_1558589: sample-paths | g -v node_1563526: | g -v node_1563594: | g -v node_1563509: \
+| g -v node_1562996: | g -v node_1563086: | g -v node_1563025: | g -v node_1563163: \
+| g -v node_1562950: | g -v node_1562909: | g -v node_1562887: | g -v node_1562204: \
+| g -v node_1562651: | g -v node_1562349: | g -v node_1562416: | g -v node_1561630: \
+| g -v node_1561489: | g -v node_1561325: | g -v node_1561398: | g -v node_1561383: \
+| g -v node_1561304: | g -v node_1559666: | g -v node_1559692: | g -v node_1561411: \
+| g -v node_1558754: | g -v node_1558798: | g -v node_1558785: | g -v node_1558727: \
+| g -v node_1558976: | g -v node_1558882: | g -v node_1559077: | g -v node_1559078: \
+| g -v node_1559759: \
+| cut -f 1 > pruneFor11524
+wc -l pruneFor11524
+#7491 pruneFor11524
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    28m4.671s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+# The 23767 branch should be off the main BA.2 branch:
+g Austria/CeMM24183/2022 sample-paths.opt
+#... node_1635078:C2790T node_1829137:C22792T node_1988830:A23767G
+# The mini-BA.2.3 should be in actual BA.2.3:
+g Australia/QLD0x00EB77/2022 sample-paths.opt
+#... node_1635078:C2790T node_1829137:C22792T node_1983740:T22792C node_1984577:C8991T,C25810T
+# Doh!  What's with the C22792T > T22792C?  Argh, it's super-late and this is still a big
+# improvement... fix if it's still broken after tomorrow's optimization.
+
+wc -l clade-paths*
+#   1879 clade-paths
+#   1879 clade-paths.opt
+# Great, ship it.
+ln -f gisaidAndPublic.$today.masked.pruned.opt.pb gisaidAndPublic.$today.masked.pb
+# Add IDs to badBranchSeeds.ids... after pasting in steps from updateCombinedTree.sh.
+
+
+# 2022-07-17: hashSeqs is still running, might have time to fix BA.3.1.  As currently defined
+# it has C27874T and A28461G on its path, but only because of a very small number of probably
+# erroneous sequences.  Most (286 / 294) sequences on the current BA.3.1 branch do not have
+# C27874T and A28461G -- so unfortunately they are excluded from lineageTreePb by the new
+# lineage-mut-reversion filter, and the lineageTreePb's BA.3.1 is just a few crappy outliers
+# with C27874T and A28461G, and so most BA.3.1 sequences are not called BA.3.1.
+# Anyway, fix it so that BA.3.1's path does not have C27874T and A28461G.  I think we can do it
+# by permanently excluding a single sequence just before the current BA.3.1 root.
+g Poland/PZH-GUM-5838/2022 sample-paths
+#Poland/PZH-GUM-5838/2022|EPI_ISL_8799966|2022-01-07 ... node_1725390:C27874T,T28311C,A28461G
+echo 'Poland/PZH-GUM-5838/2022|EPI_ISL_8799966|2022-01-07' > pruneForBA.3.1
+echo EPI_ISL_8799966 >> ../badBranchSeed.ids
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s pruneForBA.3.1 \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    32m51.063s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+# The 23767 branch should be off the main BA.2 branch:
+g Austria/CeMM24183/2022 sample-paths.opt
+#... node_1635073:C2790T node_1831197:C22792T node_1987725:A23767G
+# The mini-BA.2.3 should be in actual BA.2.3:
+g Australia/QLD0x00EB77/2022 sample-paths.opt
+#... node_1635073:C2790T node_1768305:C8991T node_1768306:C25810T
+# The main branch of BA.3.1 should not have two extra muts & reversions:
+g Poland/PZH-GUM-11797/2022 sample-paths.opt
+#... node_2130956:C11235T node_2130971:C29311T node_2130973:G3791A,C3792A,A22812C
+# Good.
+
+# Where did the sketchies get placed?
+g Poland/PZH-GUM-6826/2022 sample-paths.opt
+#... node_2130956:C11235T node_2130971:C29311T node_2130973:G3791A,C3792A,A22812C node_2130974:T28311C node_2130975:C27874T,A28461G
+# OK, in a reversion branch of the new BA.3.1 (where they belong).
+
+wc -l clade-paths*
+#   1879 clade-paths
+#   1876 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.3.14
+#BA.2.3.5
+#BA.3.1
+# So we'll need to do a quick re-annotate before replacing the main pb with this.
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.pruned.opt
+wc -l clade-paths clade-paths.pruned.opt
+#   1879 clade-paths
+#   1879 clade-paths.pruned.opt
+
+chmod 664 g*pb
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+mv sample-paths{.opt,}
+mv clade-paths{.pruned.opt,}
+
+
+# Swap out the prevRenamed.pb being used for 2022-07-17 build and paste in rest of steps from upCo.
+# Then fix proposed771 path, it's off by 2.

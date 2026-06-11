@@ -1,0 +1,150 @@
+today=2022-07-21
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# BA.4 got sucked into the false 210 > 212 branch!  Cornelius found one possible Delta/BA.2
+# and it has 210, so argh, maybe I can't just wipe out 210 in all of BA.2 but it's tempting.
+# I wonder if masking 210 in the way that I want is even possible with matUtils -- i.e. I want
+# to overwrite it on some branches, not prevent it from ever occurring in BA.2.
+
+# Well, see how far we get with 212.
+g Israel/ICH-741215557/2022 sample-paths
+#... node_1322516:C2790T node_1347858:G210T node_1349205:T212C
+echo -e "N212N\tnode_1347858" > mask212
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m mask212 \
+    -o gisaidAndPublic.$today.masked.mask212.pb
+#real    1m57.718s
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.mask212.pb \
+    -o gisaidAndPublic.$today.masked.mask212.opt.pb \
+    >& matOptimize.usher_branch.mask212.log
+#real    64m19.026s
+
+# Extra round of optimization required after masking
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch.reOpt \
+    -i gisaidAndPublic.$today.masked.mask212.opt.pb \
+    -o gisaidAndPublic.$today.masked.mask212.reOpt.pb \
+    >& matOptimize.usher_branch.mask212.reOpt.log
+#real    66m13.926s
+# Why twice as slow as yesterday?
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.mask212.reOpt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+
+# Hopefully BA.4 is no longer on that bogus path:
+g SouthAfrica/CERI-KRISP-K041205/2022 sample-paths.opt
+#... node_1322538:C2790T node_1442231:G23040A node_1442277:T22917G node_1442280:G210T node_1442281:T23018G node_1442282:T9866C node_1442283:G27788T node_1442284:G12160A node_1442285:T210G node_1442286:C28724T
+# Hmmm, slightly altered bogus path.  I wonder if pruning can get 210 out of there.
+
+# Where is Chenwei's sequence now?
+g Australia/QLD0x00FB3D/2022 sample-paths.opt
+#... node_1322538:C2790T node_1442231:G23040A node_1442277:T22917G node_1442280:G210T node_1442281:T23018G Australia/QLD0x00FB3D/2022|EPI_ISL_13787385|2022-06-23:C10681T,C12534T,C13592T,T23269C,A27038G,C28087T,A28293G
+# On the bogus path.
+
+usher_to_taxonium --input gisaidAndPublic.$today.masked.mask212.reOpt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.masked.taxonium.jsonl.gz
+
+g Germany/SN-RKI-I-889849/2022 sample-paths.opt
+#... node_1322538:C2790T node_1442231:G23040A node_1442277:T22917G node_1442280:G210T ...
+g USA/CA-SLOPH-C1426/2022 sample-paths.opt
+#... node_1322538:C2790T node_1442231:G23040A node_1442277:T22917G node_1442280:G210T node_1442281:T23018G node_1442282:T9866C node_1442283:G27788T node_1442284:G12160A node_1442285:T210G
+g node_1442280: sample-paths.opt | g -v node_1442285: | cut -f 1 > pruneForBA.4
+wc -l pruneForBA.4
+#201 pruneForBA.4
+# Chenwei's sequence is in there... oh well, let it be added back tomorrow.
+
+# Meanwhile BA.5.3.1 needs to be brought back into the BA.5.3 fold, and BA.5.2.1 has some splits.
+g Austria/LB-R00088-S099/2022 sample-paths.opt
+#... node_1618045:C27889T node_1625362:G28681T
+g SouthAfrica/NICD-N40079/2022 sample-paths.opt
+#... node_1618045:C27889T node_1625362:G28681T node_1625363:C1931A
+g node_1625362: sample-paths.opt | g -v node_1625363: | cut -f 1 > pruneForBA.5.3.1
+
+# Only a few sequences are holding in this big chunk of BA.5.2.1, though this still would leave
+# a lot behind... how weird that BA.5 has a sizable branch with just the BA.5.2 mutation C1627T
+# without BA.5.2's A28330G (and with BA.5.2.1's A27038G ahead of A28330G).
+g SouthAfrica/CERI-KRISP-K043369/2022 sample-paths.opt
+#... node_1618045:C27889T node_1621639:C1627T node_1622015:A27038G node_1622020:A21766C
+g Argentina/INEI120613/2022 sample-paths.opt
+#... node_1618045:C27889T node_1621639:C1627T node_1622015:A27038G node_1622020:A21766C node_1622021:A28330G
+g node_1622020: sample-paths.opt | g -v node_1622021: | cut -f 1 > pruneForBA.5.2.1
+wc -l pruneForBA.5.2.1
+#3 pruneForBA.5.2.1
+
+$matUtils extract -i gisaidAndPublic.$today.masked.mask212.reOpt.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    29m18.645s
+# OK, at least it wasn't an hour this time.
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+
+# BA.4 any better?
+g SouthAfrica/CERI-KRISP-K041205/2022 sample-paths.opt
+#... node_1635528:C2790T node_1782835:G23040A node_1782890:T22917G node_1782893:T23018G node_1782894:G12160A node_1782895:T9866C node_1782896:G27788T node_1782897:C28724T
+# Is BA.5.3.1 a child of BA.5.3?  (C1931A > G28681T)
+g SouthAfrica/NICD-N40079/2022 sample-paths.opt
+#... node_1635528:C2790T node_1998708:T9866C node_2002536:T26858C node_2002537:C27259A node_2002538:C27382G node_2002539:C27384T node_2002540:T27383A node_2002541:G23040A node_2002542:T23018G node_2002543:G26529A node_2002544:G12160A node_2002545:T22917G node_2002546:C27889T node_2023042:C1931A node_2023043:G28681T
+# Is the BA.5.2(.1) split branch in BA.5.2 > BA.5.2.1?  (C1627T > A28330G > A27038G)
+g Argentina/INEI120613/2022 sample-paths.opt
+#... node_2002545:T22917G node_2002546:C27889T node_2007090:C1627T node_2007555:A27038G node_2007561:A28330G node_2007562:A21766C
+# Hmm, we have A27038G before A28330G... better check on it.
+
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.masked.taxonium.jsonl.gz
+
+wc -l clade-paths*
+#   1886 clade-paths
+#   1882 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.3.2
+#BA.5.2.1
+#BA.5.3
+#BA.5.3.1
+
+# Re-annotate
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.opt
+wc -l clade-paths clade-paths.opt
+#   1886 clade-paths
+#   1886 clade-paths.opt
+
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+chmod 664 g*pb
+
+mv clade-paths{.opt,}
+mv sample-paths{.opt,}
+
+# Paste in steps after annotation from upCo.

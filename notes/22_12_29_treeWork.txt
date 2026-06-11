@@ -1,0 +1,507 @@
+# Time to catch up on a lot of branches that people have been complaining about in pango-designation
+# issues while I'm on vacation.
+
+today=2022-12-28
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+#https://github.com/cov-lineages/pango-designation/issues/1470:
+# For some bizarre reason Usher is placing these sequences on a very long branch in BA.2 separate
+# from BA.5, along with lots more BF.7 sequences. @AngieHinrichs please could you take a look?
+# -- Wow, that is a crazy series of ugly-ass bad branches, reversions going combinatoric...
+g India/WB-INSACOG-1931300598098/2022 sample-paths
+#... node_1702024:T27383A,C27384T
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths
+#... node_1702024:T27383A,C27384T node_1702025:C27382G node_1702026:G23040A node_1702039:T22917G node_1702040:G12160A node_1702041:T9866C node_1702042:C27259A node_1702043:T26858C node_1702067:G26529A node_1702068:G22917T node_1702069:C27889T node_1702070:C1627T node_1702071:A28330G node_1702350:T23018G node_1702351:T22813G node_1702352:A22775G node_1702356:A23013C node_1702362:C22995A node_1702363:G22992A node_1702609:G22775A node_1702613:T6979G node_1702614:A3859G node_1702620:A27038G node_1702629:G3859A node_1702654:T22917G node_1702655:T25000C node_1702663:G26577C node_1702696:G22813T node_1702698:T1627C node_1702699:G6979T node_1702707:G22599C node_1702708:C7528T node_1702710:C1627T node_1702735:C26577G node_1702741:C25000T 
+g France/ARA-GENBIO-14292592291/2022 sample-paths
+#... node_1702024:T27383A,C27384T node_1702025:C27382G node_1702026:G23040A node_1702039:T22917G node_1702040:G12160A node_1702041:T9866C node_1702042:C27259A node_1702043:T26858C node_1702067:G26529A node_1702068:G22917T node_1702069:C27889T node_1702070:C1627T node_1702071:A28330G node_1702350:T23018G node_1702351:T22813G node_1702352:A22775G node_1702356:A23013C node_1702362:C22995A node_1702363:G22992A node_1702609:G22775A node_1702613:T6979G node_1702614:A3859G node_1702620:A27038G node_1702629:G3859A node_1702654:T22917G node_1703738:G22813T node_1703948:T27889C node_1703949:A3569G node_1703952:T4321C node_1703953:T1627C node_1703954:G3569A node_1703957:C27889T node_1703962:C1627T node_1703969:T23948G node_1703971:G26577C node_1703972:G6979T node_1703973:G23948T node_1703974:C26577G node_1703976:C4321T
+g France/BFC-HMN-22112020330/2022 sample-paths
+#... node_1702024:T27383A,C27384T node_1702025:C27382G node_1702026:G23040A node_1702039:T22917G node_1702040:G12160A node_1702041:T9866C node_1702042:C27259A node_1702043:T26858C node_1702067:G26529A node_1702068:G22917T node_1702069:C27889T node_1702070:C1627T node_1702071:A28330G node_1702350:T23018G node_1702351:T22813G node_1702352:A22775G node_1702356:A23013C node_1702362:C22995A node_1702363:G22992A node_1702609:G22775A node_1702613:T6979G node_1702614:A3859G node_1702620:A27038G node_1702629:G3859A node_1702654:T22917G node_1703738:G22813T node_1703948:T27889C node_1703949:A3569G node_1703952:T4321C node_1703953:T1627C node_1703954:G3569A node_1703957:C27889T node_1703962:C1627T node_1703969:T23948G node_1703971:G26577C node_1703972:G6979T node_1703973:G23948T node_1703974:C26577G node_1703976:C4321T node_1704350:C7528T node_1704816:G22599C
+g node_1702024: sample-paths | g -v node_1702741: | g -v node_1703976: | g -v node_1704816: \
+| cut -f 1 > pruneForPD1470
+wc -l pruneForPD1470
+#5159 pruneForPD1470
+
+# Add these:
+g USA/TX-HMH-118254/2022 sample-paths
+#... node_1702024:T27383A,C27384T node_1702025:C27382G node_1702026:G23040A node_1702039:T22917G node_1702040:G12160A node_1702041:T9866C node_1702042:C27259A node_1702043:T26858C node_1702067:G26529A node_1702068:G22917T node_1702069:C27889T node_1702070:C1627T node_1702071:A28330G node_1702350:T23018G node_1702351:T22813G node_1702352:A22775G node_1702356:A23013C node_1702362:C22995A node_1702363:G22992A node_1702609:G22775A node_1702613:T6979G node_1702614:A3859G node_1702620:A27038G node_1702629:G3859A node_1702654:T22917G node_1702655:T25000C node_1702663:G26577C node_1702696:G22813T node_1702698:T1627C node_1702699:G6979T node_1702707:G22599C node_1702708:C7528T node_1702710:C1627T node_1702735:C26577G node_1702741:C25000T node_1702778:T7528C
+# Spare these:
+g Brazil/AM-FIOCRUZ-ILMD2206009/2022 sample-paths
+#... node_1702024:T27383A,C27384T node_1702025:C27382G node_1702026:G23040A node_1702039:T22917G node_1702040:G12160A node_1702041:T9866C node_1702042:C27259A node_1702043:T26858C node_1702067:G26529A node_1702068:G22917T node_1702069:C27889T node_1702070:C1627T node_1702071:A28330G node_1702350:T23018G node_1702351:T22813G node_1702352:A22775G node_1702356:A23013C node_1702362:C22995A node_1702363:G22992A node_1702609:G22775A node_1702613:T6979G node_1702614:A3859G node_1702620:A27038G node_1702629:G3859A node_1702654:T22917G node_1702655:T25000C node_1702663:G26577C node_1702696:G22813T node_1702698:T1627C node_1702699:G6979T node_1702707:G22599C node_1702708:C7528T node_1702710:C1627T node_1702735:C26577G node_1702741:C25000T node_1702778:T7528C node_1702779:C22599G
+g node_1702778: sample-paths | g -v node_1702779: | cut -f 1 >> pruneForPD1470
+wc -l pruneForPD1470
+#5171 pruneForPD1470
+
+# Add these:
+g Brazil/GO-FIOCRUZ-18171/2022 sample-paths
+#... node_1702024:T27383A,C27384T node_1702025:C27382G node_1702026:G23040A node_1702039:T22917G node_1702040:G12160A node_1702041:T9866C node_1702042:C27259A node_1702043:T26858C node_1702067:G26529A node_1702068:G22917T node_1702069:C27889T node_1702070:C1627T node_1702071:A28330G node_1702350:T23018G node_1702351:T22813G node_1702352:A22775G node_1702356:A23013C node_1702362:C22995A node_1702363:G22992A node_1702609:G22775A node_1702613:T6979G node_1702614:A3859G node_1702620:A27038G node_1702629:G3859A node_1702654:T22917G node_1703738:G22813T node_1703948:T27889C node_1703949:A3569G node_1703952:T4321C node_1703953:T1627C node_1703954:G3569A node_1703957:C27889T node_1703962:C1627T node_1703969:T23948G node_1703971:G26577C node_1703972:G6979T node_1703973:G23948T node_1703974:C26577G node_1703976:C4321T node_1709245:G18674A
+# Spare these:
+g USA/CA-CDPH-FS27888553/2022 sample-paths
+#... node_1702024:T27383A,C27384T node_1702025:C27382G node_1702026:G23040A node_1702039:T22917G node_1702040:G12160A node_1702041:T9866C node_1702042:C27259A node_1702043:T26858C node_1702067:G26529A node_1702068:G22917T node_1702069:C27889T node_1702070:C1627T node_1702071:A28330G node_1702350:T23018G node_1702351:T22813G node_1702352:A22775G node_1702356:A23013C node_1702362:C22995A node_1702363:G22992A node_1702609:G22775A node_1702613:T6979G node_1702614:A3859G node_1702620:A27038G node_1702629:G3859A node_1702654:T22917G node_1703738:G22813T node_1703948:T27889C node_1703949:A3569G node_1703952:T4321C node_1703953:T1627C node_1703954:G3569A node_1703957:C27889T node_1703962:C1627T node_1703969:T23948G node_1703971:G26577C node_1703972:G6979T node_1703973:G23948T node_1703974:C26577G node_1703976:C4321T node_1709245:G18674A node_1709251:C22033A node_1709252:A18674G node_1709257:C5284T node_1709258:A22033C
+g node_1709245: sample-paths | g -v node_1709258: | cut -f 1 >> pruneForPD1470
+wc -l pruneForPD1470
+#5384 pruneForPD1470
+
+
+# https://github.com/cov-lineages/pango-designation/issues/1471:
+# Due to a single sequence from Japan on the C2710T+C8626T branch containing this mutation,
+# along with the masking of C16887T, Usher has split the lineage into two separate branches
+# on the tree, one with C11824T and one without. It's pretty clear that Usher has got this wrong.
+g Japan/PG-356772/2022 sample-paths
+#... node_2172650:C16616A node_2242227:C2710T node_2243502:C8626T node_2244334:C11824T
+g Singapore/16593/2022 sample-paths
+#... node_2172650:C16616A node_2242227:C2710T node_2243502:C8626T node_2244334:C11824T node_2244335:T17208C
+g node_2244334: sample-paths | g -v node_2244335: | cut -f 1 > pruneForPD1471
+wc -l pruneForPD1471
+#1 pruneForPD1471
+
+
+# On the way to XBB.1.{1,4,5} there's a back-mut re-mut on 21618 and mut/rev on 335.
+g India/TN-CDFD-N-266/2022 sample-paths
+#... node_2424006:G22317T node_2424225:T21618C
+g Indonesia/JT-Undip-00259/2022 sample-paths
+#... node_2424006:G22317T node_2424225:T21618C node_2424232:G27915T node_2424266:C335T node_2424267:C21618T node_2424305:T335C
+g node_2424225: sample-paths | g -v node_2424305: | cut -f 1 > pruneForXBB.1
+wc -l pruneForXBB.1
+#422 pruneForXBB.1
+
+# big (2k) branch with SouthKorea/KDCA152354/2022 has mut/.../rev: G27043A > C7390A > A27043G
+g Singapore/10551/2022 sample-paths
+#... node_2468913:C593T node_2469014:G27043A
+g USA/NM-UNM-ED_04268/2022 sample-paths
+#... node_2468913:C593T node_2469014:G27043A node_2469015:C7390A
+g node_2469014: sample-paths | g -v node_2469015: | cut -f 1 > pruneForBN.1.3
+wc -l pruneForBN.1.3
+#72 pruneForBN.1.3
+
+
+wc -l pruneFor*
+#    72 pruneForBN.1.3
+#  5384 pruneForPD1470
+#     1 pruneForPD1471
+#   422 pruneForXBB.1
+#  5879 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Should I be using a bigger radius here or does that create trouble sometimes?
+# I'll keep it this time because of that BA.2 disaster branch with mini-BA.5*s.
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned &
+
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# Are these in BA.5 now instead of BA.2-fugly-land?
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths.pruned
+#... node_2105889:C2790T node_2212087:G23040A node_2212171:T22917G node_2212177:T23018G node_2212179:G12160A node_2212180:T9866C node_2263834:C1627T node_2263835:G26529A,T26858C,A27038G,C27259A,C27382G,T27383A,C27384T,C27889T,A28330G node_2264279:C7528T node_2264737:G22599C 
+# Hmmm... that is BA.5-like but different from the pre-opt BA.5 path (C2790T > T9866C > T26858C...).
+# And what's up with node_2263835?  Look in taxonium...  Probably going to have to prune more.
+g France/ARA-GENBIO-14292592291/2022 sample-paths.pruned
+#... 
+g France/BFC-HMN-22112020330/2022 sample-paths.pruned
+#... 
+g Brazil/AM-FIOCRUZ-ILMD2206009/2022 sample-paths.pruned
+#... 
+g USA/CA-CDPH-FS27888553/2022 sample-paths.pruned
+#... 
+
+# Uh-oh, out of mem problems with taxonium.  Make a BA.2-and-beyond-only tree:
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb -I node_2105889 \
+    -o gisaidAndPublic.$today.pruned.opt.BA.2.pb
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.BA.2.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt: BA.2 branch only" \
+    --output gisaidAndPublic.$today.treeWork.BA.2.jsonl.gz \
+    >& utt.log &
+
+# Crap, yeah, node_2263835 is a long branch placed near XAS and BA.4.  Nope, need to prune some more.
+
+# Meanwhile, the easier ones...
+# Do we have a unified branch with T17208C first now?
+g Singapore/16593/2022 sample-paths.pruned
+#... node_2683527:C16616A node_2766579:C2710T node_2768061:C8626T node_2769204:T17208C node_2769205:C11824T
+# Yay.
+# Are the flip-flops on 335 and 21618 gone?
+g Indonesia/JT-Undip-00259/2022 sample-paths.pruned
+#... node_2985782:G22317T node_2986268:G27915T 
+# Yep!
+# Is the flip-flop on 27043 gone?
+g USA/NM-UNM-ED_04268/2022 sample-paths.pruned
+#... node_3039733:C593T node_3040431:C7390A node_3040432:G27043A
+# I think that's what I wanted, but will need to check in taxonium... yep, looks right now.
+
+# OK, now prune to fix the new cluster-yuck.
+g Germany/BB-RKI-I-961458/2022 sample-paths.pruned
+#... node_2105889:C2790T node_2212087:G23040A node_2212171:T22917G node_2212177:T23018G node_2212179:G12160A node_2212180:T9866C node_2263834:C1627T
+g Brazil/GO-LACENGO-520340419/2022 sample-paths.pruned
+#... node_2105889:C2790T node_2212087:G23040A node_2212171:T22917G node_2212177:T23018G node_2212179:G12160A node_2212180:T9866C node_2263834:C1627T node_2263835:G26529A,T26858C,A27038G,C27259A,C27382G,T27383A,C27384T,C27889T,A28330G
+g node_2263834: sample-paths.pruned | g -v node_2263835: | cut -f 1 >> pruneForPD1470
+wc -l pruneForPD1470
+#5773 pruneForPD1470
+
+
+# Try again... but with today's tree so I don't have to do both.
+today=2022-12-29
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+g India/WB-INSACOG-1931300598098/2022 sample-paths
+#... node_1702147:T27383A,C27384T
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths
+#... node_1701951:A23040G node_1702147:T27383A,C27384T node_1702148:C27382G node_1702149:G23040A node_1702162:T22917G node_1702163:G12160A node_1702164:T9866C node_1702165:C27259A node_1702166:T26858C node_1702190:G26529A node_1702191:G22917T node_1702192:C27889T node_1702193:C1627T node_1702194:A28330G node_1702474:T23018G node_1702475:T22813G node_1702476:A22775G node_1702480:A23013C node_1702486:C22995A node_1702487:G22992A node_1702739:G22775A node_1702743:T6979G node_1702744:A3859G node_1702750:A27038G node_1702759:G3859A node_1702784:T22917G node_1702785:T25000C node_1702793:G26577C node_1702826:G22813T node_1702828:T1627C node_1702829:G6979T node_1702837:G22599C node_1702838:C7528T node_1702840:C1627T node_1702865:C26577G node_1702871:C25000T
+g France/ARA-GENBIO-14292592291/2022 sample-paths
+#... node_1701951:A23040G node_1702147:T27383A,C27384T node_1702148:C27382G node_1702149:G23040A node_1702162:T22917G node_1702163:G12160A node_1702164:T9866C node_1702165:C27259A node_1702166:T26858C node_1702190:G26529A node_1702191:G22917T node_1702192:C27889T node_1702193:C1627T node_1702194:A28330G node_1702474:T23018G node_1702475:T22813G node_1702476:A22775G node_1702480:A23013C node_1702486:C22995A node_1702487:G22992A node_1702739:G22775A node_1702743:T6979G node_1702744:A3859G node_1702750:A27038G node_1702759:G3859A node_1702784:T22917G node_1704054:G22813T node_1704265:T27889C node_1704266:A3569G node_1704269:T4321C node_1704270:T1627C node_1704271:G3569A node_1704274:C27889T node_1704279:C1627T node_1704286:T23948G node_1704288:G26577C node_1704289:G6979T node_1704290:G23948T node_1704291:C26577G node_1704293:C4321T
+g France/BFC-HMN-22112020330/2022 sample-paths
+#... node_1701951:A23040G node_1702147:T27383A,C27384T node_1702148:C27382G node_1702149:G23040A node_1702162:T22917G node_1702163:G12160A node_1702164:T9866C node_1702165:C27259A node_1702166:T26858C node_1702190:G26529A node_1702191:G22917T node_1702192:C27889T node_1702193:C1627T node_1702194:A28330G node_1702474:T23018G node_1702475:T22813G node_1702476:A22775G node_1702480:A23013C node_1702486:C22995A node_1702487:G22992A node_1702739:G22775A node_1702743:T6979G node_1702744:A3859G node_1702750:A27038G node_1702759:G3859A node_1702784:T22917G node_1704054:G22813T node_1704265:T27889C node_1704266:A3569G node_1704269:T4321C node_1704270:T1627C node_1704271:G3569A node_1704274:C27889T node_1704279:C1627T node_1704286:T23948G node_1704288:G26577C node_1704289:G6979T node_1704290:G23948T node_1704291:C26577G node_1704293:C4321T node_1704674:C7528T node_1705159:G22599C
+g node_1702147: sample-paths | g -v node_1702871: | g -v node_1704293: | g -v node_1705159: \
+| cut -f 1 > pruneForPD1470
+wc -l pruneForPD1470
+#5317 pruneForPD1470
+
+# Add these:
+g USA/TX-HMH-118254/2022 sample-paths
+#... node_1701951:A23040G node_1702147:T27383A,C27384T node_1702148:C27382G node_1702149:G23040A node_1702162:T22917G node_1702163:G12160A node_1702164:T9866C node_1702165:C27259A node_1702166:T26858C node_1702190:G26529A node_1702191:G22917T node_1702192:C27889T node_1702193:C1627T node_1702194:A28330G node_1702474:T23018G node_1702475:T22813G node_1702476:A22775G node_1702480:A23013C node_1702486:C22995A node_1702487:G22992A node_1702739:G22775A node_1702743:T6979G node_1702744:A3859G node_1702750:A27038G node_1702759:G3859A node_1702784:T22917G node_1702785:T25000C node_1702793:G26577C node_1702826:G22813T node_1702828:T1627C node_1702829:G6979T node_1702837:G22599C node_1702838:C7528T node_1702840:C1627T node_1702865:C26577G node_1702871:C25000T node_1702908:T7528C
+# Spare these:
+g Brazil/AM-FIOCRUZ-ILMD2206009/2022 sample-paths
+#... node_1701951:A23040G node_1702147:T27383A,C27384T node_1702148:C27382G node_1702149:G23040A node_1702162:T22917G node_1702163:G12160A node_1702164:T9866C node_1702165:C27259A node_1702166:T26858C node_1702190:G26529A node_1702191:G22917T node_1702192:C27889T node_1702193:C1627T node_1702194:A28330G node_1702474:T23018G node_1702475:T22813G node_1702476:A22775G node_1702480:A23013C node_1702486:C22995A node_1702487:G22992A node_1702739:G22775A node_1702743:T6979G node_1702744:A3859G node_1702750:A27038G node_1702759:G3859A node_1702784:T22917G node_1702785:T25000C node_1702793:G26577C node_1702826:G22813T node_1702828:T1627C node_1702829:G6979T node_1702837:G22599C node_1702838:C7528T node_1702840:C1627T node_1702865:C26577G node_1702871:C25000T node_1702908:T7528C node_1702909:C22599G
+g node_1702908: sample-paths | g -v node_1702909: | cut -f 1 >> pruneForPD1470
+wc -l pruneForPD1470
+#5332 pruneForPD1470
+
+# Add these:
+g Brazil/GO-FIOCRUZ-18171/2022 sample-paths
+#... node_1701951:A23040G node_1702147:T27383A,C27384T node_1702148:C27382G node_1702149:G23040A node_1702162:T22917G node_1702163:G12160A node_1702164:T9866C node_1702165:C27259A node_1702166:T26858C node_1702190:G26529A node_1702191:G22917T node_1702192:C27889T node_1702193:C1627T node_1702194:A28330G node_1702474:T23018G node_1702475:T22813G node_1702476:A22775G node_1702480:A23013C node_1702486:C22995A node_1702487:G22992A node_1702739:G22775A node_1702743:T6979G node_1702744:A3859G node_1702750:A27038G node_1702759:G3859A node_1702784:T22917G node_1704054:G22813T node_1704265:T27889C node_1704266:A3569G node_1704269:T4321C node_1704270:T1627C node_1704271:G3569A node_1704274:C27889T node_1704279:C1627T node_1704286:T23948G node_1704288:G26577C node_1704289:G6979T node_1704290:G23948T node_1704291:C26577G node_1704293:C4321T node_1709709:G18674A
+# Spare these:
+g USA/CA-CDPH-FS27888553/2022 sample-paths
+#... node_1701951:A23040G node_1702147:T27383A,C27384T node_1702148:C27382G node_1702149:G23040A node_1702162:T22917G node_1702163:G12160A node_1702164:T9866C node_1702165:C27259A node_1702166:T26858C node_1702190:G26529A node_1702191:G22917T node_1702192:C27889T node_1702193:C1627T node_1702194:A28330G node_1702474:T23018G node_1702475:T22813G node_1702476:A22775G node_1702480:A23013C node_1702486:C22995A node_1702487:G22992A node_1702739:G22775A node_1702743:T6979G node_1702744:A3859G node_1702750:A27038G node_1702759:G3859A node_1702784:T22917G node_1704054:G22813T node_1704265:T27889C node_1704266:A3569G node_1704269:T4321C node_1704270:T1627C node_1704271:G3569A node_1704274:C27889T node_1704279:C1627T node_1704286:T23948G node_1704288:G26577C node_1704289:G6979T node_1704290:G23948T node_1704291:C26577G node_1704293:C4321T node_1709709:G18674A node_1709715:C22033A node_1709716:A18674G node_1709721:C5284T node_1709722:A22033C
+g node_1709709: sample-paths | g -v node_1709722: | cut -f 1 >> pruneForPD1470
+wc -l pruneForPD1470
+#5547 pruneForPD1470
+
+
+# https://github.com/cov-lineages/pango-designation/issues/1471:
+# Due to a single sequence from Japan on the C2710T+C8626T branch containing this mutation,
+# along with the masking of C16887T, Usher has split the lineage into two separate branches
+# on the tree, one with C11824T and one without. It's pretty clear that Usher has got this wrong.
+g Japan/PG-356772/2022 sample-paths
+#... node_2175806:C16616A node_2245927:C2710T node_2247217:C8626T node_2248067:C11824T
+g Singapore/16593/2022 sample-paths
+#... node_2175806:C16616A node_2245927:C2710T node_2247217:C8626T node_2248067:C11824T node_2248068:T17208C
+g node_2248067: sample-paths | g -v node_2248068: | cut -f 1 > pruneForPD1471
+wc -l pruneForPD1471
+#1 pruneForPD1471
+
+
+# On the way to XBB.1.{1,4,5} there's a back-mut re-mut on 21618 and mut/rev on 335.
+g India/TN-CDFD-N-266/2022 sample-paths
+#... node_2428884:G22317T node_2429128:T21618C
+g Indonesia/JT-Undip-00259/2022 sample-paths
+#... node_2428884:G22317T node_2429128:T21618C node_2429135:G27915T node_2429169:C335T node_2429170:C21618T node_2429209:T335C
+g node_2429128: sample-paths | g -v node_2429209: | cut -f 1 > pruneForXBB.1
+wc -l pruneForXBB.1
+#443 pruneForXBB.1
+
+# big (2k) branch with SouthKorea/KDCA152354/2022 has mut/.../rev: G27043A > C7390A > A27043G
+g Singapore/10551/2022 sample-paths
+#... node_2474176:C593T node_2474282:G27043A
+g USA/NM-UNM-ED_04268/2022 sample-paths
+#... node_2474176:C593T node_2474282:G27043A node_2474283:C7390A
+g node_2474282: sample-paths | g -v node_2474283: | cut -f 1 > pruneForBN.1.3
+wc -l pruneForBN.1.3
+#72 pruneForBN.1.3
+
+# OK, now prune to fix the new cluster-yuck.
+g Germany/BB-RKI-I-961458/2022 sample-paths
+#... node_1699546:C2790T node_1796991:G23040A node_1797066:T22917G node_1797071:T23018G node_1797073:G12160A node_1797074:T9866C node_1840252:C1627T
+g node_1840252: sample-paths | wc -l
+#392
+# Yep, sounds about right, and looks right in 2022-12-29 taxonium.
+g node_1840252: sample-paths | cut -f 1 >> pruneForPD1470
+wc -l pruneForPD1470
+
+
+wc -l pruneFor*
+#    72 pruneForBN.1.3
+#  5939 pruneForPD1470
+#     1 pruneForPD1471
+#   443 pruneForXBB.1
+#  6455 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Should I be using a bigger radius here or does that create trouble sometimes?
+# I'll keep it this time because of that BA.2 disaster branch with mini-BA.5*s.
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Make taxonium just for BA.2 branch:
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -I $(grep ^BA.2$'\t' clade-paths.pruned  | cut -f 2) \
+    -o gisaidAndPublic.$today.pruned.opt.BA.2.pb
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.BA.2.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt: BA.2 branch only" \
+    --output gisaidAndPublic.$today.treeWork.BA.2.jsonl.gz \
+    >& utt.log &
+
+# Are these in BA.5 now instead of BA.2-fugly-land?
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths.pruned
+#... node_2106029:C2790T node_2212235:G23040A node_2212319:T22917G node_2212325:T23018G node_2212327:G12160A node_2212328:T9866C node_2264492:C27259A node_2264493:C1627T,G26529A,T26858C,A27038G,C27382G,T27383A,C27384T,C27889T,A28330G node_2264925:C7528T node_2265430:G22599C 
+# Crap, still need to prune more sequences and try again.
+g France/ARA-GENBIO-14292592291/2022 sample-paths.pruned
+#... 
+g France/BFC-HMN-22112020330/2022 sample-paths.pruned
+#... 
+g Brazil/AM-FIOCRUZ-ILMD2206009/2022 sample-paths.pruned
+#... 
+g USA/CA-CDPH-FS27888553/2022 sample-paths.pruned
+#... 
+
+# Do we have a unified branch with T17208C first now?
+g Singapore/16593/2022 sample-paths.pruned
+#... node_2686952:C16616A node_2770645:C2710T node_2772143:C8626T node_2773268:T17208C node_2773269:C11824T
+# Yep, good.
+# Are the flip-flops on 335 and 21618 gone?
+g Indonesia/JT-Undip-00259/2022 sample-paths.pruned
+#... node_2991270:G22317T node_2991794:G27915T
+# Yep.
+# Is the flip-flop on 27043 gone?
+g USA/NM-UNM-ED_04268/2022 sample-paths.pruned
+#... node_3045640:C593T node_3046377:C7390A node_3046378:G27043A
+# 7390 first now, good.
+
+# Prune more and try again.
+g USA/TX-HMH-MCoV-102898/2022 sample-paths
+#... node_1797073:G12160A node_1797074:T9866C node_1840780:C27259A
+g node_1840780: sample-paths | wc -l
+#15
+g node_1840780: sample-paths | cut -f 1 >> pruneForPD1470
+wc -l pruneForPD1470
+#5954 pruneForPD1470
+
+# Repeat from pruning above...
+g 
+# Check paths:
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths.pruned
+#... node_2106029:C2790T node_2212214:G23040A node_2212298:T22917G node_2212304:T23018G node_2212306:G12160A node_2212307:T9866C node_2264534:C27889T node_2264535:C1627T,G26529A,T26858C,A27038G,C27259A,C27382G,T27383A,C27384T,A28330G node_2264975:C7528T node_2265457:G22599C 
+# -- Nope, there's still at least one other home for wayward BA.5's on that almost-BA.4 branch.
+
+# Tempting to nuke all that fluff above XAS and almost-BA.4.
+# Yeah, no need to go 3 more rounds with this.  There might be some more slosh when they're all
+# added back, will need to keep an eye on it and might need to make some permanent exclusions.
+g Colombia/VAC-LSPD-202206050495/2022 sample-paths
+#... node_1699546:C2790T node_1796991:G23040A node_1797066:T22917G node_1797071:T23018G node_1797073:G12160A node_1797074:T9866C
+# XAS
+g Mexico/GUA_InDRE_FB20570_E11318771765_S14676/2022 sample-paths
+#... node_1699546:C2790T node_1796991:G23040A node_1797066:T22917G node_1797071:T23018G node_1797073:G12160A node_1797074:T9866C node_1840597:C27945T
+# almost-BA.4
+g England/PHEP-YYFKBZZ/2022 sample-paths
+#... node_1699546:C2790T node_1796991:G23040A node_1797066:T22917G node_1797071:T23018G node_1797073:G12160A node_1797074:T9866C node_1797075:G27788T
+g node_1797074: sample-paths | g -v node_1840597: | g -v node_1797075: | cut -f 1 >> pruneForPD1470
+#7317 pruneForPD1470
+
+# Repeat from pruning above...
+
+# Check paths:
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths.pruned
+#... node_2106031:C2790T node_2212217:G23040A node_2212301:T22917G node_2212307:T23018G node_2264205:C27259A node_2264206:A27038G node_2264207:T9866C,T26858C node_2264208:C1627T,G12160A,G26529A,C27382G,T27383A,C27384T,C27889T,A28330G node_2264675:C7528T node_2265180:G22599C 
+# Crap, still not enough.  Even more to prune upstream.
+
+g Turkey/HSGM-GS3602/2022 sample-paths
+#... node_1699546:C2790T node_1796991:G23040A node_1797066:T22917G
+# Spare BA.2.77
+g Ireland/D-NVRL-S22IRL00315407/2022 sample-paths
+#... node_1699546:C2790T node_1796991:G23040A node_1797066:T22917G node_1840878:G22580A,A22629C node_1840879:C10332T,G24368C,G25691T,C26305T,C26533T
+# Spare almost-BA.4
+g Colombia/VAC-LSPD-202206050495/2022 sample-paths
+#... node_1699546:C2790T node_1796991:G23040A node_1797066:T22917G node_1797071:T23018G node_1797073:G12160A node_1797074:T9866C
+g node_1797066: sample-paths | g -v node_1840879: | g -v node_1797074: | cut -f 1 >> pruneForPD1470
+wc -l pruneForPD1470
+#7400 pruneForPD1470
+
+# Repeat from pruning above...
+
+# Check paths:
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths.pruned
+#... node_2106031:C2790T node_2212221:G23040A node_2212305:T9866C,T22917G,T23018G node_2212306:G12160A node_2212307:G27788T node_2263798:G26529A node_2263799:T27788G node_2263800:C1627T,T26858C,A27038G,C27259A,C27382G,T27383A,C27384T,C27889T,A28330G node_2264110:C7528T node_2264615:G22599C
+# ARGH what is keeping them there?  It's tempting to just remove the branch of frustration and
+# see if the sequences are added back where people think they belong.  Maybe I should actually
+# plot out the mutations that are causing this.
+# Hmm, the G27788T > G26529A > T27788G is probably not helping.  But that's past where I just pruned.
+
+# The long branch (node_2263800) is past that, and has 9 mutations on it... wow, maybe radius 12 is
+# too short!  Maybe for this I need, like, 20, although who knows what other havoc that might wreak.
+# Can I point matOptimize at just that branch?  Doesn't look like it.
+
+# Try matOptimize with a radius of 20.
+time $matOptimize \
+    -T 50 -r 20 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Repeat steps to make files for checking paths.
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths.pruned
+#... node_2105949:C2790T node_2478180:T9866C node_2482233:T26858C node_2482234:C27259A node_2482235:C27382G node_2482236:C27384T node_2482237:T27383A node_2482238:G23040A node_2482239:T23018G node_2482240:T22917G node_2482366:G12160A node_2482837:G26529A node_2484989:C27889T node_2674985:A28330G node_2674986:C1627T node_2674987:A27038G node_2675312:C7528T node_2675817:G22599C
+g ^BA.5$'\t' clade-paths.pruned
+#... C2790T > T9866C > T26858C > C27259A > C27382G > C27384T > T27383A > G23040A > T23018G > T22917G > G12160A > G26529A
+# OMG OMG!  Check in Taxonium.  Check other recent problematics too.
+
+# The ones they want to see in BF.7 are still not there... they made it as far as BA.5.2 but...
+# doh, it looks like they got placed as a duplicate A27038G (BA.5.2.1) branch on the BA.5.2
+# backbone... not supposed to happen.
+g Cambodia/277933/2022 sample-paths.pruned
+#... node_2484989:C27889T node_2674985:A28330G node_2674986:C1627T node_2674987:A27038G node_2675312:C7528T node_2675817:G22599C ...
+# So... does node_2674986 really have two A27038G children?
+g Australia/VIC68539/2022 sample-paths.pruned
+#... node_2484989:C27889T node_2674985:A28330G node_2674986:C1627T node_2779596:A27038G
+# Yep, node_2674986:C1627T node_2674987:A27038G vs. node_2674986:C1627T node_2779596:A27038G.
+# Damn, that's not supposed to happen.  Maybe a quick optimization round to fix that up?
+# The mutations match the BF.7 path:
+#... node_2484989:C27889T node_2674985:A28330G node_2674986:C1627T node_2779596:A27038G node_2880960:C7528T node_2880961:G22599C
+
+# Just radius 8 this time:
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned.reopt \
+    -i gisaidAndPublic.$today.pruned.opt.pb \
+    -o gisaidAndPublic.$today.pruned.reopt.pb \
+    >& matOptimize.pruned.reopt.log
+#real    82m34.289s
+
+# Meanwhile check the other paths:
+g France/ARA-GENBIO-14292592291/2022 sample-paths.pruned
+#... node_2484989:C27889T node_2674985:A28330G node_2674986:C1627T node_2674987:A27038G
+g France/BFC-HMN-22112020330/2022 sample-paths.pruned
+#... node_2484989:C27889T node_2674985:A28330G node_2674986:C1627T node_2674987:A27038G node_2675312:C7528T node_2675817:G22599C
+g Brazil/AM-FIOCRUZ-ILMD2206009/2022 sample-paths.pruned
+#... node_2484989:C27889T node_2674985:A28330G node_2674986:C1627T node_2674987:A27038G
+g USA/CA-CDPH-FS27888553/2022 sample-paths.pruned
+#... node_2484989:C27889T node_2674985:A28330G node_2674986:C1627T node_2674987:A27038G node_2681639:C5284T
+# I'm surprised they seem so vanilla BA.5.2.
+
+# Do we have a unified branch with T17208C first now?
+g Singapore/16593/2022 sample-paths.pruned
+#... node_2686181:C16616A node_2769894:C2710T node_2771394:C8626T node_2772518:T17208C node_2772519:C11824T
+# Good.
+# Are the flip-flops on 335 and 21618 gone?
+g Indonesia/JT-Undip-00259/2022 sample-paths.pruned
+#... node_2990486:A510G node_2990487:G22317T node_2991000:G27915T 
+# Yep.
+# Is 7390 before 27043?
+g USA/NM-UNM-ED_04268/2022 sample-paths.pruned
+#... node_3044894:C593T node_3045631:C7390A node_3045632:G27043A
+# Yep.
+# It would be kind of a shocker if those weren't good.  :)
+
+# -- But wow, checking the 2022-12-30 taxonium... I set up the pruned version as the base for
+# the 2022-12-30 build, and when Japan/PG-356772/2022|EPI_ISL_15261684|2022-09-06 was added
+# back, apparently matOptimize re-split the T17208C branch, so annoying.  So I'll permanently
+# exclude that one.  XBB.1 looks good.  BN.1.3 too.
+
+# Check paths -- use .reopt.pb not opt.pb:
+$matUtils extract -i gisaidAndPublic.$today.pruned.reopt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Make taxonium just for BA.2 branch:
+$matUtils extract -i gisaidAndPublic.$today.pruned.reopt.pb \
+    -I $(grep ^BA.2$'\t' clade-paths.pruned  | cut -f 2) \
+    -o gisaidAndPublic.$today.pruned.opt.BA.2.pb
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.BA.2.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt: BA.2 branch only" \
+    --output gisaidAndPublic.$today.treeWork.BA.2.jsonl.gz \
+    >& utt.log &
+
+wc -l clade-paths clade-paths.pruned
+#   2368 clade-paths
+#   2358 clade-paths.pruned
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.pruned | sort)
+#< BA.1.1
+#< BA.1.15
+#< BA.5.2
+#< BA.5.2.1
+#< BA.5.2.26
+#< BF.12
+#< BF.7
+#< BF.7.1
+#< BF.7.12
+#< XBB.1.2
+# Lots of places I didn't mess with... take a good look in taxonium when it's ready, but in the
+# meantime let's check paths...
+g Italy/VEN-IZSVe-22RS8357-22_VI/2022 sample-paths.pruned
+#... node_2105924:C2790T node_2426269:T9866C node_2430322:T26858C node_2430323:C27259A node_2430324:C27382G node_2430325:C27384T node_2430326:T27383A node_2430327:G23040A node_2430328:T23018G node_2430329:T22917G node_2430455:G12160A node_2430926:G26529A node_2433079:C27889T node_2623074:A28330G node_2623075:C1627T node_2623076:A27038G node_2747273:C7528T node_2747863:G22599C
+g ^BA.5$'\t' clade-paths.pruned
+#... node_2430926 ... 
+# Woohoo!  Check in taxonium.
+
+# Yep!  Finally.  Those seqs look well integrated into BA.5.2 now... coloring by the originally
+# assigned lineages, I see a lot of BA.2 sprinkled across BF.7 and elsewhere in BA.5.2.1.
+
+# Crud, I can't check the BA.1 changes in the BA.2-only taxonium...
+# Make a full-tree taxonium too.  (reopt not opt)
+
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.reopt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+ln -f gisaidAndPublic.2022-12-29.pruned.reopt.pb gisaidAndPublic.2022-12-29.masked.useMe.pb
+
+# Rebuild 2022-12-30.
+prevDate=2022-12-29
+today=2022-12-30
+cd $ottoDir/$today
+# Move aside the files that updateCombinedTree.sh uses (doesn't rebuild) if they already exist.
+mv new.masked.vcf.gz{,.orig}
+cp -p gisaidAndPublic.2022-12-30.masked.pb gisaidAndPublic.2022-12-30.masked.orig.pb
+for dir in /usr/local/apache/cgi-bin{-angie,-beta,}/hgPhyloPlaceData/wuhCor1; do
+    ln -sf $(pwd)/gisaidAndPublic.2022-12-30.masked.orig.pb $dir/public.plusGisaid.latest.masked.pb
+done
+rm gisaidAndPublic.2022-12-30.masked.pb
+
+
+time $scriptDir/updateCombinedTree.sh $prevDate $today $problematicSitesVcf \
+    $ottoDir/$prevDate/gisaidAndPublic.2022-12-29.pruned.reopt.pb \
+    >& updateCombinedTree.redo.log

@@ -1,0 +1,138 @@
+today=2023-09-19
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+
+# Much of EG.10.1 is stuck on a late-S:701 (23664) branch
+# Maybe I should listen to Cornelius and exclude env/ samples...
+g Germany/BW-RKI-I-1137148/2023 sample-paths
+#... node_2365578:T23042C node_2365609:C335T,G8372T,C18175T node_2365610:G11312A,C23664T ...
+g node_2365609: sample-paths | g -v node_2365610: | cut -f 1 > pruneForEG.10.1
+wc -l pruneForEG.10.1
+#1 pruneForEG.10.1
+
+
+# branch of interest has rev23075 in path
+# https://github.com/cov-lineages/pango-designation/issues/2288
+g Brazil/BA-LACEN-293051753/2023 sample-paths
+#... node_2386766:T4579A node_2387586:C23075T node_2387587:G23222A,A23233G node_2387588:T23075C
+g node_2387586: sample-paths | g -v node_2387588: | cut -f 1 > pruneForPD2288
+wc -l pruneForPD2288
+#6 pruneForPD2288
+
+
+# lop & replace this whole branch to unify C17597T:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/828
+g Georgia/Tb-s7661/2023 sample-paths
+#... node_2336411:C17597T
+g node_2336411: sample-paths | cut -f 1 > pruneForLP828
+wc -l pruneForLP828
+#128 pruneForLP828
+
+
+# A couple branches misplaced (with rev on 22995) by a couple sequences:
+# https://github.com/yatisht/usher/issues/350
+g SouthKorea/KDCA248147/2023 sample-paths
+#... node_2336525:A25450G node_2336526:G3824A,C8320T,T25123C,G25996C node_2336527:A3430G,C12249T,C19366T,G22995A
+g node_2336526: sample-paths | g -v node_2336527: | cut -f 1 > pruneForU350
+wc -l pruneForU350
+#1 pruneForU350
+
+g USA/TX-HMH-M-130905/2023 sample-paths
+#... node_2336409:T23018C node_2336410:A22995G node_2336445:T11956C node_2336501:A5720G node_2336502:G22995A
+g node_2336501: sample-paths | g -v node_2336502: | cut -f 1 >> pruneForU350
+wc -l pruneForU350
+#5 pruneForU350
+
+
+# Replace in case the rev22995 is a mistake (this node is one upstream of the rev)
+g Italy/FVG-UD-65344325/2023 sample-paths
+#... node_2370694:A22995G node_2370696:C4234T,T25640C node_2370700:C4679T ...
+g node_2370700: sample-paths | cut -f 1 > pruneFor22995
+wc -l pruneFor22995
+#11 pruneFor22995
+
+
+# Fede email: GA.4 split by one sequence causing late 22629.
+g Belgium/UGent-1312/2023 sample-paths
+#... node_2391668:A3503G,C7923T node_2391669:T3442C node_2391670:A22629C
+g node_2391669: sample-paths | g -v node_2391670: | cut -f 1 > pruneForGA.4
+wc -l pruneForGA.4
+#1 pruneForGA.4
+
+
+wc -l pruneFor*
+#  11 pruneFor22995
+#   1 pruneForEG.10.1
+#   1 pruneForGA.4
+# 128 pruneForLP828
+#   6 pruneForPD2288
+#   5 pruneForU350
+# 152 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m18.924s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13143718,with radius 1, second from start 263
+#parsimony score after optimizing: 13143712,with radius 2, second from start 359
+#parsimony score after optimizing: 13143702,with radius 4, second from start 820
+#parsimony score after optimizing: 13143700,with radius 8, second from start 3060
+#parsimony score after optimizing: 13143696,with radius 16, second from start 5522
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# 23664 before 335 etc?
+g Germany/BW-RKI-I-1137148/2023 sample-paths.pruned
+#... node_2357479:C335T,T23042C,C23664T node_2357510:G8372T,G11312A,C18175T node_2357553:A13296G 
+# On the same node, OK
+
+# No more rev23075?
+g Brazil/BA-LACEN-293051753/2023 sample-paths.pruned
+#... node_2386731:T4579A node_2387570:G23222A,A23233G
+# Yep, good.
+
+# No more rev22995?
+g SouthKorea/KDCA248147/2023 sample-paths.pruned
+#... node_2336414:T23018C node_2377519:A25450G node_2377526:A3430G,G3824A,C8320T,C12249T,C19366T,T25123C,G25996C
+g USA/TX-HMH-M-130905/2023 sample-paths.pruned
+#... node_2336414:T23018C node_2336415:A22995G node_2336418:T11956C node_2336474:G22995A node_2336475:A5720G
+# One for two, wonder what happened to that second branch, oh well.
+
+# 22629 before 3442?
+g Belgium/UGent-1312/2023 sample-paths.pruned
+#... node_2391632:A22629C node_2391633:T3442C
+# Yep, good.
+
+# See what happens tomorrow, especially with the lopped branches.
+

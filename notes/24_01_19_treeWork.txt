@@ -1,0 +1,309 @@
+today=2024-01-18
+cd $ottoDir/$today
+
+# BA.5 has become a child-on-rev-branch of BA.4, which due to the way I prune branches with
+# reversions on lineage-defining muts is a disaster for updating lineageTree.pb.  There are
+# other minor things to fix to, but just fix that first and restart update.  Interrupt the
+# 2024-01-19 build when it starts to get the fix into the daily build.
+
+# This also means that the BA.4 branch-specific masking of 686-694 has been applied to BA.5,
+# not great.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# Keep BA.5_droput node, prune back to T27383A,C27384T revs, permanently exclude from C27259A rev
+g France/OCC-GENBIO-F08001783126/2022 sample-paths
+#... node_1566054:G27788T node_1589307:A23535G node_1589421:C26010T node_1589422:C1780T node_1589785:T27383A,C27384T node_1589787:C27382G node_1589788:T26010C node_1589789:T1780C node_1589790:C27259A node_1589791:G23535A node_1589792:T26858C,T27788G node_1589795:T28724C 
+g node_1589785: sample-paths | g -v node_1589795: | cut -f 1 > pruneForBA.5
+wc -l pruneForBA.5
+#60 pruneForBA.5
+
+# So few sequences, such a giant pain in the ass.
+
+# Permanently exclude the nearest-to-BA.5 ones to prevent that bridge from forming again.
+g node_1589790: sample-paths | g -v node_1589795: | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    > excludeForBA.5
+wc -l excludeForBA.5
+#35 excludeForBA.5
+g -Fwf excludeForBA.5 $epiToPublic \
+| tawk '{print $1 "\n" $2;}' \
+    > excludeForBA.5.mapped
+wc -l excludeForBA.5.mapped
+#12 excludeForBA.5.mapped
+sort -u excludeForBA.5 excludeForBA.5.mapped >> ../badBranchSeed.ids
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    105m49.255s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13768379,with radius 1, second from start 238
+#parsimony score after optimizing: 13768355,with radius 2, second from start 330
+#parsimony score after optimizing: 13768344,with radius 4, second from start 785
+#parsimony score after optimizing: 13768337,with radius 8, second from start 3163
+#parsimony score after optimizing: 13768332,with radius 16, second from start 5568
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+g France/OCC-GENBIO-F08001783126/2022 sample-paths.pruned
+#... node_1566061:G27788T node_1589314:A23535G node_1592490:T12457C node_1592632:C27384T node_1592633:T27383A node_1592634:C27382G node_1592636:C12457T,T26858C,T27788G,T28724C node_1592637:C27259A node_1592638:G23535A 
+# OK that still has flip-flops... and oy it is still in BA.4 so we have to go another round.
+
+g node_1592632: sample-paths.pruned | g -v node_1592638: | cut -f 1 > pruneMoreForBA.5
+wc -l pruneMoreForBA.5
+#12 pruneMoreForBA.5
+# Again, so very few.  When taxonium file is ready, figure out which ones to perm-exclude.
+# --> Slovenia, Spain, USA/NY
+cat > excludeMoreForBA.5 <<EOF
+EPI_ISL_14027331
+EPI_ISL_14027343
+EPI_ISL_14048411
+EPI_ISL_14464780
+EOF
+g -Fwf excludeMoreForBA.5 $epiToPublic \
+| tawk '{print $1 "\n" $2;}' \
+    > excludeMoreForBA.5.mapped
+wc -l excludeMoreForBA.5.mapped
+#0 excludeMoreForBA.5.mapped
+cat excludeMoreForBA.5 >> ../badBranchSeed.ids
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s pruneMoreForBA.5 \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    104m59.830s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13768317,with radius 1, second from start 241 
+#parsimony score after optimizing: 13768315,with radius 2, second from start 326 
+#parsimony score after optimizing: 13768313,with radius 4, second from start 754 
+#parsimony score after optimizing: 13768312,with radius 8, second from start 3041 
+#parsimony score after optimizing: 13768311,with radius 16, second from start 5540 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+g France/OCC-GENBIO-F08001783126/2022 sample-paths.pruned
+#... node_1565915:G12160A node_1566060:C28724T node_1566061:G27788T node_1589314:A23535G node_1595358:C8140T node_1595364:G22599C node_1595961:C14599T node_1603199:T27383A node_1603200:C27384T node_1603202:C27382G node_1603206:T27788G node_1603207:C27889T node_1603208:C27259A node_1603212:T26858C node_1603239:T28724C node_1603240:G23535A node_1603241:T8140C,T14599C node_1603242:C22599G,G27788T,T27889C node_1603243:T27788G
+# argh!  Still on yet another BA.4 rev branch! :(  
+
+# Well, this must be fixed, go another round.
+g node_1603199: sample-paths.pruned | g -v node_1603243: | cut -f 1 > pruneYetMoreForBA.5
+wc -l pruneYetMoreForBA.5
+#330 pruneYetMoreForBA.5
+
+# Pick the ones to perm-exclude in taxonium.
+g node_1603207: sample-paths.pruned | g -v node_1603243: | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    > excludeYetMoreForBA.5
+wc -l excludeYetMoreForBA.5
+#104 excludeYetMoreForBA.5
+g -Fwf excludeYetMoreForBA.5 $epiToPublic \
+| tawk '{print $1 "\n" $2;}' \
+    > excludeYetMoreForBA.5.mapped
+wc -l excludeYetMoreForBA.5.mapped
+#60 excludeYetMoreForBA.5.mapped
+sort -u excludeYetMoreForBA.5 excludeYetMoreForBA.5.mapped >> ../badBranchSeed.ids
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s pruneYetMoreForBA.5 \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    64m3.955s
+# OK, please let it be running out of crap branches for BA.5.
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13767537,with radius 1, second from start 241
+#parsimony score after optimizing: 13767535,with radius 2, second from start 328
+#parsimony score after optimizing: 13767534,with radius 4, second from start 764
+#parsimony score after optimizing: 13767534,with radius 8, second from start 3068
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+g France/OCC-GENBIO-F08001783126/2022 sample-paths.pruned
+#... node_1565915:G12160A node_1566060:C28724T node_1566061:G27788T node_1589314:A23535G node_1595358:C8140T node_1595364:G22599C node_1595961:C14599T node_1601769:T28724C node_1601955:C27259A node_1601956:G23535A node_1601957:T8140C,T14599C,T26858C,C27382G,T27383A,C27384T,T27788G node_1601958:C22599G
+# ARGH still.  Oh well, keep at it!
+g node_1601769: sample-paths.pruned | g -v node_1601958: | cut -f 1 > pruneStillMoreForBA.5
+wc -l pruneStillMoreForBA.5
+#741 pruneStillMoreForBA.5
+
+# Use taxonium to figure out which ones to perm-exclude.
+g node_1601955: sample-paths.pruned | g -v node_1601957: | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    > excludeStillMoreForBA.5
+wc -l excludeStillMoreForBA.5
+#2 excludeStillMoreForBA.5
+g -Fwf excludeStillMoreForBA.5 $epiToPublic \
+| tawk '{print $1 "\n" $2;}' \
+    > excludeStillMoreForBA.5.mapped
+wc -l excludeStillMoreForBA.5.mapped
+#0 excludeStillMoreForBA.5.mapped
+sort -u excludeStillMoreForBA.5 excludeStillMoreForBA.5.mapped >> ../badBranchSeed.ids
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s pruneStillMoreForBA.5 \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+g France/OCC-GENBIO-F08001783126/2022 sample-paths.pruned
+#node_912803:A9424G node_913049:C2790T node_1561088:T9866C node_1565912:T22917G node_1565913:G23040A node_1565914:T23018G node_1565915:G12160A node_1614997:C27382G node_1614998:T26858C,T27383A node_1614999:C27384T node_1615000:C27259A
+# OMG I think it's OK now.  Check in taxonium... damn, BA.4.8 became the parent of BA.4 ?!
+# Actually... BA.4.8 is BA.4 with a rev on 27788, so... OK.
+
+# Look at major lineages in taxonium before starting updateLineageTreePb process again.
+
+
+# When did this happen anyway?
+for d in $ottoDir/2024-01-??; do echo -n $d": "; g ^BA.5$'\t' $d/clade-paths | wc -w; done
+#/hive/data/outside/otto/sarscov2phylo/2024-01-02: 106
+#/hive/data/outside/otto/sarscov2phylo/2024-01-03: 106
+#/hive/data/outside/otto/sarscov2phylo/2024-01-04: 106
+#...
+#/hive/data/outside/otto/sarscov2phylo/2024-01-17: 106
+#/hive/data/outside/otto/sarscov2phylo/2024-01-18: 106
+# OK, it's been a while then!
+for d in $ottoDir/2023-12-??; do echo -n $d": "; g ^BA.5$'\t' $d/clade-paths | wc -w; done
+#/hive/data/outside/otto/sarscov2phylo/2023-12-01: 106
+#/hive/data/outside/otto/sarscov2phylo/2023-12-02: 106
+#/hive/data/outside/otto/sarscov2phylo/2023-12-03: 106
+#...
+for d in $ottoDir/2023-11-??; do echo -n $d": "; g ^BA.5$'\t' $d/clade-paths | wc -w; done
+#/hive/data/outside/otto/sarscov2phylo/2023-11-01: 88
+#/hive/data/outside/otto/sarscov2phylo/2023-11-02: 100
+#/hive/data/outside/otto/sarscov2phylo/2023-11-03: 100
+#/hive/data/outside/otto/sarscov2phylo/2023-11-04: 100
+#/hive/data/outside/otto/sarscov2phylo/2023-11-05: 100
+#/hive/data/outside/otto/sarscov2phylo/2023-11-06: 100
+#/hive/data/outside/otto/sarscov2phylo/2023-11-07: 104
+#/hive/data/outside/otto/sarscov2phylo/2023-11-08: 92
+#/hive/data/outside/otto/sarscov2phylo/2023-11-09: 92
+#/hive/data/outside/otto/sarscov2phylo/2023-11-10: 104
+#/hive/data/outside/otto/sarscov2phylo/2023-11-11: 106
+#/hive/data/outside/otto/sarscov2phylo/2023-11-12: 106
+#/hive/data/outside/otto/sarscov2phylo/2023-11-13: 106
+#...
+# Interesting, it bounced around a bit before stabilizing.  And I didn't notice all this time.
+# 23_11_01_treeWork had some BA.4_dropout trimming (for XCT).
+# And 23_11_07_treeWork.txt had this:
+
+#---
+# flip-flops on 13255 and 8308 on the path to BA.5_dropout from some BA.4 rando branch w/revs.
+#...
+#2362 pruneForBA.5_dropout
+#...
+# Damn, there is still a flip-flop on 27788 -- different branch from earlier.  Those 27259 samples
+# need to go.  Oh well, next time, not like anybody has complained.  Time to restart 2023-11-07.
+#---
+
+# OMG "not like anybody has complained" LOL.  And "next time" I forgot until it came back to bite.

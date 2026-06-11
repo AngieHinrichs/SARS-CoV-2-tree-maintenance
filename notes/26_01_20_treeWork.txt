@@ -1,0 +1,80 @@
+today=2026-01-20
+# Repeated 2026-01-21 because due to a copy-paste error, the .useMe link did not get created in time.
+today=2026-01-21
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c BA.3.2 -S sample-paths.BA.3.2
+
+
+# Fede emailed that RD.1.1.1 has a branch with late C5100T that could be joined with the other branch that has C5100T.
+g OZ392109.1 sample-paths.BA.3.2
+#... node_927494:C2143T,T12629C,C29085T node_927495:T28250A node_927496:C5100T,C7051T
+g node_927495: sample-paths.BA.3.2 | g -v node_927496: | cut -f 1 > pruneForRD.1.1.1
+#wc -l pruneForRD.1.1.1
+#1 pruneForRD.1.1.1
+
+
+# Xu pointed out a flip-flop on 10345 anchored by GBW and a few other seqs, see if we can flip it back...
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3239
+g Canada/ON-PHL-202512451/2025 sample-paths
+#...node_2362241:C10615T node_2364407:G10345A node_2364408:T20070C,G24872T,C25006T,G25352C,G25440T,C25658T,C28291A,C28297T,G28884C node_2364409:A10345G ...
+g node_2364407: sample-paths | g -v node_2364409: | cut -f 1 > pruneForLP3239
+wc -l pruneForLP3239
+#5 pruneForLP3239
+
+
+wc -l pruneFor*
+#  5 pruneForLP3239
+#  1 pruneForRD.1.1.1
+#  6 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    107m6.692s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15261373,with radius 1, second from start 218 
+#parsimony score after optimizing: 15261365,with radius 2, second from start 304 
+#parsimony score after optimizing: 15261358,with radius 4, second from start 688 
+#parsimony score after optimizing: 15261355,with radius 8, second from start 2723 
+#parsimony score after optimizing: 15261351,with radius 16, second from start 5512 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c BA.3.2 -S sample-paths.BA.3.2.pruned
+
+# Check paths
+
+# C5100T before 28250, 7051?
+g OZ392109.1 sample-paths.BA.3.2.pruned
+#... node_927495:C2143T,C5100T,T12629C,C29085T node_927499:C7051T,T28250A ...
+# Yep, see what happens when seqs are add back.
+
+# No more flip-flop on 10345?
+g Canada/ON-PHL-202512451/2025 sample-paths.pruned
+#... node_2362243:C10615T node_2369869:C25658T node_2369870:T20070C,G24872T,C25006T,G25352C,G25440T,C28291A,C28297T,G28884C ...
+# Good, see what happens.

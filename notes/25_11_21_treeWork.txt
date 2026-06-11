@@ -1,0 +1,85 @@
+today=2025-11-21
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# https://github.com/cov-lineages/pango-designation/issues/3075#issuecomment-3475228977
+# The #3075 branch is just NB.1.8.1 > S:T236S, nt:A22268T
+# PQ.17 is NB.1.8.1 > S:I478T, nt:T22995C; the sub-branch they want to be a part of #3075 is placed at
+# PQ.17 > S:T572I, nt:C23277T > ORF1ab:G2258S, S:T236S, nt:G7037A, nt:A22268T > rev S:I572T, nt:T23277C
+# Probably could pull out the sub-branch, although the sequences that have S:T572I, nt:C23277T might pull it back.
+g France/NAQ-HCL025154549601/2025 sample-paths
+#... node_2505755:T22995C node_2506489:C23277T node_2506494:G7037A,A22268T node_2506495:T23277C 
+g node_2506494: sample-paths | g -v node_2506495: | cut -f 1 > pruneForPD3075
+wc -l pruneForPD3075
+#2 pruneForPD3075
+
+
+# Now over to BA.3.2-land...
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c BA.3.2 -S sample-paths.BA.3.2
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3093#issuecomment-3508425340
+# Ryan's saying that basically all of the Australia/WA sequences have dropout/indel-region problems.
+# The Australia/NSW sequences look good.  Prune all of the /WA's in hopes that Ns let at least some
+# get placed well on the NSW backbone.  If not, may need to resort to masking.
+g Australia/NSW-ICPMR-58173/2025 sample-paths.BA.3.2
+#... node_926894:G336A,A10323G,C14293T,C19707T,C21595T,T25129C,C25413A node_926895:C22629A,T28996A node_926896:C657T node_926897:C22591T node_926898:A28254C node_926906:A28996T node_926909:C18747T node_926913:G2494A,C19156T node_926918:A22629C,C28254A ...
+g node_926895: sample-paths.BA.3.2 | g -v node_926918: | cut -f 1 > pruneForBA.3.2.2
+wc -l pruneForBA.3.2.2
+#40 pruneForBA.3.2.2
+
+
+wc -l pruneFor*
+#  40 pruneForBA.3.2.2
+#   2 pruneForPD3075
+#  42 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    102m2.651s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15194337,with radius 1, second from start 176
+#parsimony score after optimizing: 15194322,with radius 2, second from start 257
+#parsimony score after optimizing: 15194319,with radius 4, second from start 595
+#parsimony score after optimizing: 15194317,with radius 8, second from start 2296
+#parsimony score after optimizing: 15194313,with radius 16, second from start 5542
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c BA.3.2 -S sample-paths.BA.3.2.pruned
+
+# Check paths
+
+# 22268 immediately after 22995?
+g France/NAQ-HCL025154549601/2025 sample-paths.pruned
+#... node_2505729:T22995C node_2506801:G7037A,A22268T
+# Good.
+
+# No flip-flop on 22629, 28254 and 28996?
+g Australia/NSW-ICPMR-58173/2025 sample-paths.BA.3.2.pruned
+#... node_926895:G336A,A10323G,C14293T,C19707T,C21595T,T25129C,C25413A node_926896:C22591T node_926897:C657T node_926898:G2494A,C18747T,C19156T
+# Good.

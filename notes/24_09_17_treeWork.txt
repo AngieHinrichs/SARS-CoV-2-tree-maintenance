@@ -1,0 +1,80 @@
+today=2024-09-17
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# Yesterday's pruning didn't get rid of all the flip-flops on the way to JN.1.16.1
+# so prune more today.
+g Denmark/DCGC-670929/2024 sample-paths
+#... node_2285231:G17334T node_2285275:G24872T node_2285319:C7113T node_2285320:T22928C node_2312784:G22599C node_2315193:T24872G node_2315194:T17334G node_2315195:T7113C
+# prune back to T24872G
+g node_2315193: sample-paths | g -v node_2315195: | cut -f 1 > pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#202 pruneForJN.1.16.1
+# Just to be safe, lop this too:
+g England/CLIMB-CM7Y8KQF/2024 sample-paths
+#... node_2312784:G22599C node_2323299:T20100C,G22580C,C26894T
+g node_2323299: sample-paths | cut -f 1 >> pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#204 pruneForJN.1.16.1
+
+
+# Big chunk of KP.2 (> T22795G) is on a new flip-flop branch.
+g Japan/FR301-0013/2024 sample-paths
+#... node_2285320:T22928C node_2285793:C21365T node_2285794:G22599C node_2285797:T22795G node_2285805:T21365C
+g node_2285793: sample-paths | g -v node_2285805: | cut -f 1 > pruneForKP.2
+wc -l pruneForKP.2
+#38 pruneForKP.2
+
+
+wc -l pruneFor*
+#  204 pruneForJN.1.16.1
+#   38 pruneForKP.2
+#  242 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# JN.1.16.1 free of its flip-flops?
+g Denmark/DCGC-670929/2024 sample-paths.pruned
+#... node_2310373:G22599C node_2313709:C6070T node_2313882:T7113C node_2313883:T21738C node_2313884:T6070C node_2313885:T17334G node_2313890:C21738T node_2313891:T24872G
+# OMG so stubborn!  Try, try again (and keep pruning more and more)
+
+# KP.2 > T22795G in KP.2 without flip-flop?
+g Japan/FR301-0013/2024 sample-paths.pruned
+#... node_2285323:C7113T node_2285324:T22928C node_2310373:G22599C node_2310374:T22795G
+# Good.

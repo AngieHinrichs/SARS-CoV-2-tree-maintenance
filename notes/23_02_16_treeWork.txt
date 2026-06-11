@@ -1,0 +1,212 @@
+today=2023-02-15
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Make an Omicron-only sample-paths to speed things up a little.
+mv sample-paths sample-paths.full
+omicron=$(grep ^B.1.1.529 clade-paths | cut -f 2)
+g $omicron: sample-paths.full > sample-paths
+l -h sample-paths*
+#-rw-rw-r-- 1 angie genecats 8.3G Feb 16 16:06 sample-paths
+#-rw-rw-r-- 1 angie genecats  14G Feb 16 15:50 sample-paths.full
+# smaller, not small.  :)
+
+# The XBB branch with Australia/WA8427/2022 still has 11956 first (before major branch mut 27915)
+g Australia/WA8427/2022 sample-paths
+#... node_2525028:G22317T node_2525029:C11956T node_2525045:G27915T
+g node_2525029: sample-paths | g -v node_2525045: | cut -f 1 > pruneForXBB
+wc -l pruneForXBB
+#69 pruneForXBB
+
+# That branch also has a reversion-disaster with a stranded re-mut island.
+g USA/NY-NYULH10374/2023 sample-paths
+#... node_2525045:G27915T node_2525105:C23075T node_2525106:G23055A,T23063A node_2525107:T11956C node_2525130:T17124C node_2525131:T23018C node_2525132:T10204C node_2525133:T28271A,T28311C node_2525134:C10204T,T22813G node_2525135:A23055G node_2525136:A23063T,T23075C node_2525175:A28271T node_2525176:C28311T
+# Spare this little re-mut branch too:
+g Germany/SN-RKI-I-1098536/2023 sample-paths
+#... node_2525045:G27915T node_2525105:C23075T node_2525106:G23055A,T23063A node_2525107:T11956C node_2525130:T17124C node_2525131:T23018C node_2525132:T10204C node_2525133:T28271A,T28311C node_2525134:C10204T,T22813G node_2525135:A23055G node_2525136:A23063T,T23075C node_2525144:C27259A node_2525145:T10204C node_2525146:A28271T node_2525147:C28311T node_2525148:A27259C
+g node_2525105: sample-paths | g -v node_2525176: | g -v node_2525148: | cut -f 1 > pruneForXBB.1
+wc -l pruneForXBB.1
+#164 pruneForXBB.1
+
+# Flip-flop on 7279 on the way to the node that should be BF.7.16 -- per Cornelius, BF.7.16 should not require 7279, it should start at C1758T and have a little 7279 branch.
+g Wales/QEUH-3F8E2DF/2022 sample-paths
+#... node_2209291:G22599C node_2220890:C7279T node_2220891:C1758T node_2220895:T7279C ...
+# Just to make sure, I will snip out the ones with both 1758 and 7279.
+g node_2220890: sample-paths | g -v node_2220895: | cut -f 1 > pruneForBF.7.16
+wc -l pruneForBF.7.16
+#31 pruneForBF.7.16
+
+
+# * BA.2.75.2_no5192 has some 5192 re-muts
+g Austria/LB-R00107-S223/2022 sample-paths
+#... node_2613079:T23019C node_2615074:T5192C node_2615078:C25517A node_2615079:A18704G node_2615080:C5192T
+g node_2615078: sample-paths | g -v node_2615080: | cut -f 1 > pruneForBA.2.75.2
+wc -l pruneForBA.2.75.2
+#4 pruneForBA.2.75.2
+
+
+# * BQ.1.2.1 is placed in BQ.1.1-land with a long branch and rev on 17039 because of reversion
+#   garbage - might be causing some BQ.1.1 misassignments in lineageTree
+g Israel/SMC-7106621/2022 sample-paths
+#... node_2019558:A17039G node_2026997:C22893A node_2027002:A22942T node_2027052:C22599G node_2027058:A1931C node_2027059:T22942A node_2027060:G17039A node_2027076:C1931A node_2027077:A23558G node_2027078:C15960A,C27513T,C29171A node_2027079:A22893C
+g node_2027002: sample-paths | g -v node_2027079: | cut -f 1 > pruneForBQ.1.2.1
+wc -l pruneForBQ.1.2.1
+#580 pruneForBQ.1.2.1
+
+
+# * BA.1.14.2 is not a child of BA.1.14... flip-flop on 203 on the way to BA.1.14.2.
+# Should probably mask 203
+g Brazil/RJ-LNN08484/2022 sample-paths
+#... node_1361835:G23048A node_1382741:C203T node_1384184:C12786T node_1384186:C1812T node_1384187:T203C ...
+g node_1384184 sample-paths | g -v node_1384187: | cut -f 1 > pruneForBA.1.14.2
+wc -l pruneForBA.1.14.2
+#10 pruneForBA.1.14.2
+
+
+# CT-CDCBI-CRSP_CUO25AQCRRQH6VD4 is on a garbage branch with all pango-masked run-of muts --
+# this caused two 22559rev branches on BQ.1.1 in lineageTree, one of which stole from BQ.1_17039.
+# Need masking to take care of all those.  Between garbage and the occasional lineage that has
+# to be withdrawn because it's defined by a UTR mut that is invisible to pangolin, it's tempting
+# to just mask the UTRs...
+
+# There's quite a mini-BQ.1 at the end of the run-of garbage.  Edit branchSpecificMask.yml...
+# and since we're editing it, toss in 203 for BA.1.
+
+
+# BA.5.1.22 has a flip-flop on 25489 and a late 29666 mut
+g Germany/SN-RKI-I-945719/2022 sample-paths
+#... node_2093567:T27438C node_2093903:G25489A node_2093904:C29666T node_2093936:C17285T node_2093967:A25489G
+g node_2093903: sample-paths | g -v node_2093967: | cut -f 1 > pruneForBA.5.1.22
+wc -l pruneForBA.5.1.22
+#275 pruneForBA.5.1.22
+
+wc -l pruneFor*
+#   10 pruneForBA.1.14.2
+#    4 pruneForBA.2.75.2
+#  275 pruneForBA.5.1.22
+#   31 pruneForBF.7.16
+#  580 pruneForBQ.1.2.1
+#   69 pruneForXBB
+#  164 pruneForXBB.1
+# 1133 total
+
+
+# Mask first, then prune.
+export PATH=~/github/usher/build:$PATH
+time $scriptDir/branchSpecificMask.py gisaidAndPublic.$today.masked.pb \
+    $scriptDir/branchSpecificMask.yml gisaidAndPublic.$today.remasked.pb
+#real    15m16.284s
+
+# Prune
+$matUtils extract -i gisaidAndPublic.$today.remasked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should do it, I hope...
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    69m51.325s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Does this finally have 27915 first?
+g Australia/WA8427/2022 sample-paths.pruned
+#... node_3109414:G22317T node_3110348:G27915T node_3128220:C11956T
+# Yes.  Check when sequences are added back...
+
+# No longer on a reversion-disaster branch?
+g USA/NY-NYULH10374/2023 sample-paths.pruned
+#... node_3110348:G27915T node_3115007:T23018C node_3115008:T17124C node_3115187:G14209T node_3115380:T22813G node_3115384:T14209G
+# Well it has reversions at the end, but it's on a good branch.  Would be even better to get rid of
+# the 14209 flip-flop but maybe later.
+g Germany/SN-RKI-I-1098536/2023 sample-paths.pruned
+#... node_3110348:G27915T node_3115007:T23018C node_3115008:T17124C node_3115187:G14209T node_3115380:T22813G node_3115384:T14209G node_3115424:T10204C
+# Hmmm, the flip-flop is worse for that one: it belongs on the big T17124C > T10204C branch.
+
+# No more 7279 flip-flop?
+g Wales/QEUH-3F8E2DF/2022 sample-paths.pruned
+#... node_2702138:A27038G node_2730170:C7528T node_2730314:G22599C node_2755654:C1758T
+# Yep.
+
+# No more 5192 flip-flop?
+g Austria/LB-R00107-S223/2022 sample-paths.pruned
+#... node_3180219:T22016C node_3213050:G22599C node_3213082:C5192T node_3213083:G25157A node_3213089:T23019C node_3215557:A18704G,C25517A
+# Yep.
+
+# No more reversion garbage, in BQ.1 instead of BQ.1.1?
+g Israel/SMC-7106621/2022 sample-paths.pruned
+#... node_2481476:T22942A node_2492135:A23558G node_2494983:C15960A,C27513T,C29171A
+# Yep.
+
+# In BA.1.14 instead of 203 flip-flop?
+g Brazil/RJ-LNN08484/2022 sample-paths.pruned
+#... G23048A node_1726672:C12786T node_1729776:C1812T
+# Yep.
+
+# In BQ.1_17039 instead of run-of garbage land?
+g CT-CDCBI-CRSP_CUO25AQCRRQH6VD4 sample-paths.pruned
+#... node_2481476:T22942A node_2502718:G22599C node_2503552:A17039G node_2568635:C22599G
+# Yes, good.
+
+# On BA.5.1 proper, no more 25489 flip-flop?
+g Germany/SN-RKI-I-945719/2022 sample-paths.pruned
+#... node_2444372:C27889T node_2590956:T27438C node_2591999:C29666T node_2592000:C17285T
+# Yes.
+
+# Replace original version and use it for another round of lineageTree.
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#> B.1.1.529_dropout
+#> BA.1_dropout
+#> BA.2_dropout
+#> BA.5.1_no29666
+# Great, just the new labels.
+
+# Ship it!
+
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+
+# Check all those paths above after pruned sequences are added back, to see if we need to
+# make any permanent exclusions.

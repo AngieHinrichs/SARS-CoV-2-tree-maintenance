@@ -1,0 +1,151 @@
+# theo Sanderson pointed out that my metadata was missing dates for ~100k German sequences.
+# The dates were from BioSample; the initial BioSample entries didn't have dates, but then June 9th
+# they were all updated to add the dates.  So I deleted the old BioSample entries for those,
+# reloaded those, and then the metadata files had dates, yay.  
+
+# However, the tree still had the old names with '?' for date.  So, time to do a big renaming.
+
+cd /hive/data/outside/otto/sarscov2phylo/2021-07-11
+grep -E '\|[A-Z]{2}[0-9]{6}\.[0-9]+\|' samples.public.2021-07-11 \
+| awk -F\| '{print $2 "\t" $0;}' \
+| sort > gbAccToOldName
+
+tawk '{ if ($2 == "") {$2 = "?";}
+        if ($5 ~ /\|/) { print $1, $5; }
+        else if ($5 == "") { print $1, $1 "|" $2; }
+        else { print $1, $5 "|" $1 "|" $2; } }' \
+    gb.metadata \
+| sed -re 's@HUMAN/@@; s/Canis_lupus_familiaris/dog/; s/Environment/env/; s@Homo_sapines/@@;' \
+| sort > gbAccToNewName
+# I'm not doing a cleanGenBank there, so ignore some things that would be made worse instead of
+# better; also, dunno why but some sequences would lose their initial "Japan/", so grep that out too.
+join -t$'\t' gbAccToOldName gbAccToNewName \
+| tawk '$2 != $3 {print $2, $3;}' \
+| grep -v Japan \
+| grep -v ' ' \
+| grep -v Panthera \
+| grep -v Felis \
+    > gbRenaming
+# Ah, watch out for duplicates: some better-named samples are already in the tree:
+grep -Fxf <(cut -f 2 gbRenaming ) samples.2021-07-11  | wc -l
+#44
+grep -Fxf <(cut -f 2 gbRenaming ) samples.2021-07-11 
+#MEX/B.C.-NHRC-OID_788718/2020|MZ363983.1|2020-11-24
+#USA/CA-NHRC-OID_802624/2021|MZ363986.1|2021-01-05
+#USA/CA-NHRC-OID_803774/2021|MZ363996.1|2021-01-12
+#USA/CA-NHRC-OID_803778/2021|MZ363997.1|2021-01-12
+#USA/CA-NHRC-OID_802660/2021|MZ363989.1|2021-01-07
+#...
+# Prune the corresponding badly-named samples first.
+grep -Fxf <(cut -f 2 gbRenaming ) samples.2021-07-11 \
+| grep -Fwf - gbRenaming \
+| cut -f 1 > gbRenaming.pruneFirst
+wc -l gbRenaming.pruneFirst
+#44 gbRenaming.pruneFirst
+head gbRenaming.pruneFirst 
+#HOMOSAPIENS/BHR/NPS/2021|MZ315013.1|2021-04-23
+#HOMOSAPIENS/BHR/NPS/2021|MZ315022.1|2021-05-20
+#HOMOSAPIENS/BHR/NPS/2021|MZ315023.1|2021-05-23
+#HOMOSAPIENS/BHR/NPS/2021|MZ315028.1|2021-05-08
+#HOMOSAPIENS/BHR/NPS/2021|MZ315030.1|2021-05-04
+#Homp_sapiens/DEU/FFM-IND8424/2021|MZ315141.1|2021-04-07
+#HUMAN/USA/CA-NHRC-OID_786655/2020|MZ363980.1|2020-11-20
+#...
+$matUtils extract -i gisaidAndPublic.2021-07-11.masked.pb -p -s gbRenaming.pruneFirst \
+    -O -o gisaidAndPublic.2021-07-11.masked.gbDupsPruned.pb
+$matUtils summary -i gisaidAndPublic.2021-07-11.masked.pb
+#Total Nodes in Tree: 3000725
+#Total Samples in Tree: 2447008
+#Total Condensed Nodes in Tree: 322200
+#Total Samples in Condensed Nodes: 1645492
+#Total Tree Parsimony: 2240874
+$matUtils summary -i gisaidAndPublic.2021-07-11.masked.gbDupsPruned.pb
+#Total Nodes in Tree: 3000665
+#Total Samples in Tree: 2446964
+#Total Condensed Nodes in Tree: 322176
+#Total Samples in Condensed Nodes: 1645424
+#Total Tree Parsimony: 2240874
+$matUtils mask -i gisaidAndPublic.2021-07-11.masked.gbDupsPruned.pb \
+    -r gbRenaming \
+    -o gisaidAndPublic.2021-07-11.masked.gbDupsPruned.gbRenamed.pb \
+    >& renaming.out
+$matUtils summary -i gisaidAndPublic.2021-07-11.masked.gbDupsPruned.gbRenamed.pb
+#Error: dog/THA/CU27042N/2021|MZ396818.2|2021-05-04 already in the tree!
+# Argh, how did we miss that?
+g CU27042N samples.2021-07-11 
+#THA/CU27042N/2021|MZ396818.2|2021-05-04
+#Canis_lupus_familiaris/THA/CU27042N/2021|MZ396818.1|2021-05-04
+#Canis_lupus_familiaris/THA/CU27042N/2021|MZ396818.2|2021-05-04
+g CU27042N gbRenaming
+#Canis_lupus_familiaris/THA/CU27042N/2021|MZ396818.2|2021-05-04  dog/THA/CU27042N/2021|MZ396818.2|2021-05-04
+#THA/CU27042N/2021|MZ396818.2|2021-05-04 dog/THA/CU27042N/2021|MZ396818.2|2021-05-04
+# Ah... it's not already in the tree with a column 2 name... it's in the tree with two column 1
+# names that get renamed to the same column 2.  :b
+echo "THA/CU27042N/2021|MZ396818.2|2021-05-04" >> gbRenaming.pruneFirst
+echo "Canis_lupus_familiaris/THA/CU27042N/2021|MZ396818.1|2021-05-04" >> gbRenaming.pruneFirst
+cut -f 2 gbRenaming | sort | uniq -c | awk '$1 > 1 {print $2;}'
+#dog/THA/CU27042N/2021|MZ396818.2|2021-05-04
+#dog/THA/CU27184N/2021|MZ414173.1|2021-05-19
+# Same thing for CU27184N:
+g CU27184N samples.2021-07-11
+#Canis_lupus_familiaris/THA/CU27184N/2021|MZ414173.1|2021-05-19
+#THA/CU27184N/2021|MZ414173.1|2021-05-19
+echo "Canis_lupus_familiaris/THA/CU27184N/2021|MZ414173.1|2021-05-19" >> gbRenaming.pruneFirst
+$matUtils extract -i gisaidAndPublic.2021-07-11.masked.pb -p -s gbRenaming.pruneFirst \
+    -O -o gisaidAndPublic.2021-07-11.masked.gbDupsPruned.pb
+$matUtils summary -i gisaidAndPublic.2021-07-11.masked.gbDupsPruned.pb
+#Total Nodes in Tree: 3000660
+#Total Samples in Tree: 2446961
+#Total Condensed Nodes in Tree: 322174
+#Total Samples in Condensed Nodes: 1645419
+#Total Tree Parsimony: 2240874
+$matUtils mask -i gisaidAndPublic.2021-07-11.masked.gbDupsPruned.pb \
+    -r gbRenaming \
+    -o gisaidAndPublic.2021-07-11.masked.gbDupsPruned.gbRenamed.pb \
+    >& renaming.out
+$matUtils summary -i gisaidAndPublic.2021-07-11.masked.gbDupsPruned.gbRenamed.pb
+#Total Nodes in Tree: 3000660
+#Total Samples in Tree: 2446961
+#Total Condensed Nodes in Tree: 0
+#Total Samples in Condensed Nodes: 0
+#Total Tree Parsimony: 2240874
+
+# Apply to 2021-07-12 tree:
+cd /hive/data/outside/otto/sarscov2phylo/2021-07-12
+$matUtils summary -i gisaidAndPublic.2021-07-12.masked.pb
+#Total Nodes in Tree: 3009389
+#Total Samples in Tree: 2454242
+#Total Condensed Nodes in Tree: 322978
+#Total Samples in Condensed Nodes: 1650119
+#Total Tree Parsimony: 2246870
+$matUtils extract -i gisaidAndPublic.2021-07-12.masked.pb \
+    -p -s ../2021-07-11/gbRenaming.pruneFirst \
+    -O -o gisaidAndPublic.2021-07-12.masked.gbDupsPruned.pb
+$matUtils summary -i gisaidAndPublic.2021-07-12.masked.gbDupsPruned.pb
+#Total Nodes in Tree: 3009324
+#Total Samples in Tree: 2454195
+#Total Condensed Nodes in Tree: 322952
+#Total Samples in Condensed Nodes: 1650046
+#Total Tree Parsimony: 2246870
+$matUtils mask -i gisaidAndPublic.2021-07-12.masked.gbDupsPruned.pb \
+    -r ../2021-07-11/gbRenaming \
+    -o gisaidAndPublic.2021-07-12.masked.gbDupsPruned.gbRenamed.pb \
+    >& renaming.out
+$matUtils summary -i gisaidAndPublic.2021-07-12.masked.gbDupsPruned.gbRenamed.pb
+#Total Nodes in Tree: 3009324
+#Total Samples in Tree: 2454195
+#Total Condensed Nodes in Tree: 0
+#Total Samples in Condensed Nodes: 0
+#Total Tree Parsimony: 2246870
+# Now another extract to get those nodes recondensed...
+$matUtils extract -i gisaidAndPublic.2021-07-12.masked.gbDupsPruned.gbRenamed.pb \
+    -O -o gisaidAndPublic.2021-07-12.masked.gbDupsPruned.gbRenamed.condensed.pb
+$matUtils summary -i gisaidAndPublic.2021-07-12.masked.gbDupsPruned.gbRenamed.condensed.pb
+#Total Nodes in Tree: 3009324
+#Total Samples in Tree: 2454195
+#Total Condensed Nodes in Tree: 322952
+#Total Samples in Condensed Nodes: 1650046
+#Total Tree Parsimony: 2246870
+mv gisaidAndPublic.2021-07-12.masked.pb gisaidAndPublic.2021-07-12.masked.preRename.pb && \
+ln -f gisaidAndPublic.2021-07-12.masked.gbDupsPruned.gbRenamed.condensed.pb \
+    gisaidAndPublic.2021-07-12.masked.pb

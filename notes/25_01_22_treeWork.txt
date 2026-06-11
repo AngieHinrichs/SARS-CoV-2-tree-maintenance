@@ -1,0 +1,82 @@
+today=2025-01-22
+cd $ottoDir/$today
+# Do all-Omicron because there are issues in BA.1
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c B.1.1.529 -S sample-paths
+
+# BA.1.1.18 is on a crap branch in BA.1 which caused a bunch of BA.1.1 --> BA.1 in candidate
+# lineageTree.
+g Canada/AB-ABPHL-49643/2022 sample-paths
+#...node_533349:G23048A node_683913:C29632T node_700694:G26577C node_701672:T21762C node_701679:G2832A node_701784:T29632C node_701787:G22599A node_701797:C2470T node_701798:C26577G node_701812:C7926T node_701813:A2832G node_701824:C21762T
+# Prune from the reversion G26577C through the end (restoration of rev'd 21762).
+g node_700694: sample-paths | g -v node_701824: | cut -f 1 > pruneForBA.1.1
+wc -l pruneForBA.1.1
+#3031 pruneForBA.1.1
+# Wow, that is a lot... I'm concerned this could happen again before the next pangolin-data
+# release, will try to remember to keep an eye on it.  If it comes back, perm-exclude some.
+
+
+# MC.1 has a big chunk on a late-23277 flip-flop branch
+g Ireland/LK-UHL-688780/2024 sample-paths
+#...node_2347739:A13121T node_2348791:C2857T node_2348799:C23277T node_2348801:C13297T node_2348807:T2857C
+g node_2348791: sample-paths | g -v node_2348807: | cut -f 1 > pruneForMC.1
+wc -l pruneForMC.1
+#51 pruneForMC.1
+
+
+wc -l pruneFor*
+#  3031 pruneForBA.1.1
+#    51 pruneForMC.1
+#  3082 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m13.690s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14719022,with radius 1, second from start 162
+#parsimony score after optimizing: 14719010,with radius 2, second from start 233
+#parsimony score after optimizing: 14719006,with radius 4, second from start 544
+#parsimony score after optimizing: 14719005,with radius 8, second from start 2114
+#parsimony score after optimizing: 14718997,with radius 16, second from start 5530
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# In BA.1.1?
+g Canada/AB-ABPHL-49643/2022 sample-paths.pruned
+#... node_533350:G23048A node_683856:C29632T node_700736:C2470T node_700737:T29632C node_700738:C7926T node_700739:G22599A
+# Doh!  No, still in the BA.1 > 29632 > garbage branch  :(
+
+# In MC.1 with 23277 just after 13121?
+g Ireland/LK-UHL-688780/2024 sample-paths.pruned
+#...node_2346376:C12616T node_2346432:A13121T node_2373741:C23277T node_2373742:C13297T
+# Good.

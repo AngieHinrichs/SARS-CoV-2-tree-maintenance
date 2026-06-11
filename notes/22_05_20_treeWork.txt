@@ -1,0 +1,18 @@
+# There's a sizeable mini-BA.2 reversion-land that caused major trouble for the new lineage tree.
+# Looks like BA.2 branch-specific masking needs to be pulled back a node.  So redo today's build
+# from maskDelta.sh onward.
+
+today=2022-05-20
+cd $ottoDir/$today
+# Branch-specific masking
+time $scriptDir/maskDelta.sh merged.pb merged.deltaMasked.pb
+# Improved matOptimize from branch
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i merged.deltaMasked.pb \
+    -o gisaidAndPublic.$today.masked.preTrim.pb \
+    >& matOptimize.usher_branch.2.log
+
+# Copy-paste the rest of the stuff but with -o test.pb and checking... I see improvements
+# in sample-paths and sample-clades, do final check in taxonium, then get back to making 
+# lineage tree.

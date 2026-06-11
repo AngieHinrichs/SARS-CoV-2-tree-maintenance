@@ -1,0 +1,158 @@
+# Today's build was delayed by getCncb.sh failing (metadata download got a "system maintenance"
+# page but still HTTP code 200 so it seemed to succeed --> empty CNCB fasta --> grep failure in
+# updateCombinedTree.sh).  Take advantage of this to sneak in a round of fixes before starting
+# today's build back up.
+
+today=2023-11-06
+cd $ottoDir/$today
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+#real    8m6.727s
+
+# FedeGueli pointed out that rev22480 is diverting some sequences that probably should
+# be in HK.12.  I see some should-bed-HK.3 in there as well, and re-muts.  Leave the
+# re-muts and prune the revs.
+g England/CLIMB-CM7YJO44/2023 sample-paths
+#... node_1173487:C6541T node_1184284:T22480C node_1184302:C19170T node_1184303:C10369T,C12473T,A25495G node_1184304:C22480T
+g Taiwan/CDC-F88832/2023 sample-paths
+#... node_1173487:C6541T node_1184284:T22480C node_1184344:A21603G node_1184345:A19720G,A22629C node_1184346:C22480T
+g CHN/HB-Xiangyang-2584/2023 sample-paths
+#... node_1173487:C6541T node_1184284:T22480C node_1184330:G22927T node_1184331:G6352T node_1184333:A9550G node_1184334:C22480T
+g Japan/PG-566907/2023 sample-paths
+#... node_1173487:C6541T node_1184284:T22480C node_1184297:C22033A node_1184298:T22741A node_1184299:C22480T
+g Canada/ON-KHS-05770-v1/2023 sample-paths
+#... node_1173487:C6541T node_1184284:T22480C node_1184285:T21718G node_1184289:T9693C node_1184294:G3052C,G25013C node_1184295:G21718T node_1184296:C6936T Canada/ON-KHS-05770-v1/2023|EPI_ISL_18147682|2023-08-23:C18183T,C22480T 
+g node_1184284: sample-paths | g -v node_1184304: | g -v node_1184346: | g -v node_1184334: \
+| g -v node_1184299: | g -v Canada/ON-KHS-05770-v1/2023 | cut -f 1 > pruneForEG.5.1.1
+wc -l pruneForEG.5.1.1
+#91 pruneForEG.5.1.1
+
+
+# EG.5.1.3 is on a path with a flip-flop on 22480.
+g England/CLIMB-CM7YG5CN/2023 sample-paths
+#... node_1159659:G21718T node_1160726:T22480C node_1160836:C1889T node_1160838:C22570T node_1160905:C22480T
+# Spare these too:
+g England/CLIMB-CM7YKAWG/2023 sample-paths
+#... node_1159659:G21718T node_1160726:T22480C node_1160836:C1889T node_1160838:C22570T node_1160839:G3242A node_1160842:C22480T
+g Sweden/O-C017717563/2023 sample-paths
+#... node_1159659:G21718T node_1160726:T22480C node_1160836:C1889T node_1160838:C22570T node_1160839:G3242A node_1160840:G487A node_1160841:C22480T
+g Ecuador/GENSBIO-INSPI-SG-548/2023 sample-paths
+#... node_1159659:G21718T node_1160726:T22480C node_1160836:C1889T node_1160838:C22570T node_1160868:G731T node_1160869:C22480T
+g node_1160726: sample-paths | g -v node_1160905: | g -v node_1160842: | g -v node_1160841: \
+| g -v node_1160869: | cut -f 1 > pruneForEG.5.1.3
+wc -l pruneForEG.5.1.3
+#479 pruneForEG.5.1.3
+
+
+# Scattered late-23986's in XBB.1.16.6
+#https://github.com/sars-cov-2-variants/lineage-proposals/issues/976
+g USA/LA-EVTL19841/2023 sample-paths
+#... node_1108701:A10861G node_1108702:A22930T node_1108703:T23986C
+g node_1108702: sample-paths | g -v node_1108703: | cut -f 1 > pruneForXBB.1.16.6
+wc -l pruneForXBB.1.16.6
+#1 pruneForXBB.1.16.6
+g USA/CA-CDC-LC1062886/2023 sample-paths
+#... node_1108701:A10861G node_1109101:C25671T node_1109124:T23986C ...
+g node_1109101: sample-paths | g -v node_1109124: | cut -f 1 >> pruneForXBB.1.16.6
+wc -l pruneForXBB.1.16.6
+#47 pruneForXBB.1.16.6
+g Sweden/01_SE100_23CS502539/2023 sample-paths
+#... node_1108701:A10861G node_1109001:G22927T node_1109002:C1514T,A12759G,G21604T,C28657T node_1109003:T23986C,C23991T
+g node_1109001: sample-paths | g -v node_1109003: | cut -f 1 >> pruneForXBB.1.16.6
+wc -l pruneForXBB.1.16.6
+#54 pruneForXBB.1.16.6
+g Brazil/MG-FIOCRUZ-IRR207/2023 sample-paths
+#... node_1108701:A10861G node_1108741:T11956C node_1108743:T23986C
+g node_1108741: sample-paths | g -v node_1108743: | cut -f 1 >> pruneForXBB.1.16.6
+wc -l pruneForXBB.1.16.6
+#59 pruneForXBB.1.16.6
+
+
+# flip-flops on 13255 and 8308 on the path to BA.5_dropout from some BA.4 rando branch w/revs.
+g KEN/C117980/2022 sample-paths
+#... node_1573341:G27788T node_1592539:C13255T node_1592540:A8308G node_1592833:T27383A,C27384T node_1592836:C27382G node_1592837:T27788G node_1592838:T26858C,C27259A node_1592839:G8308A,T13255C
+g node_1592833: sample-paths | g -v node_1592839: | cut -f 1 > pruneForBA.5_dropout
+wc -l pruneForBA.5_dropout
+#2362 pruneForBA.5_dropout
+
+
+wc -l pruneFor*
+#   11 pruneForBA.5_dropout
+#   91 pruneForEG.5.1.1
+#  479 pruneForEG.5.1.3
+#   59 pruneForXBB.1.16.6
+#  640 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    105m59.707s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# No more 22480 flip-flop in EG.5.1.1 and EG.5.1.3?
+g England/CLIMB-CM7YJO44/2023 sample-paths.pruned
+#... node_1173261:C6541T node_1174269:C12473T node_1174270:C10369T,A25495G node_1174271:C19170T
+g Taiwan/CDC-F88832/2023 sample-paths.pruned
+#... node_1173261:C6541T node_1188861:A22629C node_1188862:A19720G,A21603G
+g CHN/HB-Xiangyang-2584/2023 sample-paths.pruned
+#... node_1173261:C6541T node_1188850:G6352T node_1188851:A9550G,G22927T
+g Japan/PG-566907/2023 sample-paths.pruned
+#... node_1173261:C6541T node_1179929:C22033A node_1179976:T22741A
+g Canada/ON-KHS-05770-v1/2023 sample-paths.pruned
+#... node_1173261:C6541T node_1188849:G3052C,G25013C
+g England/CLIMB-CM7YG5CN/2023 sample-paths.pruned
+#... node_1159634:G21718T node_1168514:C1889T node_1168515:C22570T
+g England/CLIMB-CM7YKAWG/2023 sample-paths.pruned
+#... node_1159634:G21718T node_1168514:C1889T node_1168515:C22570T node_1168516:G3242A
+g Sweden/O-C017717563/2023 sample-paths.pruned
+#... node_1159634:G21718T node_1168514:C1889T node_1168515:C22570T node_1168516:G3242A node_1168517:G487A
+g Ecuador/GENSBIO-INSPI-SG-548/2023 sample-paths.pruned
+#... node_1159634:G21718T node_1168514:C1889T node_1168515:C22570T node_1168530:G731T
+# Yep, good.
+
+# 23986 first in XBB.1.16.6?
+g USA/LA-EVTL19841/2023 sample-paths.pruned
+#... node_1108704:A10861G node_1109154:T23986C node_1112332:A22930T
+g USA/CA-CDC-LC1062886/2023 sample-paths.pruned
+#... node_1108704:A10861G node_1109154:T23986C node_1112328:C25671T node_1112331:C22570T
+g Sweden/01_SE100_23CS502539/2023 sample-paths.pruned
+#... node_1108704:A10861G node_1109154:T23986C node_1112136:C28657T node_1112138:C1514T,A12759G,G21604T,G22927T,C23991T
+g Brazil/MG-FIOCRUZ-IRR207/2023 sample-paths.pruned
+#... node_1108704:A10861G node_1109154:T23986C node_1109155:T11956C
+# Yep, good.
+
+# No more flip-flop on 13255 and 8308?
+g KEN/C117980/2022 sample-paths.pruned
+#... node_1573072:G27788T node_1597768:T26858C node_1597776:C27259A node_1597777:C27382G,T27383A,C27384T,T27788G
+# Damn, there is still a flip-flop on 27788 -- different branch from earlier.  Those 27259 samples
+# need to go.  Oh well, next time, not like anybody has complained.  Time to restart 2023-11-07.

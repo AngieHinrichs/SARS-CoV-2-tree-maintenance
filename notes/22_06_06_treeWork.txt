@@ -1,0 +1,56 @@
+# matUtils annotate died because I didn't realize there was a mut/back-mut in the new BA.2.37 path,
+# but I can fix that by lopping 4 sequences; also, @FedeGueli noticed a branch that I think is
+# the proper ancestor of BA.5.2 and that can also be fixed by lopping 4 sequences.  So let's
+# take care of those and then carry on with the 2022-06-06 build.
+
+today=2022-06-06
+prevDate=2022-06-05
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Fix BA.2.37 by getting rid of mut/back-mut at 21859
+g Australia/NSW-ICPMR-22089/2022 sample-paths
+#... node_1387064:C25810T node_1396561:C21859T node_1396628:C2156T,G29239A
+g Japan/IC-6289/2022 sample-paths
+#... node_1387064:C25810T node_1396561:C21859T node_1396628:C2156T,G29239A node_1396629:T21859C
+g node_1396628: sample-paths | g -v node_1396629: | cut -f 1 > lopForBA.2.37
+wc -l lopForBA.2.37
+#4 lopForBA.2.37
+
+# Fix BA.5.2 by swapping order of A28330G > C1627T, should be other way around
+# (comment in cov-lineages/pango-designation#657)
+g SouthAfrica/NICD-N40828/2022 sample-paths
+#... node_1527192:C27889T node_1527641:A28330G ...
+g Germany/NW-HHU-26943/2022 sample-paths
+#... node_1527192:C27889T node_1527641:A28330G node_1527643:C1627T
+g node_1527641: sample-paths | g -v node_1527643: | cut -f 1 > lopForBA.5.2
+wc -l lopForBA.5.2
+#4 lopForBA.5.2
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat lopFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    17m1.444s
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt
+g Japan/IC-6289/2022 sample-paths.opt
+#... node_1714989:C25810T node_1728705:C2156T node_1728706:G29239A
+# Good, no more C21859T ... T21859C
+g Germany/NW-HHU-26943/2022 sample-paths.opt
+#... node_1891860:C27889T node_1892384:C1627T node_1892385:A28330G
+# Good, C1627T comes first now.
+
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+ln -f gisaidAndPublic.$today.masked.pruned.opt.pb gisaidAndPublic.$today.masked.pb
+
+mv sample-paths{,.preprune}
+mv sample-paths{.opt,}
+
+# Copy-paste from updateCombinedTree.sh from annotate onwards.

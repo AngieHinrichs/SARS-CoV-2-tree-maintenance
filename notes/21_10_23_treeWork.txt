@@ -1,0 +1,149 @@
+# There's still one more little delta-out-of-place, and one alpha-within-alpha looking brack;
+# prune, optimize, make sure it looks better, interrupt daily build and swap in optimized pb.
+
+today=2021-10-22
+cd $ottoDir/$today
+
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 5547131
+#Total Samples in Tree: 4548889
+#Total Condensed Nodes in Tree: 595044
+#Total Samples in Condensed Nodes: 3062662
+#Total Tree Parsimony: 3930905
+#Number of Clade Annotations: 2
+#Max Tree Depth: 75
+#Mean Tree Depth: 35.567394
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# mini-Alpha:
+# Lop:
+g USA/NM-CDC-LC0068093/2021 sample-paths
+#USA/NM-CDC-LC0068093/2021|MZ372951.1|2021-05-28 node_8059:C14408T node_8626:C241T node_8627:C3037T node_8628:A23403G node_491286:G28881A node_491287:G28883C node_491288:G28882A node_556808:C884T node_556822:T28282A node_556823:T884C,G28280C,A28281T node_556959:A23063T node_556974:C15279T node_556975:C28977T node_556976:A28111G node_556977:T23063A,G28048T node_557012:C913T node_557266:C5986T,T28048G node_557267:C23709T node_557268:T6954C,A23063T node_557269:C23604A node_557270:C23271A node_557271:G24914C node_557272:T24506G node_557273:T16176C node_557281:C27972T node_557282:C14676T node_557284:C3267T node_557286:C5388A node_557839:T15279C node_557840:G24506T node_557937:G28048T 
+# Keep:
+g Spain/MD-HRYC-71612703/2021 sample-paths
+#Spain/MD-HRYC-71612703/2021|EPI_ISL_2104458|2021-03-23  node_8059:C14408T node_8626:C241T node_8627:C3037T node_8628:A23403G node_491286:G28881A node_491287:G28883C node_491288:G28882A node_556808:C884T node_556822:T28282A node_556823:T884C,G28280C,A28281T node_556959:A23063T node_556974:C15279T node_556975:C28977T node_556976:A28111G node_556977:T23063A,G28048T node_557012:C913T node_557266:C5986T,T28048G node_557267:C23709T node_557268:T6954C,A23063T node_557269:C23604A node_557270:C23271A node_557271:G24914C node_557272:T24506G node_557273:T16176C node_557281:C27972T node_557282:C14676T node_557284:C3267T node_557286:C5388A node_557839:T15279C node_557840:G24506T node_557937:G28048T node_557939:C15279T node_793577:T23709C node_793581:A17615G node_793583:T24506G node_793584:C23709T 
+# And don't lose the B.1.1.7 main branch:
+g Portugal/PT2162/2020 sample-paths
+#Portugal/PT2162/2020|EPI_ISL_796754|2020-12-31  node_8059:C14408T node_8626:C241T node_8627:C3037T node_8628:A23403G node_491286:G28881A node_491287:G28883C node_491288:G28882A node_556808:C884T node_556822:T28282A node_556823:T884C,G28280C,A28281T node_556959:A23063T node_556974:C15279T node_556975:C28977T node_556976:A28111G node_556977:T23063A,G28048T node_557012:C913T node_557266:C5986T,T28048G node_557267:C23709T node_557268:T6954C,A23063T node_557269:C23604A node_557270:C23271A node_557271:G24914C node_557272:T24506G node_557273:T16176C node_557281:C27972T node_557282:C14676T node_557284:C3267T node_557286:C5388A node_557839:T15279C node_557840:G24506T node_557937:G28048T node_557939:C15279T node_557940:T24506G 
+g node_557937: sample-paths | g -v node_793584: | g -v node_557940: \
+| cut -f 1 \
+    > badSeeds
+wc -l badSeeds
+#49 badSeeds
+
+# mini-Delta:
+# Lop:
+g Israel/SMC-7005991/2021 sample-paths
+#Israel/SMC-7005991/2021|EPI_ISL_3024241|2021-07-04      node_8059:C14408T node_8060:A23403G node_8170:T26767C 
+# Keep:
+g USA/TX-CDC-ASC210143629/2021 sample-paths
+#USA/TX-CDC-ASC210143629/2021|OK476780.1|2021-09-10      node_8059:C14408T node_8060:A23403G node_8170:T26767C node_8171:G15451A node_8172:C25469T node_8200:T14408C node_8208:G23403A,C23604G node_8209:T25469C node_8211:C6402T node_8212:C27874T node_8213:C10029T,C19220T node_8214:A23403G,C25469T node_8215:A11332G node_8217:T6402C,A11201G node_8218:T27874C node_8226:G4181T,G23604C node_8227:C6402T node_8235:C16466T node_8245:A17236G node_8246:C8986T,G9053T node_8247:T16466C,C23604G,G24410A node_8248:C14408T,G17236A node_8249:C3037T,C16466T,A28461G node_8250:G210T,C241T node_8252:C27874T node_8253:T22917G,C22995A node_8254:C21618G,G29742T node_8255:C9559T,C15240T,G17122T,T28007C node_8256:G28881T,G28916T node_8257:G29402T node_8266:C1473T,C24130T node_8267:C7124T,C21846T,T27638C,C27752T 
+g node_8170: sample-paths | g -v node_8267: \
+| cut -f 1 \
+| g -v /2020 \
+    >> badSeeds
+wc -l badSeeds
+#257 badSeeds
+
+# Oh let's get rid of the COG-UK bad batch while we're at it.
+# Lop:g England/PLYM-182C9EA/2021 sample-paths 
+#England/PLYM-182C9EA/2021|OU435514.1|2021-07-01 node_8059:C14408T node_8626:C241T node_8627:C3037T node_8628:A23403G node_18524:G29742T node_18525:T22917G node_18526:T27638C node_18527:G28881T node_18528:G210T node_18529:C21618G node_18530:G29402T node_18531:C23604G node_18972:C25469T node_18973:G24410A node_18976:C22995A,C27752T node_18977:A28461G node_18981:C16466T node_19392:T26767C node_19393:G15451A node_77109:C10029T node_77110:C19220T node_77111:G28916T node_77112:G4181T node_77113:C27874T node_77205:C6402T node_77228:C7124T node_77229:G9053T node_77230:C8986T node_77231:T6402C node_77509:A11332G node_77510:A11201G node_77511:C6402T node_141428:C21846T node_207777:C7851T node_207778:T17040C node_221035:G3947T node_221036:G6589T,C6990A,G7469T,G14071T,C15796A,G23885A,G27327T England/PLYM-182C9EA/2021|OU435514.1|2021-07-01:G1319T,T3947G,T6522C,C13824A,C16208T,G16629T,G19613A,A22271C,G25440T,G25647T 
+g node_221036: sample-paths | egrep -v '^(England|Scotland|Wales)/[A-Z]{4}-182' | wc -l
+#0
+g node_221036: sample-paths \
+| cut -f 1 \
+    >> badSeeds
+wc -l badSeeds
+#717 badSeeds
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s badSeeds \
+    -O -o gisaidAndPublic.$today.masked.badSeedsTrimmed.pb
+# Use radius 40 again.
+matOptimize=$usherDir/build.preMpi/matOptimize
+$matOptimize -i gisaidAndPublic.$today.masked.badSeedsTrimmed.pb \
+    -T 60 -r 40 -M 4 -S move_log.postTrim \
+    -o gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    >& matOptimize.postTrim.log
+#original parsimony score:3928021
+#Final Parsimony score 3926921
+
+# Check depth:
+$matUtils summary -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb
+#Total Nodes in Tree: 5545818
+#Total Samples in Tree: 4548172
+#Total Condensed Nodes in Tree: 594843
+#Total Samples in Condensed Nodes: 3062260
+#Total Tree Parsimony: 3926921
+#Number of Clade Annotations: 2
+#Max Tree Depth: 71
+#Mean Tree Depth: 34.435631
+# Ah nice, average depth decreased a bit.
+
+# Make taxonium protobuf
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --write-taxodium gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.taxonium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.taxonium.pb
+
+# Check in taxonium... looks good.
+
+# 10-23 build finished, apply same trimming in time for tomorrow's build.
+today=2021-10-23
+cd ../$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s ../2021-10-22/badSeeds \
+    -O -o gisaidAndPublic.$today.masked.badSeedsTrimmed.pb
+# Use radius 40 again.
+matOptimize=$usherDir/build.preMpi/matOptimize
+$matOptimize -i gisaidAndPublic.$today.masked.badSeedsTrimmed.pb \
+    -T 60 -r 40 -M 4 -S move_log.postTrim \
+    -o gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    >& matOptimize.postTrim.log
+g arsimon matOptimize.postTrim.log
+#TODO
+# Check depth:
+$matUtils summary -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb
+# Re-annotate the optimized 10-23 tree, regenerate public tree from it:
+prevDate=2021-10-22
+time $matUtils annotate -T 60 \
+    -l \
+    -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    -c $ottoDir/$prevDate/cladeToName \
+    -f 0.95 \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade.postTrim
+
+# Paste in steps from after that point in updateCombinedTree.sh.
+
+# Make the exclusions permanent:
+wc -l $ottoDir/badBranchSeed.ids
+#9034 /hive/data/outside/otto/sarscov2phylo/badBranchSeed.ids
+grep -v 2020 $ottoDir/2021-10-22/badSeeds \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> $ottoDir/badBranchSeed.ids 
+wc -l $ottoDir/badBranchSeed.ids
+#9749 /hive/data/outside/otto/sarscov2phylo/badBranchSeed.ids
+
+
+
+# NOTE for next time... looking at the crud around the base of P.1... think about lopping these
+# next time:
+# USA/MA-CDC-ASC210057109/2021
+# USA/NJ-CDC-ASC210001505/2021
+# Then this Turkey disaster on the way to B.1.1.7:
+# Lop:
+# Turkey/HSGM-B4687/2021
+# Keep:
+# England/CAMB-812B6/2020
+# Maybe also keep:
+# Germany/BAV-PL-virotum_PCWKP/2021

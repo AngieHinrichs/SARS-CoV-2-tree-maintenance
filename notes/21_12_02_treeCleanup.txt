@@ -1,0 +1,132 @@
+# Jeltje found some weird old cog-naming/underscore duplicates and it seems like some withdrawn
+# sequences have finally been removed from the NCBI downloads, so let's do some pruning on the
+# 12-01 tree before the 12-02 updateCombinedTree.sh starts... the id-matching pipeline is taking
+# half the day these days...
+# Jeltje's file:
+# /hive/users/jeltje/treecompare/weirdo.names
+
+today=2021-12-01
+cd $ottoDir/$today
+
+cp -p /hive/users/jeltje/treecompare/weirdo.names jeltje_weirdo.names
+wc -l jeltje_weirdo.names
+#50 jeltje_weirdo.names
+head jeltje_weirdo.names
+#SARS-Cov-2/human/PAK/Manga1/2020|MT262993.1|2020-03-12
+#SARS_CoV-2/human/USA/UF-1/2020|MT295464.1|2020-03-10
+#NorthernIreland/OXON-FA09BD/2020|Northern_Ireland/OXON-FA09BD/2020|2020-10-22
+#NorthernIreland/OXON-FA19F8/2020|Northern_Ireland/OXON-FA19F8/2020|2020-10-01
+#NorthernIreland/CAMC-9BFDB5/2020|Northern_Ireland/CAMC-9BFDB5/2020|2020-09-09
+#NorthernIreland/QEUH-A498EB/2020|Northern_Ireland/QEUH-A498EB/2020|2020-10-05
+#...
+# All but the first two are NorthernIreland vs Northern_Ireland underscore oopses.
+g ^NorthernIreland jeltje_weirdo.names | wc -l
+#48
+# Verify that they are all already in the tree twice (in correct form and oops form):
+g ^NorthernIreland jeltje_weirdo.names \
+| cut -d/ -f 2 \
+| grep -Fwf - samples.$today \
+| wc -l
+#96
+g ^NorthernIreland jeltje_weirdo.names \
+| cut -d/ -f 2 \
+| grep -Fwf - samples.$today \
+| cut -d/ -f 2 \
+| sort -u | wc -l
+#48
+g ^NorthernIreland jeltje_weirdo.names > underscoreDupsToRemove
+
+# Now look for withdrawn GenBank sequences.  (Watch out for some GISAID sequences whose names
+# include GenBank accessions!)
+g -v EPI_ISL samples.$today \
+| g -E '[A-Z]{2}[0-9]{6}\.[0-9]+' \
+| awk -F\| '{ if ($3 == "") { print $1 "\t" $0; } else { print $2 "\t" $0; } }' \
+| sort > gbAccToName
+# Actually, there are dups in there...
+cut -f 1 gbAccToName \
+| uniq -c \
+| awk '$1 > 1 {print $2;}' > gbAccDups
+wc -l gbAccDups
+#15312 gbAccDups
+g -Fwf gbAccDups gbAccToName \
+| cut -f 2 > gbAccDupsNames
+wc -l gbAccDupsNames
+#30624 gbAccDupsNames
+# Hopefully half of those are identifiable as correctly named...
+sed -re 's/^/>/' gbAccDups \
+| $scriptDir/fixNcbiFastaNames.pl $ncbiDir/ncbi_dataset.plusBioSample.tsv \
+| sed -re 's/.*\|//' \
+    > gbAccDupsCorrectNames
+wc -l gbAccDupsCorrectNames
+#15312 gbAccDupsCorrectNames
+# Nice!  OK then, keep those and remove the outdated names.
+g -vFwf gbAccDupsCorrectNames gbAccDupsNames > gbOutdatedDupsToRemove
+wc -l gbOutdatedDupsToRemove
+#15412 gbOutdatedDupsToRemove
+# Uh, why 412 not 312?  Whatever, if we remove an extra hundred, they will be added back in
+# the next daily build.
+g -Fwf gbAccDupsCorrectNames gbAccDupsNames | wc -l
+#15212
+# Ah -- 100 names need to be updated again, might as well remove & add them back.
+
+# Ignore dups to find truly withdrawn sequences.
+comm -23 <(cut -f 1 gbAccToName | uniq) <(cut -f 1 $ncbiDir/ncbi_dataset.plusBioSample.tsv) \
+    > gbAccWithdrawn
+wc -l gbAccWithdrawn
+#4973 gbAccWithdrawn
+# Spot-checked on NCBI website to make sure they're really withdrawn (many have been replaced
+# by other GB accs)
+# Some are .1's that have been replaced by .2s.
+# Oh crap, some unfixed COG-UK/ names are sneaking into the tree:
+#COG-UK/NORW-307C10F|OV008777.2|2021-10-14
+#England/NORW-307C10F/2021|OV008777.1|2021-10-14
+g -Fwf gbAccWithdrawn gbAccToName | cut -f 2 > gbWithdrawnToRemove
+wc -l gbWithdrawnToRemove
+#4973 gbWithdrawnToRemove
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat underscoreDupsToRemove gbOutdatedDupsToRemove gbWithdrawnToRemove) \
+    -o gisaidAndPublic.$today.masked.dupsRemoved.pb
+# Make sure clade/lineage annotations remained intact.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths.prePrune
+$matUtils extract -i gisaidAndPublic.$today.masked.dupsRemoved.pb -C clade-paths.postPrune
+wc -l clade-paths.prePrune clade-paths.postPrune
+#  1522 clade-paths.prePrune
+#  1522 clade-paths.postPrune
+diff <(cut -f 1,3 clade-paths.prePrune | sort) <(cut -f 1,3 clade-paths.postPrune | sort) | wc -l
+#0
+# OK, good.
+
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+mv gisaidAndPublic.$today.masked.dupsRemoved.pb gisaidAndPublic.$today.masked.pb
+
+# Ah, Jeltje pointed out that there are withdrawn GISAID sequences too.
+g EPI_ISL samples.$today | awk -F\| '{print $2 "\t" $0;}' | sort > epiToName
+wc -l epiToName
+#2769756 epiToName
+# Duplicates?
+cut -f 1 epiToName | uniq -c | awk '$1 > 1 {print $2;}' > epiDups
+wc -l epiDups
+#0 epiDups
+# No, good.
+comm -23 <(cut -f 1 epiToName) <(zcat $gisaidDir/metadata_batch_$today.tsv.gz | cut -f 3 | sort) \
+    > epiWithdrawn
+wc -l epiWithdrawn
+#1309 epiWithdrawn
+# Compare to hive/users/jeltje/treecompare/missing.epis... OK.
+g -Fwf epiWithdrawn samples.$today > epiWithdrawnToRemove
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s epiWithdrawnToRemove \
+    -o gisaidAndPublic.$today.masked.epiWRemoved.pb
+
+# Make sure clade/lineage annotations remained intact.
+$matUtils extract -i gisaidAndPublic.$today.masked.epiWRemoved.pb -C clade-paths.postPrune
+wc -l clade-paths.prePrune clade-paths.postPrune
+#  1522 clade-paths.prePrune
+#  1522 clade-paths.postPrune
+diff <(cut -f 1,3 clade-paths.prePrune | sort) <(cut -f 1,3 clade-paths.postPrune | sort) | wc -l
+#0
+# OK, still good.
+
+mv gisaidAndPublic.$today.masked.epiWRemoved.pb gisaidAndPublic.$today.masked.pb

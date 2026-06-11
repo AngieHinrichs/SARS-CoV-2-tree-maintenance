@@ -1,0 +1,462 @@
+# Instead of the old method of lopping off an entire undesirable branch, and adding back just the
+# "innocent-looking" sequences, I'm going to try removing only the "guilty-looking" sequences near
+# the sus early nodes of the branch, and then optimize with a large radius to see if that helps.
+
+today=2021-10-14
+cd $ottoDir/$today
+
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 5274030
+#Total Samples in Tree: 4324882
+#Total Condensed Nodes in Tree: 557421
+#Total Samples in Condensed Nodes: 2895204
+#Total Tree Parsimony: 3808708
+#Number of Clade Annotations: 2
+#Max Tree Depth: 64
+#Mean Tree Depth: 35.106461
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s $ottoDir/2021-10-10/badDeltaLoppers \
+    -O -o gisaidAndPublic.$today.masked.badDeltaLopped.pb
+$matUtils summary -i gisaidAndPublic.$today.masked.badDeltaLopped.pb
+#Total Nodes in Tree: 5272543
+#Total Samples in Tree: 4323904
+#Total Condensed Nodes in Tree: 557325
+#Total Samples in Condensed Nodes: 2894991
+#Total Tree Parsimony: 3805372
+#Number of Clade Annotations: 2
+#Max Tree Depth: 64
+#Mean Tree Depth: 35.011284
+
+# It's not really lopped, more like trimmed, but whatever.
+
+# Run the pre-MPI version on hgwdev for simplicity.
+matOptimize=$usherDir/build.preMpi/matOptimize
+$matOptimize -i gisaidAndPublic.$today.masked.badDeltaLopped.pb \
+    -T 40 -r 30 -S move_log.postLop \
+    -o gisaidAndPublic.$today.masked.badDeltaLopped.opt.pb \
+    >& matOptimize.postLop.log
+#original parsimony score:3805351
+#...
+#Final Parsimony score 3750979
+$matUtils summary -i gisaidAndPublic.$today.masked.badDeltaLopped.opt.pb
+#Total Nodes in Tree: 5267697
+#Total Samples in Tree: 4323904
+#Total Condensed Nodes in Tree: 557325
+#Total Samples in Condensed Nodes: 2894991
+#Total Tree Parsimony: 3750979
+#Number of Clade Annotations: 2
+#Max Tree Depth: 73
+#Mean Tree Depth: 36.592087
+# Hmmm, dunno about that increase in tree depth, but we'll see what it looks like in taxonium...
+
+# Make taxodium protobuf so we can see if bad branches were absorbed into main Delta branch
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.badDeltaLopped.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --write-taxodium gisaidAndPublic.$today.masked.badDeltaLopped.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.badDeltaLopped.opt.taxodium.pb
+
+
+# Permanently exclude the "guilty-looking" sequences.
+wc -l $ottoDir/badBranchSeed.ids 
+#1923 /hive/data/outside/otto/sarscov2phylo/badBranchSeed.ids
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' $ottoDir/2021-10-10/badDeltaLoppers \
+    >> $ottoDir/badBranchSeed.ids 
+wc -l $ottoDir/badBranchSeed.ids 
+#3085 /hive/data/outside/otto/sarscov2phylo/badBranchSeed.ids
+
+###########################################################################
+# -- While that's running, also just lop the whole frustrating branch.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# So... where did it all go wrong?
+# What are the shortest paths of the sus-looking sequences?
+grep -Fwf $ottoDir/2021-10-10/badDeltaLoppers sample-paths \
+| tawk '{print length($2), $1, $2;}' \
+| sort -n | head
+#191     SouthAfrica/NICD-N9399/2021|EPI_ISL_2984951|2021-06-12  node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A node_356379:G13812T node_356380:A20318G node_356381:G9890T 
+#193     USA/OR-OHSU-212220311/2021|EPI_ISL_3825744|2021-07-31   node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A USA/OR-OHSU-212220311/2021|EPI_ISL_3825744|2021-07-31:C7072T 
+#222     SouthAfrica/NICD-N9369/2021|EPI_ISL_2984941|2021-06-17  node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A node_356379:G13812T SouthAfrica/NICD-N9369/2021|EPI_ISL_2984941|2021-06-17:T4322A,G24332T 
+#232     Chile/RM-PUC_MVL_1517/2021|EPI_ISL_4890151|2021-08-30   node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A Chile/RM-PUC_MVL_1517/2021|EPI_ISL_4890151|2021-08-30:G210T,A13057T,C21846T,A21993C,T21995A,G22599A 
+#251     Uzbekistan/321/2021|EPI_ISL_3188963|2021-06-25  node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A node_356384:A11332G,C21618G,T29742G node_375357:C16466T,C25469T Uzbekistan/321/2021|EPI_ISL_3188963|2021-06-25:C16349T 
+#254     Turkey/HSGM-B18105/2021|EPI_ISL_3032630|2021-06-22      node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A node_356384:A11332G,C21618G,T29742G node_356385:T27638C node_375356:A2510G,G6364A,A10648G,G19666A,G23604C,G24098T,C25904T 
+#254     Turkey/HSGM-GF1873/2021|EPI_ISL_3256542|2021-07-15      node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A node_356384:A11332G,C21618G,T29742G node_356385:T27638C node_375356:A2510G,G6364A,A10648G,G19666A,G23604C,G24098T,C25904T 
+#275     SouthAfrica/NICD-N9371/2021|EPI_ISL_2984942|2021-06-15  node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A node_356379:G13812T node_356380:A20318G SouthAfrica/NICD-N9371/2021|EPI_ISL_2984942|2021-06-15:C11563A,G21987A,G24834T,T26767C,A28461G,A28537T 
+#297     SouthAfrica/NICD-N9367/2021|EPI_ISL_2984940|2021-06-15  node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A node_356379:G13812T node_356380:A20318G node_356381:G9890T node_356382:T13812G,A21801C,C27874T SouthAfrica/NICD-N9367/2021|EPI_ISL_2984940|2021-06-15:C2509T,A28461G 
+#299     Indonesia/JK-GSILab-513889/2021|EPI_ISL_2723603|2021-06-17      node_10688:C14408T node_12601:C241T node_12602:C3037T node_12603:A23403G node_22897:G29742T node_356315:C23604G node_356378:G24410A node_356384:A11332G,C21618G,T29742G node_356385:T27638C node_356386:A11201G,G15451A,C19220T,G29742T Indonesia/JK-GSILab-513889/2021|EPI_ISL_2723603|2021-06-17:T22219C 
+
+# All of those have node_356378:G24410A in common.  Does that apply to all baddies?
+grep -Fwf $ottoDir/2021-10-10/badDeltaLoppers sample-paths \
+| grep -v node_356378:G24410A \
+| wc -l
+#0
+# Yep.  And after checking again in taxonium, that whole branch can go.  The "main branch"
+# (which is way harder to define) is not a descendant of that.
+grep node_356378:G24410A sample-paths | wc -l
+#43746
+# Yep.  OK:
+grep node_356378:G24410A sample-paths \
+| cut -f 1 > badBranchAll
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s badBranchAll \
+    -O -o gisaidAndPublic.$today.masked.wholeBranchLopped.pb
+# OK, but the trick is to do that to a protobuf in line for the daily buid...
+# Well, that will be easy now that I know what sample name to look for.
+
+###########################################################################
+
+# Actually, the post-optimization taxonium comparison came out looking pretty good, i.e.
+# bad delta branch gone & most sequences presumably absorbed into main branch -- although
+# I did find some other bad attractors.  The 10-16 build hasn't started its usher step yet
+# and I want to yank out some additional bad branch seeders before they grow.
+
+today=2021-10-15
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# ID baddies using taxonium and sample-paths, make file moreBadSeeds.
+# B.1.617.2 attractors:
+g node_382229: sample-paths | g -v node_382243: \
+| cut -f 1 > moreBadSeeds
+wc -l moreBadSeeds 
+#24 moreBadSeeds
+# AY.3 attractors:
+g node_381769: sample-paths | g -v node_378016: \
+| cut -f 1 >> moreBadSeeds
+wc -l moreBadSeeds 
+#1504 moreBadSeeds
+# A big chunk of B.1.1.7 got misplaced by incorporating some back-mut garbage:
+g node_515419: sample-paths | g -v node_515430: \
+| cut -f 1 >> moreBadSeeds
+wc -l moreBadSeeds 
+#1523 moreBadSeeds
+# A new cluster of previously distributed CDC-ASC baddies in the optimized pb:
+pushd ../2021-10-14
+$matUtils extract -i gisaidAndPublic.2021-10-14.masked.badDeltaLopped.opt.pb -S sample-paths.lop.opt
+popd
+g USA/CO-CDC-ASC210078788/2021 ../2021-10-14/sample-paths.lop.opt
+#USA/CO-CDC-ASC210078788/2021|EPI_ISL_4990060|2021-09-09 node_7919:C14408T node_8524:C241T node_8525:C3037T node_8526:A23403G node_18662:G29742T node_18663:T22917G node_359475:C27752T node_359476:C22995A node_359477:G28881T node_359478:G28916T node_359480:C25469T node_359481:T11418C node_359482:T28916G node_359483:T26767C,T27752C node_359486:C23604G node_359487:C11514T node_359490:C16466T node_359491:A28461G node_359492:T28881G node_359497:A5584G node_359498:T241C,T2911G,G25352T,A27345T USA/CO-CDC-ASC210078788/2021|EPI_ISL_4990060|2021-09-09:G2897T,C9891T,C11758T,C16073T,A16517G,G23604C,A24993T 
+g USA/CA-CDPH-3000135312/2021 ../2021-10-14/sample-paths.lop.opt
+#USA/CA-CDPH-3000135312/2021|OK421372.1|2021-08-01       node_7919:C14408T node_8524:C241T node_8525:C3037T node_8526:A23403G node_18662:G29742T node_18663:T22917G node_359475:C27752T node_359476:C22995A node_359477:G28881T node_359478:G28916T node_359480:C25469T node_359481:T11418C node_359482:T28916G node_359483:T26767C,T27752C node_359486:C23604G node_359487:C11514T node_359490:C16466T node_359491:A28461G node_359492:T28881G node_359497:A5584G node_359498:T241C,T2911G,G25352T,A27345T node_359499:G15451A,T16466C,G22917T,A22995C,A24783G node_359500:C22227T,G24410A node_359501:T3882C,G24783A node_359502:G2911T node_359503:C5184T,C9891T,C13019T node_359504:A6796G node_359505:C16466T,C21618G node_359506:G210T,C241T,G28881T node_359507:T2911G,G29402T node_359508:T22917G,C22995A node_359509:T27638C node_359510:C27752T 
+g node_359498: ../2021-10-14/sample-paths.lop.opt | g -v node_359510: \
+| cut -f 1 >> moreBadSeeds
+wc -l moreBadSeeds 
+#1544 moreBadSeeds
+g CDC-ASC moreBadSeeds | wc -l
+#1232
+# Some sus Turkey sequences might be leading some B.1.617.1's astray
+g node_360996: ../2021-10-14/sample-paths.lop.opt >> moreBadSeeds
+wc -l moreBadSeeds 
+#1566 moreBadSeeds
+
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 5294807
+#Total Samples in Tree: 4342015
+#Total Condensed Nodes in Tree: 560105
+#Total Samples in Condensed Nodes: 2908431
+#Total Tree Parsimony: 3818247
+#Number of Clade Annotations: 2
+#Max Tree Depth: 64
+#Mean Tree Depth: 35.129318
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat ../2021-10-10/badDeltaLoppers moreBadSeeds) \
+    -O -o gisaidAndPublic.$today.masked.badSeedsTrimmed.pb
+matOptimize=$usherDir/build.preMpi/matOptimize
+$matOptimize -i gisaidAndPublic.$today.masked.badSeedsTrimmed.pb \
+    -T 60 -r 30 -M 4 -S move_log.postTrim \
+    -o gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    >& matOptimize.postTrim.log
+#original parsimony score:3809039
+#...
+#parsimony score after optimizing: 3790639,with radius 30, searched 0 arcs 
+#parsimony score after optimizing: 3752158,with radius 30, searched 0 arcs 
+# That's the drop.  :)  Let it finish...
+#Final Parsimony score 3749611
+
+# Last time the max depth and avg depth increased significantly, how about this time?
+$matUtils summary -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb
+#Total Nodes in Tree: 5285560
+#Total Samples in Tree: 4339498
+#Total Condensed Nodes in Tree: 559885
+#Total Samples in Condensed Nodes: 2907918
+#Total Tree Parsimony: 3749611
+#Number of Clade Annotations: 2
+#Max Tree Depth: 73
+#Mean Tree Depth: 35.273087
+# Max depth went up the same, but avg depth not as much, good sign.
+
+# Make taxonium protobuf to make sure it looks good.
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --write-taxodium gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.taxodium.pb
+
+# Interrupt 10-16 build, start over with badSeedsTrimmed.opt.pb.
+# kill script processes, then make sure the cluster run stops:
+ssh ku "cd /hive/data/outside/otto/sarscov2phylo/2021-10-16/ && para stop"
+cd $ottoDir/2021-10-16
+# new.masked.vcf.gz was already created whih is fine, but we need to replace prevRenamed.pb
+# using 2021-10-15/gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb
+$matUtils mask -r prevTree.renaming \
+    -i $ottoDir/2021-10-15/gisaidAndPublic.2021-10-15.masked.badSeedsTrimmed.opt.pb \
+    -o prevRenamed.pb >& rename.out
+time $scriptDir/updateCombinedTree.sh 2021-10-15 2021-10-16 $problematicSitesVcf \
+    $ottoDir/2021-10-15/gisaidAndPublic.2021-10-15.masked.badSeedsTrimmed.opt.pb \
+    >& updateCombinedTree.continue.log
+
+# Re-annotate the optimized 10-15 tree, regenerate public tree from it:
+cd $ottoDir/2021-10-15
+today=2021-10-15
+prevDate=2021-10-14
+rm gisaidAndPublic.2021-10-15.masked.nextclade.pangolin.pb
+mv gisaidAndPublic.2021-10-15.masked.pb gisaidAndPublic.2021-10-15.masked.preTrimOpt.pb
+ln -f gisaidAndPublic.2021-10-15.masked.badSeedsTrimmed.opt.pb \
+    gisaidAndPublic.2021-10-15.masked.pb
+# Follow updateCombinedTree.sh steps from matUtils annotate onward
+
+# Make the exclusions permanent except for a few 2020 sequences that got caught up in the dragnet:
+wc -l $ottoDir/badBranchSeed.ids
+#3085 /hive/data/outside/otto/sarscov2phylo/badBranchSeed.ids
+grep -v 2020 $ottoDir/2021-10-15/moreBadSeeds \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> $ottoDir/badBranchSeed.ids 
+wc -l $ottoDir/badBranchSeed.ids
+#4647 /hive/data/outside/otto/sarscov2phylo/badBranchSeed.ids
+
+########################################################################################
+# Awwww crap there are still more to lop.  Gather tonight, lop tomorrow when 10-16 is done.
+# USA/MO-CDC-ASC210179894/2021 and its AY.3 friends got moved to a crap branch way up in B.
+today=2021-10-16
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# lop from this sample's node:
+g USA/FL-CDC-ASC210274880/2021c sample-paths
+# keep from this one on:
+g USA/TX-CDC-ASC210195735/2021 sample-paths
+# also keep
+g USA/TX-CDC-ASC210143629/2021 sample-paths
+# also keep
+g USA/NY-P20B9_S66/2021 sample-paths
+# also keep
+g USA/GA-CDC-ASC210173777/2021 sample-paths
+# also keep
+g USA/MA-CDC-ASC210139296/2021 sample-paths
+# also keep
+g USA/MI-MDHHS-SC34219/2021 sample-paths
+# also keep
+g England/NORW-13DFE28/2021 sample-paths
+g node_8110: sample-paths | g -v node_8130: | g -v node_15192: | g -v node_10492: \
+| g -v node_8458: | g -v node_15145: | g -v node_10643: | g -v node_10696: \
+| cut -f 1 \
+    > moreBadSeeds
+wc -l moreBadSeeds
+#923 moreBadSeeds
+# Any bycatch?
+g -v 2021 moreBadSeeds | wc -l
+#0
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s moreBadSeeds \
+    -O -o gisaidAndPublic.$today.masked.badSeedsTrimmed.pb
+matOptimize=$usherDir/build.preMpi/matOptimize
+$matOptimize -i gisaidAndPublic.$today.masked.badSeedsTrimmed.pb \
+    -T 60 -r 30 -M 4 -S move_log.postTrim \
+    -o gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    >& matOptimize.postTrim.log
+#original parsimony score:3821485
+#Final Parsimony score 3821330
+# Wow, not much drop... will have to see if it actually moved the branch.
+
+# Check depth:
+$matUtils summary -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb
+#Total Nodes in Tree: 5366662
+#Total Samples in Tree: 4404537
+#Total Condensed Nodes in Tree: 569306
+#Total Samples in Condensed Nodes: 2955066
+#Total Tree Parsimony: 3821330
+#Number of Clade Annotations: 2
+#Max Tree Depth: 75
+#Mean Tree Depth: 35.316284
+
+# Make taxonium protobuf to make sure it looks good.
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --write-taxodium gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.taxodium.pb
+
+# Dang.  Nope, it's still there.  Lop some more.
+$matUtils extract -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb -S sample-paths.trim1
+# Lop here:
+g India/AP-CCMB-CIA0780/2021 sample-paths.trim1
+# Keep:
+g Nigeria/NCDC-NR378/2021 sample-paths.trim1
+# also keep:
+g USA/MI-MDHHS-SC34209/2021 sample-paths.trim1
+# also keep:
+g England/LIVE-E18FFB/2021 sample-paths.trim1
+g node_379252: sample-paths.trim1 | g -v node_385965: | g -v node_385954: | g -v node_379274: \
+| cut -f 1 \
+    > stillMoreBadSeeds
+wc -l stillMoreBadSeeds
+#82 stillMoreBadSeeds
+g -v 2021 stillMoreBadSeeds | wc -l
+#0
+$matUtils extract -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    -p -s stillMoreBadSeeds \
+    -O -o gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.pb
+# Check how long the branch is to the nodes that we hope will be moved... is -r 30 enough? (HT Russ)
+$matUtils extract -i gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.pb -S sample-paths.moreBad
+g England/LIVE-E18FFB/2021 sample-paths.moreBad
+#England/LIVE-E18FFB/2021|EPI_ISL_2705388|2021-06-08     node_7999:C14408T node_8110:C241T node_8111:C3037T node_8112:A23403G node_379250:G28881T node_379251:G29402T node_379287:G210T,C6402T,A11201G,A11332G,G15451A,C16466T,T26767C,G28916T,G29742T node_379288:C25469T node_379289:G4181T,C7124T,C7851T,C8986T,G9053T,C10029T,T17040C,C19220T,C21618G,C21846T,T22917G,C22995A,C23604G,G24410A,T27638C,C27752T,C27874T,A28461G England/LIVE-E18FFB/2021|EPI_ISL_2705388|2021-06-08:C10790T,G23236T 
+# It will have the first 4 nodes in common with B.1.617.2, and now has only 5 nodes after that,
+# but the branches to B.1.617.2 and especially AY's are pretty long.  So try optimizing with -r 40.
+$matOptimize -i gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.pb \
+    -T 60 -r 40 -M 4 -S move_log.postTrim \
+    -o gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.opt.pb \
+    >& matOptimize.postTrim2.log
+#original parsimony score:3820862
+#Final Parsimony score 3802219
+
+# Check depth:
+$matUtils summary -i gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.opt.pb
+#Total Nodes in Tree: 5363626
+#Total Samples in Tree: 4404455
+#Total Condensed Nodes in Tree: 569298
+#Total Samples in Condensed Nodes: 2955051
+#Total Tree Parsimony: 3802219
+#Number of Clade Annotations: 2
+#Max Tree Depth: 75
+#Mean Tree Depth: 35.346119
+
+# Make taxonium protobuf to make sure it looks good.
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --write-taxodium gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.opt.taxodium.pb
+
+# Yes!  The sizeable one is gone.  Still a little one, though... let's do what we can about that too.
+$matUtils extract -i gisaidAndPublic.$today.masked.moreBadSeedsTrimmed.opt.pb \
+    -S sample-paths.moreBadOpt
+# Lop:
+g Turkey/HSGM-B10239/2021 sample-paths.moreBadOpt
+# Keep:
+g USA/PA-CDC-ASC210191269/2021 sample-paths.moreBadOpt
+
+wc -l stillMoreBadSeeds
+#82 stillMoreBadSeeds
+g node_9000: sample-paths.moreBadOpt | g -v node_9240: \
+| g -v Guatemala \
+| cut -f 1 \
+    >> stillMoreBadSeeds
+wc -l stillMoreBadSeeds
+#3546 stillMoreBadSeeds
+# (All but 73 of the new ones are from Turkey; also losing some more CDC-ASC's, India & South Afr)
+g -v 2021 stillMoreBadSeeds
+# nada, good.
+
+# Make permanent
+wc -l $ottoDir/badBranchSeed.ids
+g node_9000: sample-paths.moreBadOpt | g -v node_9240: \
+| g -v Guatemala \
+| cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    >> $ottoDir/badBranchSeed.ids
+wc -l $ottoDir/badBranchSeed.ids
+
+
+# Missed interrupting the 10-17 build, so do the same trimming for 10-17 and interrupt 10-18.
+today=2021-10-17
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat ../2021-10-16/{moreBadSeeds,stillMoreBadSeeds}) \
+    -O -o gisaidAndPublic.$today.masked.badSeedsTrimmed.pb
+# Use radius 40 again.
+matOptimize=$usherDir/build.preMpi/matOptimize
+$matOptimize -i gisaidAndPublic.$today.masked.badSeedsTrimmed.pb \
+    -T 60 -r 40 -M 4 -S move_log.postTrim \
+    -o gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    >& matOptimize.postTrim.log
+#original parsimony score:3841720
+# Hmm, an unexpected big drop... hopefully it didn't move Delta onto Alpha again.  :)
+#parsimony score after optimizing: 3841246,with radius 40, searched 0 arcs 
+#parsimony score after optimizing: 3823322,with radius 40, searched 0 arcs 
+#Final Parsimony score 3822722
+
+# Check depth:
+$matUtils summary -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb
+#Total Nodes in Tree: 5386854
+#Total Samples in Tree: 4422628
+#Total Condensed Nodes in Tree: 571971
+#Total Samples in Condensed Nodes: 2965335
+#Total Tree Parsimony: 3822722
+#Number of Clade Annotations: 2
+#Max Tree Depth: 75
+#Mean Tree Depth: 35.401733
+
+# Make taxonium protobuf
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --write-taxodium gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.taxonium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.taxonium.pb
+
+# Still some nits, but let's get this into the main daily build stream and get those later.
+
+# Interrupt 10-18 build, start over with badSeedsTrimmed.opt.pb.
+# kill script processes, then make sure the cluster run stops:
+ssh ku "cd /hive/data/outside/otto/sarscov2phylo/2021-10-18/ && para stop"
+cd $ottoDir/2021-10-18
+# new.masked.vcf.gz was already created whih is fine, but we need to replace prevRenamed.pb
+# using 2021-10-17/gisaidAndPublic.$today.masked.badSeedsTrimmed.opt.pb
+$matUtils mask -r prevTree.renaming \
+    -i $ottoDir/2021-10-17/gisaidAndPublic.2021-10-17.masked.badSeedsTrimmed.opt.pb \
+    -o prevRenamed.pb >& rename.out
+time $scriptDir/updateCombinedTree.sh 2021-10-17 2021-10-18 $problematicSitesVcf \
+    $ottoDir/2021-10-17/gisaidAndPublic.2021-10-17.masked.badSeedsTrimmed.opt.pb \
+    >& updateCombinedTree.continue.log
+#TODO - check
+
+# Re-annotate the optimized 10-17 tree, regenerate public tree from it:
+cd $ottoDir/2021-10-17
+today=2021-10-17
+prevDate=2021-10-16
+rm gisaidAndPublic.2021-10-17.masked.nextclade.pangolin.pb
+mv gisaidAndPublic.2021-10-17.masked.pb gisaidAndPublic.2021-10-17.masked.preTrimOpt.pb
+chmod 664 gisaidAndPublic.2021-10-17.masked.badSeedsTrimmed.opt.pb
+ln -f gisaidAndPublic.2021-10-17.masked.badSeedsTrimmed.opt.pb \
+    gisaidAndPublic.2021-10-17.masked.pb
+# Follow updateCombinedTree.sh steps from matUtils annotate onward
+

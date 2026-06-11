@@ -1,0 +1,263 @@
+# BA.2.12 and a bunch of other BA.2.* got placed as descendants of BA.2.10, fix it.
+
+today=2022-07-10
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# BA.2.10 has a branch with a couple reversions (G26577C, T25000C), then a reversion on BA.2.10's
+# 16342, and then somehow the big C25416T branch got pulled in on that (starting with re-muts on
+# 26577 and 25000).
+# chunk of BA.2 got pulled in after that.
+# Lop from Belgium/Jessa_11-2207-001199ZOL/2022,
+# keep from India/PB-VRDLGMCPTA-ICMR-INSACOG-600655192/2021
+g Belgium/Jessa_11-2207-001199ZOL/2022 sample-paths
+#... node_1319934:C2790T node_1319935:T16342C node_1329209:G26577C
+g India/PB-VRDLGMCPTA-ICMR-INSACOG-600655192/2021 sample-paths
+#... node_1319934:C2790T node_1319935:T16342C node_1329209:G26577C node_1329211:T25000C node_1329302:C16342T node_1329733:C25416T node_1329746:C26577G node_1329754:C25000T
+g node_1329209: sample-paths | g -v node_1329754: | cut -f 1 > pruneForBA.2
+wc -l pruneForBA.2
+#3009 pruneForBA.2
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s pruneForBA.2 \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    26m31.772s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+g India/PB-VRDLGMCPTA-ICMR-INSACOG-600655192/2021 sample-paths.opt
+#... node_1632565:C2790T node_1632566:T16342C node_1644573:C25416T node_1644574:C16342T 
+
+# Argh, not quite, damn.  Prune more and try again.
+g node_1644573: sample-paths.opt | g -v node_1644574: | cut -f 1 > pruneForBA.2.more
+wc -l pruneForBA.2.more
+#8 pruneForBA.2.more
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    27m49.907s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+g India/PB-VRDLGMCPTA-ICMR-INSACOG-600655192/2021 sample-paths.opt
+#... node_1632566:C2790T node_2030922:C25416T
+# Whew, that's better.
+
+wc -l clade-paths*
+#   1871 clade-paths
+#   1870 clade-paths.opt
+# Ah, which one did we lose?:
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.4.1
+# So we'll need to do a quick re-annotate before replacing the main pb with this.
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.pruned.opt
+wc -l clade-paths clade-paths.pruned.opt
+#  1871 clade-paths
+#  1871 clade-paths.pruned.opt
+
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+mv sample-paths{,.prePrune}
+mv sample-paths{.opt,}
+mv clade-paths{,.prePrune}
+mv clade-paths{.pruned.opt,}
+
+# Copy-paste remaining steps from updateCombinedTree.sh.
+# Also run updateLineageTreePb.sh.  And fix the 2022-07-11 tree when it's ready.
+
+# Re-ran the above steps on 2022-07-11 tree -- and was alerted that BA.2.76 has been split:
+# https://github.com/cov-lineages/pango-designation/issues/787#issuecomment-1180589254
+
+today=2022-07-11
+cd $ottoDir/$today
+# ... steps above ...
+
+# Prune some more, re-optimize, see if BA.2.76 is rejoined... consider adding another label
+# in case it gets split again.
+# Lop from India/Karnataka/KA-INSACOG_JNC-299/2022, keep from Australia/SA294265/2022
+g India/Karnataka/KA-INSACOG_JNC-299/2022 sample-paths
+#... node_1632695:C2790T node_2031455:C25416T node_2048157:G26577C node_2048692:T22304A
+g Australia/SA294265/2022 sample-paths
+#... node_1632695:C2790T node_2031455:C25416T node_2048157:G26577C node_2048692:T22304A node_2048693:G22599C node_2048694:A19812G node_2048697:C26577G 
+g node_2048692: sample-paths | g -v node_2048697: | cut -f 1 > pruneForBA.2.76
+wc -l pruneForBA.2.76
+#38 pruneForBA.2.76
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    27m39.729s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+g India/PB-VRDLGMCPTA-ICMR-INSACOG-600655192/2021 sample-paths.opt
+#... node_1632691:C2790T node_2031009:C25416T
+g Australia/SA294265/2022 sample-paths.opt
+#... node_1632691:C2790T node_2031009:C25416T node_2099798:G22599C node_2099799:T22304A node_2099800:A19812G
+g BA.2.76 clade-paths.opt
+# Doh, not in there... try a BA.2.76 sample:
+g India/TG-GMCH-ICMR-INSACOG-Vijaya-32224534/2022 sample-paths.opt
+#... node_1632691:C2790T node_2031009:C25416T node_2099798:G22599C node_2099799:T22304A
+# OK, good, the split branch landed in the right place.
+
+wc -l clade-paths*
+#   1871 clade-paths
+#   1870 clade-paths.opt
+# Interesting, not BA.4.1 this time...
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.76
+# So we'll need to do a quick re-annotate before replacing the main pb with this.
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.pruned.opt
+wc -l clade-paths clade-paths.pruned.opt
+#  1871 clade-paths
+#  1871 clade-paths.pruned.opt
+
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+mv sample-paths{.opt,}
+mv clade-paths{.pruned.opt,}
+
+# OK, now proceed with steps from updateCombinedTree.sh, start over with updateLineageTreePb.sh...
+
+# Also use list of outdated-by-hash IDs from Chaoran: remove from tree to be used in tomorrow's
+# build so they'll be added back from latest sequence.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s samples.outdated \
+    -o gisaidAndPublic.$today.masked.useMe.pb
+
+
+# And... not going to do these today, but for the future... there's a split BA.2.12.1 after A6107G;
+# lop from Israel/ICH-741229208/2022, keep from Canada/AB-ABPHL-68526/2022
+
+# There's a split BA.2.13 after C28507T (actually a little more than 50% of BA.2.13, argh);
+# lop from Austria/LB-R00073-S282/2022, keep from USA/CA-HLX-STM-MK6FMKAJA/2022
+
+
+# 2022-07-12 -- bad CRC from NCBI held up the daily build so there's time to do more tree-fixing
+# on the 2022-07-11 tree before it's needed for today's build.
+
+g Israel/ICH-741229208/2022 sample-paths
+#... node_2053651:C23673T node_2053910:C11674T node_2095379:A6107G
+g Canada/AB-ABPHL-68526/2022 sample-paths
+#... node_2053651:C23673T node_2053910:C11674T node_2095379:A6107G node_2095436:T22917A
+g node_2095379: sample-paths | g -v node_2095436: | cut -f 1 > pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#328 pruneForBA.2.12.1
+
+g Austria/LB-R00073-S282/2022 sample-paths
+#... node_1850489:A23767G node_1866351:C28507T
+g USA/CA-HLX-STM-MK6FMKAJA/2022 sample-paths
+#... node_1850489:A23767G node_1866351:C28507T node_1866361:C22916A
+g node_1866351: sample-paths | g -v node_1866361: | cut -f 1 > pruneForBA.2.13
+wc -l pruneForBA.2.13
+#52 pruneForBA.2.13
+
+rm gisaidAndPublic.$today.masked.useMe.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat samples.outdated pruneForBA.2.12.1 pruneForBA.2.13) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    27m21.819s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+# Check 25416 is right after 2790:
+g India/PB-VRDLGMCPTA-ICMR-INSACOG-600655192/2021 sample-paths.opt
+#... node_1632323:C2790T node_2030582:C25416T
+# Check 19812 is after 22304:
+g Australia/SA294265/2022 sample-paths.opt
+#... node_2099286:G22599C node_2099287:T22304A node_2099288:A19812G
+# Check 6107 is after 22917:
+g Canada/AB-ABPHL-68526/2022 sample-paths.opt
+#... node_2053218:C23673T node_2053477:C11674T node_2053494:T22917A node_2053495:A6107G
+# Check 28507 is after 22916:
+g USA/CA-HLX-STM-MK6FMKAJA/2022 sample-paths.opt
+#... node_1850083:A23767G node_1862119:C22916A node_1862120:C28507T
+
+wc -l clade-paths*
+#   1871 clade-paths
+#   1869 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.12.1
+#BA.2.13
+
+# So we'll need to do a quick re-annotate before replacing the main pb with this.
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.pruned.opt
+wc -l clade-paths clade-paths.pruned.opt
+#  1871 clade-paths
+#  1875 clade-paths.pruned.opt
+# I added a few new lineages since yesterday:
+comm -13 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.pruned.opt | sort)
+#BA.2.81
+#BA.2.9.5
+#BA.4.7
+#proposed826
+# Make sure none are missing:
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.pruned.opt | sort)
+# No output, good.
+
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+mv sample-paths{.opt,}
+mv clade-paths{.pruned.opt,}
+
+# Paste steps from updateCombinedTree.sh...

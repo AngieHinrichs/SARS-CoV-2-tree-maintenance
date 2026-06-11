@@ -1,0 +1,89 @@
+today=2025-12-03
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+
+# This little branch has a flip-flop
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3142
+g Belgium/Sciensano-LS-S8606/2025 sample-paths
+#... node_2365647:C24034T node_2365983:C3565T node_2365986:C25931T,T29264C node_2365987:T3565C
+g node_2365986: sample-paths | g -v node_2365987: | cut -f 1 > pruneForLP3142
+wc -l pruneForLP3142
+#1 pruneForLP3142
+
+
+# PQ.2.10 is misplaced under PQ.2.1 with a re-mut of 22995
+g Fujian/FCDC-FJ52465/2025 sample-paths
+#... node_2497825:G22865T node_2504571:T22995C node_2505689:T25969C node_2505973:T13668C,A27894G node_2505974:C22995T ...
+g node_2505973: sample-paths | g -v node_2505974: | cut -f 1 > pruneForPQ.2.10
+wc -l pruneForPQ.2.10
+#1 pruneForPQ.2.10
+
+
+# See if we can get rid of the triple-reversion on the way to Netherlands/NH-RIVM-145636/2025 / RD.1
+# Need another sample-paths for BA.3.2...
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c BA.3.2.1 -S sample-paths.BA.3.2.1
+g Netherlands/NH-RIVM-145636/2025 sample-paths.BA.3.2.1
+#... node_926893:A14920G,C17502T,A23604G,C25047G,C28849T,G29140A node_926894:A10978G node_926895:C27382G,A27395T,T27807C ...
+g node_926893: sample-paths.BA.3.2.1 | g -v node_926895: | cut -f 1 > pruneForRD.1
+wc -l pruneForRD.1
+#7 pruneForRD.1
+
+
+wc -l pruneFor*
+#  1 pruneForLP3142
+#  1 pruneForPQ.2.10
+#  7 pruneForRD.1
+#  9 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    102m2.651s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c BA.3.2 -S sample-paths.BA.3.2.pruned
+
+# Check paths
+
+# No more flip-flop on 3565?
+g Belgium/Sciensano-LS-S8606/2025 sample-paths.pruned
+#... node_2365646:C24034T node_2366114:C25931T,T29264C ...
+# Good
+
+# No more flip-flop on 22995?
+g Fujian/FCDC-FJ52465/2025 sample-paths.pruned
+#... node_2497825:G22865T node_2504571:T22995C node_2505689:T25969C node_2506016:C22995T ...
+# Doh... will have to try again.
+
+# No more flip-flop on 27382, 27395, 27807?
+g Netherlands/NH-RIVM-145636/2025 sample-paths.BA.3.2.pruned
+#... node_926896:C193T,C2037T,...,A26771T,C27131T,A28996T node_926952:A10978G,A14920G,C17502T,A23604G,C25047G,T27807C,C28849T,G29140A
+# Ah, 27807 was much earlier in the path... maybe real?  See what happens when sequences are added back.
+

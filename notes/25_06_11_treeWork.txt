@@ -1,0 +1,119 @@
+today=2025-06-11
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Cornelius reported that the new NY.7.2 is placed in LP.8.1.5 instead of NY.7 because of Ns.
+# https://github.com/cov-lineages/pango-designation/issues/2997#issuecomment-2961939676
+# Prune the sequences that don't have A23598G and C21627A; the branch should get moved to NY.7.
+g Australia/NSW-ICPMR-56584/2025 sample-paths
+#... node_2424633:G22132T node_2424709:A10323G node_2424881:A22994G,G28329A node_2424882:C21627A node_2424883:C23533T,A23598G
+g node_2424881: sample-paths | g -v node_2424883: | cut -f 1 > pruneForNY.7.2
+wc -l pruneForNY.7.2
+#8 pruneForNY.7.2
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    62m27.180s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14894988,with radius 1, second from start 230
+#parsimony score after optimizing: 14894982,with radius 2, second from start 314
+#parsimony score after optimizing: 14894981,with radius 2, second from start 351
+#parsimony score after optimizing: 14894979,with radius 2, second from start 392
+#parsimony score after optimizing: 14894979,with radius 2, second from start 430
+#parsimony score after optimizing: 14894977,with radius 4, second from start 845
+#parsimony score after optimizing: 14894977,with radius 4, second from start 882
+#parsimony score after optimizing: 14894977,with radius 8, second from start 3017
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Can we use .useMe for updateLineageTreePb or did it lose NY.7.2?
+wc -l clade-paths clade-paths.pruned
+#   5014 clade-paths
+#   5012 clade-paths.pruned
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.pruned | sort)
+#4254d4253
+#< PR.2
+#4385d4383
+#< XBB.1.2
+
+# Weird.  OK, so we need to reannotate.
+
+# Check paths
+
+# In NY.7 with A23598G and C21627A before A10323G?
+g Australia/NSW-ICPMR-56584/2025 sample-paths.pruned
+#... node_2424635:G22132T node_2424711:A10323G node_2424876:A23598G node_2424877:C21627A,A22994G,C23533T,G28329A
+# Damn, gotta prune more. -- Doh, A23598G is PR.2, and we can't prune all of PR.2 while still
+# using this as base for updateLineageTreePb!  I guess we could do a force-move.
+
+# Find the node ID of NY.7
+g '^NY.7'$'\t' clade-paths.pruned  | cut -f 2
+#node_2430211
+
+echo -e "node_2424877\tnode_2430211" > forceMove.postOpt.tsv
+
+rm gisaidAndPublic.$today.masked.useMe.pb.gz
+$matUtils mask --move-nodes forceMove.postOpt.tsv \
+          -i gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+          -o gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Check path again
+$matUtils extract -i gisaidAndPublic.$today.masked.useMe.pb.gz -c LP.8.1 -S sample-paths.moved
+g Australia/NSW-ICPMR-56584/2025 sample-paths.moved
+#... node_2424635:G22132T node_2427976:A23598G node_2430205:C21627A node_2430356:A10323G,A22994G,C23533T,G28329A 
+
+# OK, that's the intent.  Now re-annotate clades so we can updateLineageTreePb.
+
+# NOTE FOR NEXT TIME: it's probably not necessary to re-annotate here, because
+# updateLineageTreePb.sh re-annotates on the re-rooted, pango-masked tree.
+# But a good exercise anyway.  :)
+
+$matUtils annotate -T 32 \
+          -l \
+          -i gisaidAndPublic.$today.masked.useMe.pb.gz \
+          -P cladeToPath \
+          -M $scriptDir/nextstrain.clade-mutations.tsv \
+          -o gisaidAndPublic.$today.masked.useMe.nextclade.pb.gz
+#Annotated 52 clades; failed to find paths for 0 clades
+
+$matUtils annotate -T 32 \
+          -i gisaidAndPublic.$today.masked.useMe.nextclade.pb.gz \
+          -P lineageToPath \
+          -M $scriptDir/pango.clade-mutations.tsv \
+          -o gisaidAndPublic.$today.masked.useMe.pb.gz
+#Annotated 4958 clades; failed to find paths for 3 clades
+#Assigning NY.7.2 to node node_2430356
+#Assigning XAW to node node_636189
+#Assigning XD to node node_636206
+
+# Make sure they're all there
+$matUtils extract -i gisaidAndPublic.$today.masked.useMe.pb.gz -C clade-paths.useMe
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.useMe | sort)
+# No output, good.

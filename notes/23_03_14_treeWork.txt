@@ -1,0 +1,134 @@
+today=2023-03-14
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths.full
+omicron=$(grep ^B.1.1.529$'\t' clade-paths | cut -f 2)
+g $omicron: sample-paths.full > sample-paths
+
+# Lots of late acquisitions of G27915T in XBB.1 including p-d #1712
+g Guatemala/11346-LNS/2022 sample-paths
+#... node_2429068:G22317T node_2429581:T27995C node_2429583:G27915T ...
+g node_2429581: sample-paths | g -v node_2429583: | cut -f 1 > pruneForXBB.1
+wc -l pruneForXBB.1
+#3 pruneForXBB.1
+
+g Bangladesh/CHRF-1335/2022 sample-paths
+#... node_2429068:G22317T node_2429461:G28077C node_2429466:G27915T
+g node_2429461: sample-paths | g -v node_2429466: | cut -f 1 >> pruneForXBB.1
+wc -l pruneForXBB.1
+#10 pruneForXBB.1
+
+g Guatemala/10035-LNS/2022 sample-paths
+#... node_2429068:G22317T node_2429954:A13222G,T14859C node_2429957:G27915T
+g node_2429954: sample-paths | g -v node_2429957: | cut -f 1 >> pruneForXBB.1
+wc -l pruneForXBB.1
+#21 pruneForXBB.1
+
+g Indonesia/JK-GS-EOCRU-GSILab-1145104/2022 sample-paths
+#... node_2429068:G22317T node_2429561:C21005T node_2429562:G27915T
+g node_2429561: sample-paths | g -v node_2429562: | cut -f 1 >> pruneForXBB.1
+wc -l pruneForXBB.1
+#29 pruneForXBB.1
+
+g Indonesia/JK-CW62-3704/2022 sample-paths
+#... node_2429068:G22317T node_2429279:C24865T node_2429281:G27915T ...
+g node_2429279: sample-paths | g -v node_2429281: | cut -f 1 >> pruneForXBB.1
+wc -l pruneForXBB.1
+#31 pruneForXBB.1
+
+g France/OCC-GENBIO-C17GN3530179/2022 sample-paths
+#... node_2429068:G22317T node_2429569:C2706T node_2429570:C25635T,C29358T node_2429571:G27915T ...
+g node_2429569: sample-paths | g -v node_2429571: | cut -f 1 >> pruneForXBB.1
+wc -l pruneForXBB.1
+#33 pruneForXBB.1
+
+
+# A couple new XBB.1.9.2-messer-uppers to permanently exclude... hmmm, will need to keep
+# doing this until I make a force-branch-move util.
+g Australia/NSW-SAVID-15902/2022 sample-paths
+#... node_2457219:G5720A node_2457413:C11956T node_2457415:T23018C node_2458411:T11956C node_2458412:A27507C node_2458413:A16878T
+g node_2458411: sample-paths | g -v node_2458413: | cut -f 1 > pruneForXBB.1.9.2
+wc -l pruneForXBB.1.9.2
+#2 pruneForXBB.1.9.2
+cut -d\| -f 2 pruneForXBB.1.9.2 >> $ottoDir/badBranchSeed.ids
+
+
+# XBB.1.5 > T10204C has flip-flops on 29614 and 18348... happened before, permanently exclude
+# the 10204-less.
+g USA/MI-CDC-LC1011157/2023 sample-paths
+#... node_2430363:T23018C node_2432958:C29614T node_2432964:T10204C node_2432970:C18348T node_2432971:T29614C
+g node_2432958: sample-paths | g -v node_2432971: | cut -f 1 > pruneForXBB.1.5
+wc -l pruneForXBB.1.5
+#177 pruneForXBB.1.5
+
+g node_2432958: sample-paths | g -v node_2432964: | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2 } }' \
+    > excludeForXBB.1.5
+wc -l excludeForXBB.1.5
+#90 excludeForXBB.1.5
+g EPI_ISL excludeForXBB.1.5 | g -Fwf - $epiToPublic 
+# No output, just checking.
+g -v EPI_ISL excludeForXBB.1.5 | g -Fwf - $epiToPublic | cut -f 1 >> excludeForXBB.1.5
+wc -l excludeForXBB.1.5
+#139 excludeForXBB.1.5
+cat excludeForXBB.1.5 >> $ottoDir/badBranchSeed.ids
+
+
+wc -l pruneFor*
+#   33 pruneForXBB.1
+#  177 pruneForXBB.1.5
+#    2 pruneForXBB.1.9.2
+#  212 total
+
+
+# Prune
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should do it
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    67m3.828s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Are these after G27915T now?
+g Guatemala/11346-LNS/2022 sample-paths.pruned
+#... node_2991999:G22317T node_2992970:G27915T node_3033737:T27995C ...
+g Bangladesh/CHRF-1335/2022 sample-paths.pruned
+#... node_2991999:G22317T node_2992970:G27915T node_3033730:G28077C
+g Guatemala/10035-LNS/2022 sample-paths.pruned
+#... node_2991999:G22317T node_2992970:G27915T node_3000680:C1884T ...
+g Indonesia/JK-GS-EOCRU-GSILab-1145104/2022 sample-paths.pruned
+#... node_2991999:G22317T node_2992970:G27915T node_3033832:C21005T ...
+g Indonesia/JK-CW62-3704/2022 sample-paths.pruned
+#... node_2991999:G22317T node_2992970:G27915T node_3033720:C24865T ...
+g France/OCC-GENBIO-C17GN3530179/2022 sample-paths.pruned
+#... node_2991999:G22317T node_2992970:G27915T node_2993686:C29358T ...
+# Yep.
+
+# XBB.1.5 free of flip-flops on 29614 and 18348?
+g USA/MI-CDC-LC1011157/2023 sample-paths.pruned
+#... node_2991999:G22317T node_2992970:G27915T node_3003565:T17124C node_3003901:T23018C node_3019013:C18348T node_3019029:T10204C
+# Ah, that wasn't XBB.1.5-asal, let's try this one:
+g USA/NJ-CDC-QDX46677398/2023 sample-paths.pruned
+#... node_3003565:T17124C node_3003901:T23018C node_3019013:C18348T node_3019029:T10204C node_3019037:T18348C 
+# Doh!  Geeeez.  Come on matOptimize.  Well, out of time, also should remove dups found in
+# _gisaidNamesForChris next time.
+
+ln -sf gisaidAndPublic.$today.pruned.opt.pb gisaidAndPublic.$today.masked.useMe.pb

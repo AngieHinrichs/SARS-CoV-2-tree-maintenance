@@ -1,0 +1,139 @@
+today=2023-07-14
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# Mini-BA.5.2 in BA.5_dropout; exclude some basal seqs.
+g Eswatini/ILRI_M03239/2022 sample-paths
+#... node_2599987:C27259A node_3197096:T6979G node_3197097:C1627T node_3197098:G6979T node_3197103:C27889T node_3197104:G8653T node_3197105:G26529A 
+g node_3197096: sample-paths | g -v node_3197105: | cut -f 1 > pruneForBA.5basal
+wc -l pruneForBA.5basal
+#53 pruneForBA.5basal
+g node_3197096: sample-paths | g -v node_3197103: | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+| sort > excludeForBA.5basal
+wc -l excludeForBA.5basal
+#19 excludeForBA.5basal
+g -Fwf excludeForBA.5basal $epiToPublic | cut -f 1 >> excludeForBA.5basal
+wc -l excludeForBA.5basal
+#24 excludeForBA.5basal
+cat excludeForBA.5basal >> ../badBranchSeed.ids
+
+
+# FL.2 has a rev-crap branch (I suspect artefacty 28251 and 28254 too) that has mini-XBB.1.9.1
+# and even mini-XBB.1.9.2 (EG's).  Lop it all and see if they get added back better.
+g Denmark/DCGC-644051/2023 sample-paths
+#... node_2218970:T4579A node_2219359:A9752G node_2219394:A28254C
+g node_2219394: sample-paths | cut -f 1 > pruneForFL.2
+wc -l pruneForFL.2
+#328 pruneForFL.2
+
+
+# flip-flop on 29510 on the way to EG.1.6
+g SouthKorea/KDCA233573/2023 sample-paths
+#... node_2209025:C28928T node_2211477:C29510A node_2211478:G26235T node_2211479:A29510C
+g node_2211477: sample-paths | g -v node_2211479: | cut -f 1 > pruneForEG.1.6
+wc -l pruneForEG.1.6
+#16 pruneForEG.1.6
+
+
+# flip-flop on 4659 on the way to XBB.1.5.92
+g Ecuador/GENSBIO-INSPI-SG-54/2023 sample-paths
+#... node_2232634:T23018C node_2299481:A4659G node_2299486:C3768T node_2299487:G4659A 
+g node_2299481: sample-paths | g -v node_2299487: | cut -f 1 > pruneFor XBB.1.5.92
+wc -l pruneForXBB.1.5.92
+#17 pruneForXBB.1.5.92
+
+
+wc -l pruneFor*
+#    53 pruneForBA.5basal
+#    16 pruneForEG.1.6
+#   328 pruneForFL.2
+#    17 pruneForXBB.1.5.92
+#   414 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#TODO
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# In BA.5.2 proper?
+g Eswatini/ILRI_M03239/2022 sample-paths.pruned
+#... node_2599865:C27259A node_2600974:G26529A node_2600975:C1627T node_2600976:C27889T node_2600977:G8653T
+# Hmmm, not great that C1627T is before C27889T. Yeah, there's another mini-BA.5.2, hit it next time.
+
+# No more flip-flop on 29510 on the way to EG.1.6?
+g SouthKorea/KDCA233573/2023 sample-paths.pruned
+#... node_2209018:G23401T node_2209020:C28928T node_2211938:G26235T
+# Good.
+
+# No more flip-flop on 4659 on the way to XBB.1.5.92?
+g Ecuador/GENSBIO-INSPI-SG-54/2023 sample-paths.pruned
+#... node_2232447:T17124C node_2232520:T23018C node_2324511:C3768T
+# Good.
+
+
+# Ship it - been too long since we shared the tree.
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   3193 clade-paths
+#   3190 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# No output, good.
+
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

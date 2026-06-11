@@ -1,0 +1,187 @@
+today=2023-07-10
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# BA.5.2.1 broke free of BA.5.2 again.  Permanently exclude 27038-only sequences.
+g Andorra/AND-259_221941418901-GC/2022 sample-paths
+#... node_2598206:C27889T node_2598207:A27038G node_2598208:A28330G node_2598209:C1627T
+g node_2598207: sample-paths | g -v node_2598209: | cut -f 1 > pruneForBA.5.2.1
+wc -l pruneForBA.5.2.1
+#2765 pruneForBA.5.2.1
+# Crud, that does mean lopping (for now) miscBA.5BA.2.75.  But... gotta get BA.5.2.1 back in place.
+ 
+g node_2598207: sample-paths | g -v node_2598208: | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+| sort \
+    > excludeForBA.5.2.1
+wc -l excludeForBA.5.2.1
+#97 excludeForBA.5.2.1
+g -v EPI_ISL excludeForBA.5.2.1 | g -Fwf - $epiToPublic  | cut -f 1 >> excludeForBA.5.2.1 
+wc -l excludeForBA.5.2.1
+#108 excludeForBA.5.2.1
+cat excludeForBA.5.2.1 >> ../badBranchSeed.ids 
+
+
+# Cleanup of revs on 29510 and 20055 on a little branch in XBB.1.5.63 requested in
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/347
+g Mauritius/11161/2023 sample-paths
+#... node_2231288:T23018C node_2319890:C346T node_2320100:C29510A node_2320102:G20055A node_2320111:A29510C ...
+# Filter to sequences that really have A29510C as they should.
+g node_2320111: sample-paths | sed -re 's/\t.*node_2320111:A29510C/\t/' \
+| g -v C29510A > sample-paths.tmp
+wc -l sample-paths.tmp
+#142 sample-paths.tmp
+g node_2320111: sample-paths | sed -re 's/\t.*node_2320111:A29510C/\t/' \
+| g C29510A | g A29510C >> sample-paths.tmp
+wc -l sample-paths.tmp
+#143 sample-paths.tmp
+g A20055G sample-paths.tmp | g -v G20055A | cut -f 1 > keepForXBB.1.5.63
+wc -l keepForXBB.1.5.63
+#108 keepForXBB.1.5.63
+g node_2320111: sample-paths | g -vFwf keepForXBB.1.5.63 | cut -f 1 > pruneForXBB.1.5.63
+wc -l pruneForXBB.1.5.63
+#70 pruneForXBB.1.5.63
+
+
+# Fede reported some scattered bits that should be in XBB.1.5.73
+# https://github.com/cov-lineages/pango-designation/commit/a3e16cbfd35732a4675a56eaaa96fbfb17891545
+g USA/CA-CDPH-500104952/2023 sample-paths
+#... node_2230654:T17124C node_2230726:T28271C node_2230727:C12669T node_2230728:T23018C 
+
+g Peru/LIM-INS-45005/2023 sample-paths
+#... node_2230654:T17124C node_2230726:T28271C node_2230742:G29706T node_2230743:T23018C 
+
+g node_2230726: sample-paths | g -v node_2230728: | g -v node_2230743: | cut -f 1 \
+    > pruneForXBB.1.5.73
+wc -l pruneForXBB.1.5.73
+#5 pruneForXBB.1.5.73
+
+wc -l pruneFor*
+#  2765 pruneForBA.5.2.1
+#    70 pruneForXBB.1.5.63
+#     5 pruneForXBB.1.5.73
+#  2840 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    104m56.038s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 12779275,with radius 1, second from start 280 
+#parsimony score after optimizing: 12779267,with radius 2, second from start 395 
+#parsimony score after optimizing: 12779262,with radius 4, second from start 1005 
+#parsimony score after optimizing: 12779256,with radius 8, second from start 4174 
+#parsimony score after optimizing: 12779253,with radius 16, second from start 5531 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# BA.5.2.1 in BA.5.2 ?
+g Andorra/AND-259_221941418901-GC/2022 sample-paths.pruned
+#... node_2598171:C27889T node_2894150:C1627T node_2894151:A27038G node_2894152:A28330G
+# Argh, expected 28330 first, probably need to prune more, check in taxonium.
+g BA.5.2$'\t' clade-paths.pruned 
+#... C27889T > A28330G > C1627T
+# Yep, let's do some more permanent exclusions.
+
+# No more flip-flops on the little XBB.1.5.63 branch?
+g Mauritius/23164/2023 sample-paths.pruned
+#... node_2230730:T23018C node_2319347:C346T node_2319793:C4380G,A8681G,C11580A ...
+# Good but see what happens when seqs are added back.
+
+# In XBB.1.5.73? (28271 first)
+
+g USA/CA-CDPH-500104952/2023 sample-paths.pruned
+#... node_2230730:T23018C node_2230731:T28271C node_2230732:C12669T 
+# Good.
+
+g Peru/LIM-INS-45005/2023 sample-paths.pruned
+#... node_2230730:T23018C node_2230731:T28271C node_2230746:G29706T 
+# Good.
+
+# Prune 1627-first and 27038-first, exclude 27038-first.
+g Andorra/AND-259_221941418901-GC/2022 sample-paths.pruned
+#... node_2598171:C27889T node_2894150:C1627T node_2894151:A27038G node_2894152:A28330G
+g node_2894150: sample-paths.pruned | g -v node_2894152: | cut -f 1 > pruneMoreForBA.5.2.1
+wc -l pruneMoreForBA.5.2.1
+#17125 pruneMoreForBA.5.2.1
+
+g node_2894151: sample-paths.pruned | g -v node_2894152: | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+| sort \
+    > excludeMoreForBA.5.2.1
+wc -l excludeMoreForBA.5.2.1
+#460 excludeMoreForBA.5.2.1
+g -v EPI_ISL excludeMoreForBA.5.2.1 | g -Fwf - $epiToPublic  | cut -f 1 >> excludeMoreForBA.5.2.1 
+wc -l excludeMoreForBA.5.2.1
+#585 excludeMoreForBA.5.2.1
+cat excludeMoreForBA.5.2.1 >> ../badBranchSeed.ids 
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(cat pruneMoreFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    29m16.527s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 12761906,with radius 1, second from start 271
+#parsimony score after optimizing: 12761905,with radius 2, second from start 382
+#parsimony score after optimizing: 12761905,with radius 4, second from start 991
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# BA.5.2.1 in BA.5.2 ?
+g Andorra/AND-259_221941418901-GC/2022 sample-paths.pruned
+#... node_2598171:C27889T node_2905190:A28330G node_2905270:C1627T node_2905271:A27038G
+
+# Finally!  Restart daily build with this:
+ln -s gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+

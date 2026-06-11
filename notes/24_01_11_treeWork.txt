@@ -1,0 +1,90 @@
+today=2024-01-11
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# JN.1.1.3 has 22599C but a single sequence is tieing it into JN.1.1 > 22599T which seems unlikely.
+# Prune that sequence in case of Ns, see what happens when it's added back.
+g France/GES-IPP26802/2023 sample-paths
+#... node_2220977:C11747T node_2221014:G22599T node_2221015:C20629T node_2221016:T22599C
+g node_2221015: sample-paths | g -v node_2221016: | cut -f 1 > pruneForJN.1.1.3
+wc -l pruneForJN.1.1.3
+#1 pruneForJN.1.1.3
+
+
+# Right after the XDD node there are 3 reversions which seems... really sus.  Try pruning
+# upstream a bit.
+g Canada/QC-L00683910001/2023 sample-paths
+#... node_2222821:C27810T node_2222822:C6541T,A26275G,T28297C,A28958C node_2222823:C2334T,A27507C,C29625T node_2222824:G5720A,G27915T node_2222825:T26681C node_2222826:C26529G,T26833C
+g node_2222822: sample-paths | g -v node_2222826: | cut -f 1 > pruneForXDD
+wc -l pruneForXDD
+#4 pruneForXDD
+
+
+# JN.1.11 is stuck on a rev-mess branch in JN.1.1.  Keep the samples that have re-mut of all the
+# revs.
+g India/MH_BJCOG_INSACOG_6127/2023 sample-paths
+#... node_2222754:T9142C node_2222755:A6183G node_2222758:A1762C,T11747C node_2222765:G17334T,G24872T node_2222766:C26577G
+g node_2222755: sample-paths | g -v node_2222766: | cut -f 1 > pruneForJN.1.11
+wc -l pruneForJN.1.11
+#43 pruneForJN.1.11
+
+
+wc -l pruneFor*
+#   1 pruneForJN.1.1.3
+#  43 pruneForJN.1.11
+#   4 pruneForXDD
+#  48 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    105m59.707s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# JN.1.1.3: Can we get C11747T > C20629T,T22599C?
+g France/GES-IPP26802/2023 sample-paths.pruned
+#... node_2220982:C11747T node_2221019:G22599T node_2221021:T22599C node_2221022:C20629T
+# Damn, I was afraid matOptimize might not reason about two successive muts at the same
+# position.  I might need to do a force-move or more drastic prune & re-add.
+
+# XDD -- for now we'll just lump in the reversions with the required muts.  The real
+# test is what the sequences look like when added back tomorrow.
+g Canada/QC-L00683910001/2023 sample-paths.pruned
+#... node_2222810:A27507C,G27915T,T28297C,A28958C node_2222812:G11727A,C18894T,T22926C,A26275G,C26529G,T26681C,T26833C,C29625T node_2222813:C6541T
+# Yeah, see what hapens tomorrow.
+
+# JN.1.11: in JN.1 instead of JN.1.1 rev-mess branch?
+g India/MH_BJCOG_INSACOG_6127/2023 sample-paths.pruned
+#... node_2220147:T27810C node_2223918:G17334T node_2223919:T23008A,T23010G,G24872T
+# That looks better, check tomorrow to see if it holds.

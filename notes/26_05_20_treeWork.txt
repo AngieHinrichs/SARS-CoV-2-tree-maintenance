@@ -1,0 +1,79 @@
+today=2026-05-20
+cd $ottoDir/$today
+
+# A few stray sequences, especially some env/'s from Italy, have messed up BA.3.2 to the point that BA.3.2 doesn't have a proper node
+# on the tree and BA.3.2.1 is a child of BA.3.2.2 which probably should be the BA.3.2 node.  Prune, permanently exclude, reoptimize and
+# re-annotate.
+# Cornelius is right that I should just exclude all env/'s...
+
+cat > pruneForBA.3.2 <<EOF
+NewZealand/26YA0193/2026|EPI_ISL_20348991|2026-01-21
+Malaysia/MKAKB_CL_30969/2026|EPI_ISL_20446218|2026-02-16
+env/Italy/PIE-ARPA-BL00243TO/2026|EPI_ISL_20415929|2026-03-09
+env/Italy/PIE-ARPA-26BL00556TO/2026|EPI_ISL_20437523|2026-04-13
+env/Italy/PIE-ARPA-BL00207TO/2026|EPI_ISL_20415928|2026-03-02
+EOF
+
+# Permanently exclude those.  I don't expect any of them to be added to GenBank, so excluding EPI_ISL is enough.
+cut -d\| -f 2 pruneForBA.3.2 \
+    >> ../badBranchSeed.ids
+
+wc -l pruneFor*
+#5 pruneForBA.3.2
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m10.821s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15356173,with radius 1, second from start 171 
+#parsimony score after optimizing: 15356159,with radius 2, second from start 259 
+#parsimony score after optimizing: 15356135,with radius 4, second from start 706 
+#parsimony score after optimizing: 15356118,with radius 8, second from start 2943 
+#parsimony score after optimizing: 15356110,with radius 16, second from start 5567 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Reannotate, starting with nextclade
+
+time $matUtils annotate -T 32 \
+     -i gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+     -l -P cladeToPath -M $scriptDir/nextstrain.clade-mutations.tsv \
+     -o gisaidAndPublic.$today.pruned.opt.nextclade.pb.gz
+#Assigning 25D (MC.10.2.1) to node node_2437254
+#Assigning 25E (PY.1) to node node_2386356
+#Assigning 25F (NW.1.2) to node node_2496705
+#Assigning 25G (XFC) to node node_2493805
+#Assigning 25H (XFJ) to node node_2386923
+#Assigning 25I (BA.3.2) to node node_927415
+
+# Had to add -c here to be safe because a bunch of lineages weren't found from lineageToPath including some old-looking ones...
+prevDate=2026-05-19
+time $matUtils annotate -T 32 \
+     -i gisaidAndPublic.$today.pruned.opt.nextclade.pb.gz \
+     -P lineageToPath -M $scriptDir/pango.clade-mutations.tsv \
+     -c $ottoDir/$prevDate/lineageToName \
+     -o gisaidAndPublic.$today.pruned.opt.nextclade.pangolin.pb.gz
+
+# Make sure all the lineages were assigned including BA.3.2 -- actually, we should see a bigger increase because I just added
+# six missing Nextstrain clades.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.nextclade.pangolin.pb.gz -C clade-paths.test
+wc -l clade-paths clade-paths.test
+#    5978 clade-paths
+#    5985 clade-paths.test
+
+# Replace daily build tree and clade-paths.
+mv clade-paths.test clade-paths
+mv gisaidAndPublic.$today.masked.pb.gz gisaidAndPublic.$today.masked.orig.pb.gz
+mv gisaidAndPublic.$today.pruned.opt.nextclade.pangolin.pb.gz gisaidAndPublic.$today.masked.pb.gz
+
+# Follow steps in updateCombinedTree.sh to update clade-paths derivatives including metadata & taxonium file.

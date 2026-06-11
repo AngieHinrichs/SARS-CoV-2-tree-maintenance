@@ -1,0 +1,150 @@
+today=2023-03-29
+cd $ottoDir/$today
+omicron=$(grep ^B.1.1.529$'\t' clade-paths | cut -f 2)
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -I $omicron -S sample-paths
+
+# flip-flop on 3754 on the way to most of XBB.2.3
+g BHR/801010306/2023 sample-paths
+#... node_2489509:C23123T node_2489510:C16342T node_2489511:A3754G,C4234T node_2489512:G6536A,T23018C node_2489513:G29706T node_2489514:G3754A
+g node_2489511: sample-paths | g -v node_2489514: | cut -f 1 > pruneForXBB.2.3
+wc -l pruneForXBB.2.3
+#7 pruneForXBB.2.3
+
+
+# flip-flop on 22320 on the way to XBB.2.3.2
+g India/MH-ICMR-NIV-G-13129/2023 sample-paths
+#... node_2489514:G3754A node_2489521:G22320A node_2489525:C7162T node_2489526:C6740T node_2489527:G22113T node_2489528:A22320G
+g node_2489521: sample-paths | g -v node_2489528: | cut -f 1 > pruneForXBB.2.3.2
+wc -l pruneForXBB.2.3.2
+#24 pruneForXBB.2.3.2
+
+
+# BQ.1.1.39 has 3 branches with C22314T, see if we can unify those
+g Japan/TKYhug12215/2022 sample-paths
+#... node_1924052:A22106G,G22216T node_1924053:C22314T
+g Canada/ON-KHS-22-17310-v1/2022 sample-paths
+#... node_1924052:A22106G,G22216T node_1924087:C11020T,G18445A,C28948T node_1924088:C22314T
+g Australia/WA11519/2023 sample-paths
+#... node_1924052:A22106G,G22216T node_1924106:A20010G node_1924107:C913T node_1924108:G22093C node_1924109:C22314T
+g node_1924052: sample-paths | g -v node_1924053: | g -v node_1924088: | g -v node_1924109: \
+| cut -f 1 > pruneForBQ.1.1.39
+wc -l pruneForBQ.1.1.39
+#39 pruneForBQ.1.1.39
+
+
+# Give this sequence another change at being placed in CH.1.1.18
+echo 'India/MH-ICMR-NIV-INSACOG-GSEQ-12749/2022|EPI_ISL_15854969|2022-10-27' > pruneForCH.1.1.18
+
+
+# p-d 1784: could give the little branch with Australia/NSW-ICPMR-36883/2022 another chance
+g Australia/NSW-ICPMR-36883/2022 sample-paths
+#... node_2489023:G22113A,A24578G node_2489024:C10789T,T23030C ...
+g Australia/NSW-ICPMR-39817/2022 sample-paths
+#... node_2489023:G22113A,A24578G node_2489027:A22519G ...
+g node_2489023: sample-paths | g -v node_2489027: | cut -f 1 > pruneForPD1784
+wc -l pruneForPD1784
+#4 pruneForPD1784
+
+
+# p-d 1808: Fede has doubts about 23018-lessness of England/PLYM-326B50B0/2023's ancestral branches
+# (i.e. perhaps it should be 23018-first, in XBB.1.9)
+g England/PLYM-326B50B0/2023 sample-paths
+#... node_2441245:C11956T node_2444301:C12970T node_2444302:G3242A,C23664T node_2444303:T23018C
+g node_2444301: sample-paths | g -v node_2444303: | cut -f 1 > pruneForPD1808
+wc -l pruneForPD1808
+#6 pruneForPD1808
+
+
+wc -l pruneFor*
+#  39 pruneForBQ.1.1.39
+#   1 pruneForCH.1.1.18
+#   4 pruneForPD1784
+#   6 pruneForPD1808
+#   7 pruneForXBB.2.3
+#  24 pruneForXBB.2.3.2
+#  81 total
+
+# Prune
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should do it
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    72m0.950s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# No more flip-flop on 3754?
+g BHR/801010306/2023 sample-paths.pruned
+#... node_3064837:C23123T node_3064838:C16342T node_3064842:C4234T,T23018C,G29706T node_3064843:G6536A
+# Good.
+
+# No more flip-flop on 22320?
+g India/MH-ICMR-NIV-G-13129/2023 sample-paths.pruned
+#... node_3064843:G6536A node_3065028:G22113T node_3065030:C6740T,C7162T
+# Good.
+
+# Unified branch with C22314T?
+g Japan/TKYhug12215/2022 sample-paths.pruned
+#... node_2386808:A22106G,G22216T,C22314T
+g Canada/ON-KHS-22-17310-v1/2022 sample-paths.pruned
+#... node_2386808:A22106G,G22216T,C22314T node_2386809:C28948T node_2386810:C11020T,G18445A
+g Australia/WA11519/2023 sample-paths.pruned
+#... node_2386808:A22106G,G22216T,C22314T node_2386831:C913T,A20010G,G22093C
+# Yep.
+
+# The other ones aren't meaningful to check until sequences are added back tomorrow.
+
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   2783 clade-paths
+#   2781 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

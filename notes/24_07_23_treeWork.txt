@@ -1,0 +1,160 @@
+today=2024-07-23
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# KP.2 is placed as a rev-child of KP.3 by some odd sequences, most of which are env/Germany which
+# Cornelius has argued shouldn't even be in the tree because they might be mixtures.  Permanently
+# exclude those.
+g Malaysia/MKAJB_CL_30185/2024 sample-paths
+#... node_2286398:C25006T node_2287635:T3431G node_2287636:G22599C node_2287637:T25006C node_2287638:G23039C node_2287639:G3431T
+# prune from T3431G
+g node_2287635: sample-paths | g -v node_2287639: | cut -f 1 > pruneForKP.2
+wc -l pruneForKP.2
+#14 pruneForKP.2
+
+grep env/Germany pruneForKP.2 | cut -d\| -f 2 > excludeForKP.2
+wc -l excludeForKP.2
+#9 excludeForKP.2
+grep -Fwf excludeForKP.2 $epiToPublic | cut -f 2 >> excludeForKP.2
+wc -l excludeForKP.2
+#9 excludeForKP.2
+cat excludeForKP.2 >> $ottoDir/badBranchSeed.ids
+
+
+# New MG.1 is on a multi-flip-flop path
+g USA/CO-CDPHE-41933998/2024 sample-paths
+#... node_2288858:A22108C node_2288863:G22200T node_2288864:A6569C node_2288865:C23277T,G23599C node_2288866:G9536A,T22200G
+g node_2288863: sample-paths | g -v node_2288866: | cut -f 1 > pruneForMG.1
+wc -l pruneForMG.1
+#3 pruneForMG.1
+
+
+# JN.1.66 is on a flip-flop 1912 path
+g France/GES-RELAB-IPP05457/2024 sample-paths
+#... node_2262685:T27810C node_2268055:C1912T node_2268067:G22599C node_2268068:C7113T node_2268069:T1912C
+g node_2268068: sample-paths | g -v node_2268069: | cut -f 1 > pruneForJN.1.66
+wc -l pruneForJN.1.66
+#6 pruneForJN.1.66
+
+
+wc -l pruneFor*
+#   6 pruneForJN.1.66
+#  14 pruneForKP.2
+#   3 pruneForMG.1
+#  23 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    75m10.651s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14281187,with radius 1, second from start 286 
+#parsimony score after optimizing: 14281177,with radius 2, second from start 384 
+#parsimony score after optimizing: 14281170,with radius 4, second from start 871 
+#parsimony score after optimizing: 14281170,with radius 8, second from start 3379 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+
+# KP.2 placed without flip-flop?
+g Malaysia/MKAJB_CL_30185/2024 sample-paths.pruned
+#... node_2281267:T22928C node_2281390:C23039G node_2288218:G22599C node_2288219:G23039C
+# Still one left, dang.
+
+# MG.1 placed without flip-flop?
+g USA/CO-CDPHE-41933998/2024 sample-paths.pruned
+#... node_2289438:A22108C node_2289926:C23277T node_2289927:G9536A,G23599C node_2289928:A6569C
+# Yes
+
+# JN.1.66('s ancestor) placed without flip-flop?
+g France/GES-RELAB-IPP05457/2024 sample-paths.pruned
+#... node_2262689:T27810C node_2339029:G22599C node_2340120:C7113T
+# Yes
+
+
+# Prune some more for KP.2 and try again.
+g node_2288218: sample-paths.pruned | g -v node_2288219: | cut -f 1 >> pruneForKP.2
+wc -l pruneForKP.2
+#26 pruneForKP.2
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    75m10.651s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+
+# KP.2 placed without flip-flop?
+g Malaysia/MKAJB_CL_30185/2024 sample-paths.pruned
+#... node_2262690:T27810C node_2281184:G17334T node_2281227:G24872T node_2281268:C7113T node_2281269:T22928C node_2289420:G22599C 
+# Yes
+
+# MG.1 placed without flip-flop?
+g USA/CO-CDPHE-41933998/2024 sample-paths.pruned
+#... node_2290639:A22108C node_2291174:C23277T node_2291175:G9536A,G23599C node_2291176:A6569C
+# Yes
+
+# JN.1.66('s ancestor) placed without flip-flop?
+g France/GES-RELAB-IPP05457/2024 sample-paths.pruned
+#... node_2262690:T27810C node_2339026:G22599C node_2340117:C7113T
+# Yes
+

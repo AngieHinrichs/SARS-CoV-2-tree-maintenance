@@ -1,0 +1,255 @@
+today=2023-08-16
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# 28045 extremely noisy here, prune from C28045T and spare a couple branches with reversions:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/33
+g Indonesia/YO-BBTKLPP-C249-S55B3/2023 sample-paths
+#... node_2312501:C28045T node_2312507:A22995G node_2312508:C25624T node_2312512:T28045C ...
+g Indonesia/JB-NIHRD-W02510/2023 sample-paths
+#... node_2312501:C28045T node_2312507:A22995G node_2312517:C4993T,C15525T,C15540T,A25958G node_2312519:T28045C ...
+g node_2312501: sample-paths | g -v node_2312512: | g -v node_2312519: | cut -f 1 > pruneForLP33
+wc -l pruneForLP33
+#30 pruneForLP33
+
+
+# 21304 here is dubious, prune & replace...
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/555
+g India/GJ-INSACOG-GBRC12773/2023 sample-paths
+#... node_2292030:C21304T node_2292032:T5335C,A29110T node_2292034:T21304C,T22119C
+g node_2292030: sample-paths | g -v node_2292034: | cut -f 1 > pruneForLP555
+wc -l pruneForLP555
+#10 pruneForLP555
+
+
+# Possible misplaced XBB.1.5.37 seqs here...
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/553
+g Japan/PG-530280/2023 sample-paths
+#... node_2413427:C20946T node_2413428:T10204C node_2413441:C25836T,A28768G node_2413442:A24696G
+# prune from C20946T
+g node_2413427: sample-paths | g -v node_2413442: | cut -f 1 > pruneForLP553
+wc -l pruneForLP553
+#84 pruneForLP553
+
+
+# And more possible misplaced XBB.1.5.37...
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/543
+g France/HDF-IPP07698/2023 sample-paths
+#... node_2367457:G6653A node_2367460:A24696G
+g node_2367457: sample-paths | g -v node_2367460: | cut -f 1 > pruneForLP543
+wc -l pruneForLP543
+#6 pruneForLP543
+
+
+# Lots of reversions on XBB.1.5 > 26959, including a late 10204:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/562
+# Probably best to lop & replace the whole thing.
+g Australia/NSW-ICPMR-42607/2023 sample-paths
+#... node_2355742:T23018C node_2401788:G26959A
+g node_2401788: sample-paths | cut -f 1 > pruneForLP562
+wc -l pruneForLP562
+#412 pruneForLP562
+
+
+# 28251+28254 is weakly tieing a bit of FL.* into FL.3.
+g BHR/23020126780/2023 sample-paths
+#... node_2335588:T1753C node_2337464:T28251G node_2337465:A28254C node_2337466:C1753T ...
+g node_2337464: sample-paths | g -v node_2337466: | cut -f 1 > pruneForFL.3
+wc -l pruneForFL.3
+#3 pruneForFL.3
+
+
+# Some sequences with 4579 (like XBB.1.9.1.2, FL.2) but placed in XBB.1.9.2 because they don't
+# have 11956.  Lop & replace in case of Ns.
+g Botswana/BHP_1100219671/2023 sample-paths
+#... node_2305345:C11956T node_2305379:T23018C node_2312450:T11956C node_2312451:T4579A
+g node_2312451: sample-paths | cut -f 1 > pruneForFL.2
+wc -l pruneForFL.2
+#39 pruneForFL.2
+
+
+# NKrMNzr points out that 3 Turkey sequences cause a rev/remut on the way to proposed branch
+# https://github.com/cov-lineages/pango-designation/issues/2150
+g Israel/SMC-7112820/2023 sample-paths
+#... node_2549356:C22599G node_2549357:A3186C,C14491T node_2549358:G22599C ...
+g node_2549356: sample-paths | g -v node_2549358: | cut -f 1 > pruneForPD2150
+wc -l pruneForPD2150
+#3 pruneForPD2150
+
+
+# HS.1 has a flip-flop on 15888
+g USA/CA-LACPHL-AF21335/2023 sample-paths
+#... node_2427376:T15888C node_2427434:A22995G node_2427435:C15888T
+g node_2427376: sample-paths | g -v node_2427435: | cut -f 1 > pruneForHS.1
+wc -l pruneForHS.1
+#250 pruneForHS.1
+
+
+# late 10204 on the way to HT.1
+g USA/CA-CDC-QDX46725168/2023 sample-paths
+#... node_2355742:T23018C node_2448257:A22005C node_2448286:T10204C
+g node_2448257: sample-paths | g -v node_2448286: | cut -f 1 > pruneForHT.1
+wc -l pruneForHT.1
+#147 pruneForHT.1
+
+
+# flip-flop on 15720 on the way to XBB.1.5.97
+g Australia/NSW-ICPMR-44704/2023 sample-paths
+#... node_2401431:C15720T node_2401440:C7834T node_2401441:A24383T node_2401442:T15720C
+g node_2401431: sample-paths | g -v node_2401442: | cut -f 1 > pruneForXB.1.5.97
+wc -l pruneForXB.1.5.97
+#222 pruneForXB.1.5.97
+
+
+# flip-flop on 21137 on the way to XBB.1.5.100
+g USA/CA-CDC-LC1028213/2023 sample-paths
+#... node_2409127:A21137G node_2409190:G24926A node_2409194:G21137A
+g node_2409127: sample-paths | g -v node_2409194: | cut -f 1 > pruneForXBB.1.5.100
+wc -l pruneForXBB.1.5.100
+#201 pruneForXBB.1.5.100
+
+
+# HZ.2 has big branch with rev on 28108 ... weird but see if we can get it to split off
+# prior to 28108.  Not sure what's going on there.
+g USA/CO-CDPHE-2103805961/2023 sample-paths
+#... node_2430999:T10721C,A28108T node_2431000:C11003T node_2431001:T28108A node_2431002:G28681T,T28693C
+g node_2431000: sample-paths | g -v node_2431002: | cut -f 1 > pruneForHZ.2
+wc -l pruneForHZ.2
+#129 pruneForHZ.2
+
+
+#JA.1 has T22928C first but should have 5730 first so it's placed as child of XBB.2.3.13.
+g Spain/CL-COV42542/2023 sample-paths
+#... node_2456235:G6536A node_2456436:T22928C node_2456437:C5730T
+g node_2456436: sample-paths | g -v node_2456437: | cut -f 1 > pruneForJA.1
+wc -l pruneForJA.1
+#1 pruneForJA.1
+
+
+# Late G6536A on the way to XBB.2.3.2
+g USA/M47D4_539102/2023 sample-paths
+#... node_2456219:C4234T node_2461258:C6740T node_2461259:G22113T node_2461260:G6536A
+g node_2461258: sample-paths | g -v node_2461260: | cut -f 1 > pruneForXBB.2.3.2
+wc -l pruneForXBB.2.3.2
+#3 pruneForXBB.2.3.2
+
+
+wc -l pruneFor*
+#   39 pruneForFL.2
+#    3 pruneForFL.3
+#  250 pruneForHS.1
+#  147 pruneForHT.1
+#  129 pruneForHZ.2
+#    1 pruneForJA.1
+#   30 pruneForLP33
+#    6 pruneForLP543
+#   84 pruneForLP553
+#   10 pruneForLP555
+#  412 pruneForLP562
+#    3 pruneForPD2150
+#  222 pruneForXB.1.5.97
+#  201 pruneForXBB.1.5.100
+#    3 pruneForXBB.2.3.2
+# 1540 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    106m17.345s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 12972831,with radius 1, second from start 245 
+#parsimony score after optimizing: 12972821,with radius 2, second from start 329 
+#parsimony score after optimizing: 12972810,with radius 4, second from start 740 
+#parsimony score after optimizing: 12972806,with radius 8, second from start 2960 
+#parsimony score after optimizing: 12972802,with radius 16, second from start 5543 
+
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# A22995G and C25624T without 28045?
+g Indonesia/YO-BBTKLPP-C249-S55B3/2023 sample-paths.pruned
+#... node_2312476:A27507C node_2318979:A22995G node_2319615:C25624T
+# A22995G and C4993T,C15525T,C15540T,A25958G without 28045?
+g Indonesia/JB-NIHRD-W02510/2023 sample-paths.pruned
+#... node_2312476:A27507C node_2318979:A22995G node_2319620:C4993T,C15525T,C15540T,A25958G node_2319630:C10340T,C26873T
+#-- Yep, but see what happens when sequences are added back tomorrow.
+
+# T5335C,A29110T, T22119C without 21304?
+g India/GJ-INSACOG-GBRC12773/2023 sample-paths.pruned
+#... node_2292031:C26894T node_2292040:T5335C,T22119C,A29110T
+
+# In XBB.1.5.37?  (T10204C > A24696G)
+g Japan/PG-530280/2023 sample-paths.pruned
+#... node_2356247:T10204C node_2381948:C25836T node_2381949:A24696G,A28768G node_2381950:C20946T 
+#-- Hmmm, 10204 is first but so is 25836, take a look in taxonium tomorrow.
+g France/HDF-IPP07698/2023 sample-paths.pruned
+#... node_2356247:T10204C node_2385406:A24696G node_2385407:G6653A node_2385408:C6548A,T22928C node_2385409:C27804G
+
+# Free of 1753?
+g BHR/23020126780/2023 sample-paths.pruned
+#... node_2305347:C11956T node_2305381:T23018C node_2337949:T28251G,A28254C
+#-- Yep, although it has probably pulled non-XBB.1.9.1's into XBB.1.9.1.  Taxonium tomorrow.
+
+# No rev/remut of 22599?
+g Israel/SMC-7112820/2023 sample-paths.pruned
+#... node_2541226:T22917G node_2545830:C21811T node_2548878:C2455T node_2548893:A3186C,C14491T ...
+
+# No flip-flop on 15888?
+g USA/CA-LACPHL-AF21335/2023 sample-paths.pruned
+#... node_2355715:T23018C node_2427107:C5817T node_2427438:A22995G
+
+# 10204 before 22005?
+g USA/CA-CDC-QDX46725168/2023 sample-paths.pruned
+#... node_2355715:T23018C node_2356247:T10204C node_2356248:A22005C
+
+# No more flip-flop on 15720?
+g Australia/NSW-ICPMR-44704/2023 sample-paths.pruned
+#... node_2355715:T23018C node_2420362:C7834T node_2420363:A24383T
+
+# No more flip-flop on 21137?
+g USA/CA-CDC-LC1028213/2023 sample-paths.pruned
+#... node_2355715:T23018C node_2450291:G24926A
+
+# G28681T,T28693C before T28108A??
+g USA/CO-CDPHE-2103805961/2023 sample-paths.pruned
+#... node_2430619:C18501T node_2430660:T10721C node_2430732:C11003T,G28681T,T28693C
+#-- I guess we'll see when samples are added back tomorrow.
+
+# 5730 before 22928?
+g Spain/CL-COV42542/2023 sample-paths.pruned
+#... node_2455768:G6536A node_2461921:C5730T node_2461922:T22928C
+
+# 4234 > 6536 > C6740T,G22113T ?
+g USA/M47D4_539102/2023 sample-paths.pruned
+#... node_2455745:C4234T node_2455768:G6536A node_2455769:G22113T node_2455770:C6740T
+
+# So far so good but check all of those again when the 2023-08-17 tree is done and pruned
+# samples have been added back.
+
+ln -s gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb

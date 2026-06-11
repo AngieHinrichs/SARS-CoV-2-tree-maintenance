@@ -1,0 +1,247 @@
+today=2023-05-09
+cd $ottoDir/$today
+omicron=$(grep ^B.1.1.529$'\t' clade-paths | cut -f 2)
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -I $omicron -S sample-paths
+
+# There is a branch of 5k sequences that sure looks like XBB.1.5 but somehow got stranded out in
+# XBB.1.9.1-rev/XBB.1.22-rev-land... god what a mess.  XBB.1.22 already has flip-flops on
+# 12789, 5720 and 11956:
+# T28297C > C12789T > G5720A > C11956T > T23018C > T11956C > A5720G > T12789C
+# -- and then there is a reversion on 28297 (undoing all of the above except 23018),
+# followed by XBB.1.5's T17124C and T10204C!  Ugh.
+# Well, prune sequences that aren't in designated lineages and hope for the best?
+# It may become necessary to do something more drastic but we'll see.
+# Currently 17124 goes before 23018 on the way to XBB.1.5... that's probably making it
+# difficult to consolidate 23018s.
+
+# This is the mini-XBB.1.5:
+g England/BRBR-32713D9A/2023 sample-paths
+#... node_1886791:T23018C node_1892554:T11956C node_1895705:A5720G node_1895706:T12789C node_1895707:C28297T node_1895711:T17124C
+# Spare XBB.1.9.2, XBB.1.22.1, XBB.1.22.2 and the biggest undesignated bit of XBB.1.22:
+g Belgium/UCL_23H-046G0156/2023 sample-paths
+#... node_1886791:T23018C node_1892554:T11956C node_1892561:A16878T node_1892585:A27507C
+g England/PLYM-326C5660/2023 sample-paths
+#... node_1886791:T23018C node_1892554:T11956C node_1895705:A5720G node_1895706:T12789C node_1896785:A22161G
+g Malaysia/MKAK_CL_23_13804/2023 sample-paths
+#... node_1886791:T23018C node_1892554:T11956C node_1895705:A5720G node_1895706:T12789C node_1897016:C11750T node_1897017:C15237T,A27507C
+g Malaysia/USM_M235_21382/2023 sample-paths
+#... node_1886791:T23018C node_1892554:T11956C node_1895705:A5720G node_1895706:T12789C node_1897088:C2710T
+g node_1892554: sample-paths | g -v node_1895711: | g -v node_1896785: | g -v node_1892585: \
+| g -v node_1897017: | g -v node_1897088: | cut -f 1 > pruneForXBB.1.5
+wc -l pruneForXBB.1.5
+#351 pruneForXBB.1.5
+
+
+# flip-flop on C25553T on the way to XBB.1.5's T10204C branch
+g USA/MI-CDC-LC1028605/2023 sample-paths
+#... node_1904947:T17124C node_1905841:T23018C node_1918866:C25553T node_1919184:T10204C node_1919234:T25553C
+g node_1918866: sample-paths | g -v node_1919234: | cut -f 1 > pruneForXBB.1.5_10204
+wc -l pruneForXBB.1.5_10204
+#1579 pruneForXBB.1.5_10204
+
+
+# XBB.1.31 gets 27915T late
+g Malaysia/IMR_LF00627/2022 sample-paths
+#... node_1879944:G22317T node_1880365:C1191T node_1880367:G27915T
+g node_1880365: sample-paths | g -v node_1880367: | cut -f 1 > pruneForXBB.1.31
+wc -l pruneForXBB.1.31
+#3 pruneForXBB.1.31
+
+
+# a chunk of XBB.1.5 got misplaced as XBB.1 > G17259T > ...
+g USA/MD-IGS-012303801744A/2023 sample-paths
+#... node_1881216:G27915T node_1901759:G17259T node_1901760:T17124C
+g node_1901759: sample-paths | g -v node_1901760: | cut -f 1 > pruneForXBB.1.5_17259
+wc -l pruneForXBB.1.5_17259
+#12 pruneForXBB.1.5_17259
+
+
+# Part of FE.1.1 (Canada/QC-L00599736001/2023) is stuck outside of FE.1 (if designation is correct)
+# late-acquiring 4579, should be brought back in if possible to FE.1.1 main
+# (Brazil/SP-FIOCRUZ-1656/2023).
+g Brazil/SP-FIOCRUZ-1656/2023 sample-paths
+#... node_1907601:T22928C node_1907696:T4579A node_1907697:C28093T
+g Canada/QC-L00599736001/2023 sample-paths
+#... node_1907601:T22928C node_1907658:C3261T,T3577G,C15180T node_1907660:C28093T node_1907661:T9445C node_1907662:T4579A
+g node_1907658: sample-paths | g -v node_1907662: | cut -f 1 > pruneForFE.1.1
+wc -l pruneForFE.1.1
+#15 pruneForFE.1.1
+
+
+# FE.1.1 has reversion-crap branch that starts with rev25000 and rev26577 then gets rev4579.
+# Add branch-specific masking. -- Doh, it should have been masked but the chosen representative
+# for XBB got shuffled with 510!  Pick a new rep and re-mask, dang.
+
+
+# XBB.1.10 gets 22317 late so it's not placed on XBB.1
+echo 'Japan/TKYkbm63138/2022|EPI_ISL_16292167|2022-11-24' > pruneForXBB.1.10
+g USA/TX-HMH-120479/2022 sample-paths
+#... node_1974469:G22770A node_1974474:G19656T node_1974475:G22317T 
+g node_1974474: sample-paths | g -v node_1974475: | cut -f 1 >> pruneForXBB.1.10
+wc -l pruneForXBB.1.10
+#5 pruneForXBB.1.10
+
+
+# Another nearby branch with late 22317 is on the way to the new XBB.1.40:
+g Greece/Pedy_VirologyCrete-CR652/2022 sample-paths
+#... node_1878297:G22599C,C22664A node_1974664:G27915T node_1974665:C1648T,C25162T node_1974666:G22317T
+g node_1974664: sample-paths | g -v node_1974666: | cut -f 1 > pruneForLate22317
+wc -l pruneForLate22317
+#43 pruneForLate22317
+
+wc -l pruneFor*
+#    15 pruneForFE.1.1
+#    43 pruneForLate22317
+#     5 pruneForXBB.1.10
+#     3 pruneForXBB.1.31
+#   351 pruneForXBB.1.5
+#  1579 pruneForXBB.1.5_10204
+#    12 pruneForXBB.1.5_17259
+#  2008 total
+
+# Mask, then prune, then optimize (and maybe optimize again).
+time $scriptDir/maskDelta.sh gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.remasked.pb
+#real    16m38.631s
+
+$matUtils extract -i gisaidAndPublic.$today.remasked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should do it
+#*** NOTE FOR NEXT TIME: Cheng recommends -m 0.00000001 -M 4 instead of -r 8 in order to
+#*** avoid "incomplete optimization" causing a parent with two identical-mut children
+#*** (see below)
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    70m25.086s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Is the mini-XBB.1.5 on main branch?
+g England/BRBR-32713D9A/2023 sample-paths.pruned
+#... node_2337938:G22599C,C22664A node_2339852:G22317T node_2341243:G27915T node_2366680:T17124C node_2366681:T23018C
+# Yes!
+
+# Is the flip-flop on the way to XBB.1.5 > 10204 gone?
+g USA/MI-CDC-LC1028605/2023 sample-paths.pruned
+#... node_2366680:T17124C node_2368175:T23018C node_2415946:T10204C
+# Yep.  If it comes back, permanently exclude.
+
+# Is XBB.1.31 on XBB.1?
+g Malaysia/IMR_LF00627/2022 sample-paths.pruned
+#... node_2339852:G22317T node_2341243:G27915T node_2442738:C1191T
+# Yep.
+
+# Is this bit on XBB.1.5?
+g USA/MD-IGS-012303801744A/2023 sample-paths.pruned
+#... node_2341243:G27915T node_2366680:T17124C node_2441439:G17259T
+# Well, no 23018, but at least 17124 main branch.
+
+# Is this in FE.1.1 main?  (T22928C > T4579A > C28093T > ...)
+g Canada/QC-L00599736001/2023 sample-paths.pruned
+#... node_2413030:T22928C node_2413104:T4579A node_2413105:C28093T node_2413106:C3261T,T3577G,T9445C,C15180T
+# Yep.
+
+# Is this bit no longer on FE.1.1 > rev25000 > rev26577 > rev4579?
+g Brazil/SP-IB_CEVC_2206053/2023 sample-paths.pruned
+#... node_2413030:T22928C node_2413160:G18826A
+# Yep.
+
+# Is XBB.1.10 on XBB.1?
+g USA/TX-HMH-120479/2022 sample-paths.pruned
+#... node_2339852:G22317T node_2442833:C64T,C11653T,C24117T,C29580T node_2442835:G22770A node_2442836:G19656T
+# Yep.
+
+# Is this on XBB.1?
+g Greece/Pedy_VirologyCrete-CR652/2022 sample-paths.pruned
+#... node_2339852:G22317T node_2341243:G27915T node_2341244:C1648T,C25162T
+# Yep.
+
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   2955 clade-paths
+#   2939 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#< XBB.1.5.51
+# Oops... the 25553 trimming took most of the XBB.1.5.51 samples.  Oh well, they'll be added back
+# tomorrow.
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+
+
+# 2023-05-10: Xu Zou noted that most XBB.1.5 samples are annotated as XBB.1 in metadata:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/40
+# There are two children of XBB.1 > G27915T > T17124C with T23018C -- looks like matOptimize
+# added a T23018C child instead of merging into existing T23018C child.  reported to Cheng.
+
+# See if matUtils extract fixes it:
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -O -o gisaidAndPublic.$today.masked.extractO.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.extractO.pb \
+    -c XBB.1 -S sample-paths.XBB.1.extractO
+g TX-ASC-210997759 sample-paths.XBB.1.extractO | g T23018C
+#... node_1902914:T17124C node_1904179:T23018C ...
+g France/GES-IPP10276/2023 sample-paths.XBB.1.extractO | g T23018C
+#... node_1902914:T17124C node_1902915:T23018C
+# -- nope, there are still two children with T23018C.
+
+# Run matOptimize again.
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.reopt \
+    -i gisaidAndPublic.$today.masked.pb \
+    -o gisaidAndPublic.$today.pruned.reopt.pb \
+    >& matOptimize.reopt.log
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.reopt.pb \
+    -c XBB.1 -S sample-paths.XBB.1.reopt
+g TX-ASC-210997759 sample-paths.XBB.1.reopt | g T23018C
+#... node_2367729:T17124C node_2368026:T23018C ...
+g France/GES-IPP10276/2023 sample-paths.XBB.1.reopt | g T23018C
+#... node_2367729:T17124C node_2368026:T23018C ...
+# -- OK, that did it.  Meanwhile today's build completed so check that out...
+# 2023-05-10 tree looks good in taxonium, sequences are in the right place and annotated as XBB.1.5
+# as expected.

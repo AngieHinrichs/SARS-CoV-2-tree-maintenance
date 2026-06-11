@@ -1,0 +1,125 @@
+# Yesterday I ran matUtils uncertainty --dropout-mutations on 2022-01-10/test.opt.pb (which was from
+#a successful test run of masking 21302, 21304 and 21305 in Delta) to find the most flaky Omicron
+#mutations, as candidates for branch-specific masking.  Results:
+
+#A2832G	ORF1ab:K856R, nsp3:K38R
+#G22578A	S:G339D
+#C22686T	S:S375F
+#G22813T	S:K417N
+#T22882G	S:N440K
+#G22898A	S:G446S
+#T23075C	S:Y505H
+#C23854A	S:N764K
+#A26530G	M:D3G
+#C26577G	M:Q19E
+#G26709A	M:A63T
+#C27807T	ORF7b:L18L
+
+# I really hate to mask out real muts, esp Spike muts, because they won't appear in the Nextstrain
+# trees (Joe deRisi asked to restore masked muts in samples to TSVs), and Russ really really hates
+# that, but the tree is getting gnarly with them.  Need to have a way to make the masking clear in
+# the Nextstrain tree... title???  Would be nice to restore muts but that gets further from the
+# original data... or requires a volume of original data I really don't see working in a web app...
+
+# In yesterday's 2022-01-11 build, AY.89 was not annotated as expected due to the additional masking
+# in Delta; AY.32 was not annotated because I need to mask its C21304T in pango.clade-mutations.tsv,
+# will have to fix that manually.
+
+# But way more concerning, BA.2 and BA.3 disappeared entirely!
+today=2022-01-11
+cd $ottoDir/$today
+g skip annotate.pango
+#WARNING: skipping clade AY.32 because the parsimony score is 1
+#WARNING: skipping clade AY.89 because the parsimony score is 3
+#WARNING: skipping clade BA.2 because the parsimony score is 17
+#WARNING: skipping clade BA.3 because the parsimony score is 14
+
+# Where the hell would they go?  I suspected filtering.  It took me a while to establish that though
+# because matUtils extract -s ... -u gives back the sample that you feed in with s, whether it's
+# actually in the tree or not.  -S works though.
+cat > disappearingSample <<EOF
+Denmark/DCGC-287400/2021|EPI_ISL_8172152|2021-12-19
+EOF
+$matUtils extract -i gisaidAndPublic.2022-01-11.masked.preTrim.pb -s disappearingSample -S tmp
+head tmp
+#Denmark/DCGC-287400/2021|EPI_ISL_8172152|2021-12-19     node_10186:C14408T node_10306:C241T node_10307:C3037T node_10308:A23403G node_952835:G28881A node_952836:G28883C node_952837:G28882A node_1016987:C21846T node_1019008:C10029T node_1019009:C27807T node_1019010:T22679C,C25584T node_1019011:C22995A,A27259C,A28461G node_1019012:C21762T,G22578A,C23604A node_1019025:T27807C node_1019026:G8393A,A23040G,A23055G,A23063T,T23075C,T27638C node_1019027:G210T,C21618G,A23013C,G23048A,C23202A,C23525T,T23599G,G29742T node_1019028:A8393G,G22813T,T22882G,G22898A,G22992A node_1019029:T210G,G21618C,T22673C,C22674T,C22686T,C25000T,C27638T,G28461A,T29742G node_1019030:C7124T,C27807T node_1019058:G5924A,A11537G,G26709A node_1019059:A18163G,A28271T node_1019060:G23599T,A23604C,A24424T,C26577G node_1019061:A5924G node_1019062:T23525C node_1019064:C26270T,A26530G,C28311T node_1019065:G11537A,T13195C,C15240T,G23948T node_1019066:C10449A node_1019067:C13195T,C23525T,T23599G,C23604A,C23854A,T24469A node_1019068:T7124C,A23048G node_1019069:T670G,G10447A,C12880T,C15714T,C17410T,C21618T,T21762C,T21846C,G27382C,A27383T,T27384C,A29510C node_1019070:G4184A,C4321T,T15240C,C22673T,G22775A,A23202C,C26060T,G26530A,C26858T node_1019080:C19955T,A20055G,T22200G,A22688G,A22786C,A22898G node_1019081:A9424G node_1019082:C9866T,C10198T node_1019083:C9344T node_1019084:C9534T node_1019085:C2790T node_1019093:C22792T 
+# -- so it indeed was included in the cluster/merge result tree...
+mv tmp disappearingSample.preTrim.path
+$matUtils extract -i gisaidAndPublic.2022-01-11.masked.unannotated.pb -s disappearingSample -S tmp
+head tmp
+# -- Empty, so it was pruned in the filtering step with these parameters:
+#        --max-parsimony 20 \
+#        --max-branch-length 45 \
+#        --max-path-length 100 \
+
+# So how long is that path?  Distill to one mutation per line:
+cut -f 2 disappearingSample.preTrim.path | sed -re 's/node_[0-9]+://g; s/[ ,]/\n/g;' | g . | wc -l
+#110
+# -- Doh, there are probably so many back-mutations that it's making the 
+
+# back-muts (with some re-muts) on the way to that sample (BA.2 plus C22792T which is a Delta mut):
+cut -f 2 disappearingSample.preTrim.path | sed -re 's/node_[0-9]+://g; s/[ ,]/\n/g;' | g . \
+| sed -re 's/^[A-Z]([0-9]+)[A-Z]/\1/;' \
+| sort | uniq -c | awk '$1 > 1'
+#      2 11537 (BA.1)
+#      2 13195 (BA.1)
+#      2 15240 (BA.1; also a bunch of AYs)
+#      2 210   (Delta)
+#      3 21618 (Delta)
+#      2 21762 (BA.1, BA.3)
+#      2 21846 (Delta)
+#      2 22673 (BA.1)
+#      2 22898 (BA.1, BA.3)
+#      2 23048 (BA.1.1)
+#      2 23202 (BA.1)
+#      3 23525 (B.1.1.529)
+#      3 23599 (B.1.1.529)
+#      3 23604 (B.1.1.529)
+#      2 26530 (BA.1)
+#      2 27638 (Delta)
+#      3 27807 (B.1.1.529)
+#      2 28461 (Delta)
+#      2 29742 (Delta)
+#      2 5924  (garbage?)
+#      2 7124  (Delta)
+#      2 8393  (BA.1)
+#Deltas, probably from contam seqs: 210, 7124, 21618, 21846, 27638, 28461, 29742
+
+# OK, so to save the daily build, I need to redo 2022-01-11 from the filtering step onward
+# with a higher max path length, restart the 2022-01-12 build... well, actually, it will just
+# add back the ~6700 lopped samples, and won't lop them again because the max path length
+# will be increased.  OK, not worth restarting. yay.
+# For now, do max-path-length 120... but also look for back-mut-inducing, Delta-contaminated
+# garbage to prune from today's tree when it's done tomorrow morning.
+mv gisaidAndPublic.$today.masked.unannotated{,.tooFiltered}.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.preTrim.pb \
+    --max-parsimony 20 \
+    --max-branch-length 45 \
+    --max-path-length 120 \
+    -O -o gisaidAndPublic.$today.masked.unannotated.pb
+#Large sample input; building subtree by pruning all but 6900127 samples.
+
+# Make sure our BA.2 example sample wasn't lopped this time.
+$matUtils extract -i gisaidAndPublic.$today.masked.unannotated.pb -s disappearingSample -S tmp
+head tmp
+# Yay, the very long path is there.
+
+# Do the steps after filtering in updateCombinedTree.sh, but use
+# gisaidAndPublic.$today.masked.unannotated.pb instead of gisaidAndPublic.$today.masked.pb
+# up through the nextclade annotation step.
+
+# Only AY.89 was skipped, good:
+#WARNING: skipping clade AY.89 because the parsimony score is 3
+
+
+# Uh-oh, mini-Omicrons popping up in B-land.
+# Lop at USA/CA-CDC-ASC210631679/2021
+# Lop at USA/TX-CDC-ASC210627679/2021
+
+# Omicron basal crap:
+# Lop at England/PHEC-3W080W41/2021, keep Austria/LB-R00052-S071/2022, USA/CA-CDC-FG-210079/2021
+
+# AY.38 messed up by back-mut like AY.46.6 was...
+# Lop at India/RJ-CCMB-CIA3282/2021, keep Indonesia/JK-NIHRD-WGS11276/2021,
+# keep USA/MS-UMMC-X3F7-210927000281/2021
+

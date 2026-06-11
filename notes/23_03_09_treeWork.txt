@@ -1,0 +1,108 @@
+today=2023-03-09
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths.full
+omicron=$(grep ^B.1.1.529$'\t' clade-paths | cut -f 2)
+g $omicron: sample-paths.full > sample-paths
+
+
+# XBB.1.9.2 is still misplaced on XBB.1.9.1 with reversion on 11956.
+g Australia/NSW-SAVID-15990/2023 sample-paths
+#... node_2448353:G5720A node_2448542:C11956T node_2448544:T23018C node_2449256:T11956C node_2449257:A16878T node_2449258:A27507C
+g node_2449256: sample-paths | g -v node_2449258: | cut -f 1 > pruneForXBB.1.9.2
+wc -l pruneForXBB.1.9.2
+#14 pruneForXBB.1.9.2
+
+
+# XBB.1.5 got put after flip-flops on 1884 and 22472.  22472 sounds familiar, might need to
+# make some permanent exclusions if this happens again.
+g England/BRBR-3267A61F/2022 sample-paths
+#... node_2425198:G27915T node_2425199:T17124C node_2425409:C1884T node_2425427:T23018C node_2425438:A22472C node_2425440:T1884C node_2425447:C22472A
+g node_2425409: sample-paths | g -v node_2425447: | cut -f 1 > pruneForXBB.1.5
+wc -l pruneForXBB.1.5
+#175 pruneForXBB.1.5
+
+
+# Some of yesterday's pruneForXBB samples got pulled into a hideous disaster branch in BA.4.1.
+# Lop it and give them all another chance... although there may not be much redeemable there.
+g USA/RI-CDC-LC0667155/2022 sample-paths
+#... node_2356525:T21570G node_2363671:C9866T
+g node_2363671: sample-paths | cut -f 1 > pruneForBA.4.1yuck
+wc -l pruneForBA.4.1yuck
+#773 pruneForBA.4.1yuck
+
+
+# Get rid of the mini-BA.5-run-of-19000s seqs too, see if any of those can be saved or if
+# there will just continue to be a run-of-19000s wart somewhere or other.
+# Looks like almost exclusively Russia seqs but they have pulled in some Canada/France/Philippines.
+g Russia/YAN-RII-MH100898S/2022 sample-paths
+#... node_2292140:C23707T node_2292292:C28006T node_2292376:C9223T node_2292379:T19209G,A19210G,A19212G,A19214G,C19217A ...
+g node_2292379: sample-paths | cut -f 1 > pruneForRussia19200s
+wc -l pruneForRussia19200s
+#3554 pruneForRussia19200s
+
+
+# Another... just... no branch off of BA.5.3.1.  This sequence is only half way to the full wreck:
+g USA/CA-HLX-STM-STBTN3SQ8/2022 sample-paths
+#... node_1855028:A27749G node_1855135:C22624T node_1855354:G27517A,G27518A,C27519T,A27520G,C27524G,C27526A,A27528T,T27531C,C27575A,C27577T,T27582G,G27583A,T27587C,G27589A,C27590T,A27683G,C27686T,C27688T,C27689T,A27691G,T27692C,T27693C ...
+g node_1855354: sample-paths | cut -f 1 > pruneFor27000s
+wc -l pruneFor27000s
+#1233 pruneFor27000s
+
+
+# Crazy run-ofs in 100s, 200s and 300s might be pulling in sequences with Ns, including at least
+# one very recent (2023-03) seq.
+g India/MH-RFIP14470/2022 sample-paths
+#... node_2499096:T22016C node_2517446:G114A,C117T node_2517447:A298G,C300G,C302T,C304G,C307G,A309G
+g node_2517446: sample-paths | cut -f 1 > pruneFor300s
+wc -l pruneFor300s
+#528 pruneFor300s
+
+
+wc -l pruneFor*
+#  1233 pruneFor27000s
+#   528 pruneFor300s
+#   773 pruneForBA.4.1yuck
+#  3554 pruneForRussia19200s
+#   175 pruneForXBB.1.5
+#    14 pruneForXBB.1.9.2
+#  6277 total
+
+# Prune
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should do it
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    62m31.488s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Is XBB.1.9.2 finally free of the 11956 flip-flop?
+g Australia/NSW-SAVID-15990/2023 sample-paths.pruned
+#... node_2984537:G27915T node_3011736:T28297C node_3011737:C12789T node_3011738:G5720A node_3011950:C11956T node_3011952:T23018C node_3012862:T11956C,A16878T,A27507C
+# Ugh!  Nothing more to prune... that's straight from XBB.1.9.1 to XBB.1.9.2.  
+# Why won't matOptimize move it?
+
+# Is XBB.1.5 free of the flip-flops on 1884 and 22472?
+g England/BRBR-3267A61F/2022 sample-paths.pruned
+#... node_2984537:G27915T node_2984538:T17124C node_2984806:T23018C
+# Yes, good, although as always will need to see what happens after tomorrow's build.
+
+ln -s gisaidAndPublic.$today.pruned.reopt.pb gisaidAndPublic.$today.masked.useMe.pb

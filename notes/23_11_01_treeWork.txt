@@ -1,0 +1,97 @@
+today=2023-11-01
+cd $ottoDir/$today
+# Don't limit to Omicron this time, I'm going to clean up some old branches too.
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+#real    8m59.760s
+
+# Trim more fluff around major branches of B.1.526 and B.1.637 (currently misplaced as child
+# of B.1.526).
+
+# B.1.526 main branch:
+g USA/CT-Yale-1228/2021 sample-paths
+#... node_3654528:C28869T node_3654641:C23664T node_3654642:G28975A node_3654643:C25517T node_3654649:T9867C,A20262G node_3654650:G23012A node_3654651:C27925T node_3654652:A22320G node_3654653:A16500C node_3654654:C21846T
+# Prune from C23664T
+g node_3654641: sample-paths | g -v node_3654654: | cut -f 1 > pruneForB.1.526_637
+wc -l pruneForB.1.526_637
+#138 pruneForB.1.526_637
+
+# B.1.526 wacky branch:
+g USA/MA-CDC-LC0031545/2021 sample-paths
+#... node_3654654:C21846T node_3658337:T23664C node_3658391:A28975G node_3658395:A23012G node_3658396:T28869C node_3658397:A25968G node_3658398:A24432G node_3658400:G6101A,C28311T node_3658401:T28879G node_3658402:C8809T,G22992A node_3658403:C27739T node_3658404:A7201G
+# Prune from T23664C, also spare misplaced B.1.637:
+g USA/NY-PRL-2021_02_15_03D10/2021 sample-paths
+#... node_3654654:C21846T node_3658337:T23664C node_3658391:A28975G node_3658395:A23012G node_3658396:T28869C node_3662086:C16500A node_3662087:C28887T node_3662088:C9891T,T22032C,G22320A,G28975A node_3662089:T22917G node_3662090:A9749G,G20262A,A21801G,T21846C,G28044T node_3662091:G11804A node_3662092:C24138A ...
+g node_3658337: sample-paths | g -v node_3658404: | g -v node_3662092: | cut -f 1 >> pruneForB.1.526_637
+wc -l pruneForB.1.526_637
+#419 pruneForB.1.526_637
+
+
+# Trim all unlabeled crap from BA.4_dropout in final attempt to get matOptimize to move XCT.
+g BA.4_dropout sample-clades | cut -f 1 > pruneForXCT
+wc -l pruneForXCT
+#1855 pruneForXCT
+
+
+wc -l pruneFor*
+#   419 pruneForB.1.526_637
+#  1855 pruneForXCT
+#  2274 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    105m59.707s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13377201,with radius 1, second from start 245
+#parsimony score after optimizing: 13377187,with radius 2, second from start 330
+#parsimony score after optimizing: 13377175,with radius 4, second from start 769
+#parsimony score after optimizing: 13377165,with radius 8, second from start 3097
+#parsimony score after optimizing: 13377154,with radius 16, second from start 5571
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# Hopefully no longer misplaced under B.1.637:
+g USA/NY-PRL-2021_02_15_03D10/2021 sample-paths.pruned
+#... node_3646516:A9749G,C9891T node_3646517:T25517C,C28887T node_3646518:A21801G,T22032C node_3646519:G11804A,C24138A,C25517T node_3646520:G28044T ...
+# Looks like it, check in taxonium.
+
+# Hopefully not in BA.4_dropout:
+g Australia/NSW-ICPMR-49495/2023 sample-paths.pruned
+#... node_953252:A9424G node_953522:C2790T node_1387405:C25416T node_1478672:G22599C node_1478733:G23040A node_1478734:T22942G node_1478735:A26275G node_1478736:G22331A node_1478738:G22898A node_1478741:G15451A node_1478742:T22016C node_1478743:G22577C node_1478830:G5720A node_1478831:A405G,C1889T,C2334T,C9693T,C12789T,C15738T,T15939C,T16342C,A16878T,T17859C,A18492G,A22001G,C22033A,A22115G,A22190G,A22893C,T22917G,G22927T,T22928C,T23019C,T24073C,C24134A,T24991A,G25606A,C25721T,T25959C,A27507C,G27915T,T28297C node_1478832:C1684T,C7051T,A19886G,C20320T,A20741G
+# Not sure where that is but looks BA.2.75-ish, check in taxonium... not even, it shares a weird
+# little rando basal branch with BA.2.86, though they both diverge quite a bit and probably both
+# belong who-knows-where.
+# Also make sure BA.4 and 5 didn't wander off anywhere.
+# The path to BA.5 got flip-flops on 13255 and 8308, weird, oh well.
+
+# Looks reasonable for now.  As always, see what happens when seqs are added back tomorrow.
+# Should check out what ripples/RIVET have for XCT and the B.1.526 wacky branch too.

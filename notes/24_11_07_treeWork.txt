@@ -1,0 +1,125 @@
+today=2024-11-07
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# lp2185 is split because of Denmark 21654T artifact (late 24999)
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2185
+g OZ200084 sample-paths
+#... node_2370129:G22272A node_2370191:C21654T node_2370192:A24999G
+g node_2370191: sample-paths | g -v node_2370192: | cut -f 1 > pruneForLP2185
+wc -l pruneForLP2185
+#7 pruneForLP2185
+
+
+# MB.1 is supposed to be child of JN.1.49.1 but is tied into JN.1.18.3 by a few seqs
+g India/MH_BJCOG_INSACOG_6823/2024 sample-paths
+#... node_2340293:G22599C node_2348617:C22928G node_2348936:C21654T node_2348937:C25658T,T29637A
+g node_2348936: sample-paths | g -v node_2348937: | cut -f 1 > pruneForMB.1 
+wc -l pruneForMB.1
+#3 pruneForMB.1
+
+
+# I changed BA.2.86 SGTF deletion range from 21765-21770 to 21765-21769 in branchSpecificMask.yml
+# because nextclade sometimes calls a substitution at 21770 while shifting the del left.
+# Remove affected sequences and re-add.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2194#issuecomment-2456087552
+cat > idsForLP2194 <<EOF
+EPI_ISL_19448045
+EPI_ISL_19461262
+EPI_ISL_19463812
+EPI_ISL_19465899
+EPI_ISL_19468782
+EPI_ISL_19468783
+EPI_ISL_19468919
+EPI_ISL_19472791
+EPI_ISL_19472826
+EPI_ISL_19472838
+EPI_ISL_19478490
+EPI_ISL_19478951
+EPI_ISL_19484071
+EPI_ISL_19487250
+EPI_ISL_19487252
+EPI_ISL_19487297
+EPI_ISL_19487348
+EPI_ISL_19487380
+EPI_ISL_19487957
+EPI_ISL_19497209
+EPI_ISL_19501853
+EPI_ISL_19505233
+EPI_ISL_19507701
+EPI_ISL_19516608
+EPI_ISL_19516618
+EPI_ISL_19517750
+EPI_ISL_19520687
+EPI_ISL_19521094
+EPI_ISL_19523210
+EOF
+g -Fwf idsForLP2194 $epiToPublic
+#EPI_ISL_19461262  PQ456544.1    USA/NJ-GBW-GKISBBBC80740/2024   2024-09-25
+#EPI_ISL_19472791  PQ479886.1    USA/CA-GBW-GKISBBBE42290/2024   2024-09-30
+#EPI_ISL_19472826  PQ479926.1    USA/CA-GBW-GKPLAAAA47118/2024   2024-09-30
+#EPI_ISL_19472838  PQ479885.1    USA/CA-GBW-GKISBBBE42257/2024   2024-09-30
+#EPI_ISL_19497209  OZ197892.1    Wales/CLIMB-CM7YMRJ1/2024       2024-10-07
+#EPI_ISL_19517750        OZ200264.1      Denmark/DCGC-690017/2024        2024-10-07
+g -Fwf idsForLP2194 $epiToPublic | cut -f 2 >> idsForLP2194
+g -Fwf idsForLP2194 samples.$today > pruneForLP2194
+wc -l pruneForLP2194
+#22 pruneForLP2194
+
+
+wc -l pruneFor*
+#   7 pruneForLP2185
+#  22 pruneForLP2194
+#   3 pruneForMB.1
+#  32 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# 24999 before 21654?
+g OZ200084 sample-paths.pruned
+#... node_2370130:G22272A node_2370192:A24999G node_2370193:C21654T
+# Good.
+
+# 25658, 29637 before 21654?
+g India/MH_BJCOG_INSACOG_6823/2024 sample-paths.pruned
+#... node_2340295:G22599C node_2348619:C22928G node_2348938:C21654T,C25658T,T29637A
+# Hmm, doesn't look like a child of JN.1.49.1 as was hoped (because of the C25658T and G22599C).
+# That would probably require a force-move.
+
+# See what happens when the pruneForLP2194 seqs are added back in the 2024-11-08 build.

@@ -1,0 +1,60 @@
+today=2025-04-16
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Fede found that LP.8.1.6, i.e. LP.8.1 > C21627A (S:T22N) is attracting branches that have
+# other LP.8.1 child branch mutations in addition to S:T22N: LP.1.8's C28674T (N:A134V),
+# the undesignated C3096T (ORF1a:S944L), and NY.7 (i.e. LP.8.1.1.7) with A23598G (S:K679R).
+# S:T22N is more likely to be recurrent (and successful) than most of those other mutations
+# (although NY.7 is probably a toss-up between the two Spike muts -- but that's the way it
+# was designated, so lineage hunters expect to see it on the LP.8.1.1 branch).
+# Do some forceMoves to move those probable recurrences of S:T22N onto the branches with
+# the less probably recurrent mutations where lineage hunters expect to find them.
+
+# [Yesterday I changed some sequence designations in pango-lineages/lineages.csv to match.]
+
+# Move the LP.8.1.6 branch with the LP.8.1.8 mutation to LP.8.1.8:
+g USA/NJ-CDC-LC1128576/2025 sample-paths
+#... node_2418104:G22132T node_2419424:C21627A node_2419485:C28674T
+g USA/CT-DPH-1276947001/2025 sample-paths
+#... node_2418104:G22132T node_2418581:C28674T
+echo -e "node_2419485\tnode_2418581" > forceMove.tsv
+
+# Move the LP.8.1.6 branch with C3096T to LP.8.1 > C3096T:
+g Spain/CT-HUVH-EXE318977/2025 sample-paths
+#... node_2418104:G22132T node_2419424:C21627A node_2419437:C3096T
+g Sweden/AB-01_SE100_24CS101189/2024 sample-paths
+#... node_2418104:G22132T node_2419350:C3096T ...
+echo -e "node_2419437\tnode_2419350" >> forceMove.tsv
+
+# Move the NY.7 branch to LP.8.1.1:
+g USA/NY-URMC-P2S1U537-1/2024 sample-paths
+#... node_2418104:G22132T node_2419424:C21627A node_2419527:A23598G
+g Canada/ON-KHS-05884-v1/2024 sample-paths
+#... node_2418104:G22132T node_2420215:A23598G
+echo -e "node_2419527\tnode_2420215" >> forceMove.tsv
+
+
+# I actually don't see any pruning to do today, so no need to prune and optimize
+# after the force-moves. 
+# For an example of force-moves followed by prune & opt, see 24_08_16_treeWork.txt
+
+
+wc -l forceMove.tsv
+#3 forceMove.tsv
+
+
+# Force-move straight to .useMe.pb.gz
+$matUtils mask --move-nodes forceMove.tsv -i gisaidAndPublic.$today.masked.pb.gz \
+    -o gisaidAndPublic.$today.masked.useMe.pb.gz
+#The current (node_2419485) and new (node_2418581) node paths do not involve the same set of mutations.
+#mut C28674T is in new parent node_2418581 but not current parent, but is in current node node_2419485; removed it.
+#Added current parent's extra mutation C21627A to node to be moved (node_2419485)
+#The current (node_2419437) and new (node_2419350) node paths do not involve the same set of mutations.
+#mut C3096T is in new parent node_2419350 but not current parent, but is in current node node_2419437; removed it.
+#Added current parent's extra mutation C21627A to node to be moved (node_2419437)
+#The current (node_2419527) and new (node_2420215) node paths do not involve the same set of mutations.
+#mut A23598G is in new parent node_2420215 but not current parent, but is in current node node_2419527; removed it.
+#Added current parent's extra mutation C21627A to node to be moved (node_2419527)
+#All requested moves complete.
+#Saving final tree to gisaidAndPublic.2025-04-16.masked.useMe.pb.gz

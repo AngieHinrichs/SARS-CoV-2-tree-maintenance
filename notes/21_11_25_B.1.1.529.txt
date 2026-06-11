@@ -1,0 +1,50 @@
+# The B.1.1.529 samples had too many equally parsimonious placements in yesterday's build
+# (matOptimize still running; may be stuck in loop, may need to kill it)
+# so they weren't placed.  Do a special usher run without -e to just get them placed somewhere
+# so they can start to accumulate.  Might need to increase the max branch length again.
+
+today=2021-11-24
+cd $ottoDir/$today 
+
+cat > B.1.1.529.epis <<EOF
+EPI_ISL_6640916
+EPI_ISL_6640919
+EPI_ISL_6640917
+EPI_ISL_6647956
+EPI_ISL_6647957
+EPI_ISL_6647958
+EPI_ISL_6647959
+EPI_ISL_6647960
+EPI_ISL_6647961
+EPI_ISL_6647962
+EOF
+
+zcat new.masked.vcf.gz | head | g ^#CHROM | tl | g -Fwf B.1.1.529.epis
+#5228    SouthAfrica/NICD-N21607-DX64624/2021|EPI_ISL_6647962|2021-11-16
+#5293    SouthAfrica/NICD-N21606-DX64492/2021|EPI_ISL_6647961|2021-11-15
+#5354    SouthAfrica/NICD-N21605-DX64490/2021|EPI_ISL_6647960|2021-11-15
+#5421    SouthAfrica/NICD-N21604-DX64219/2021|EPI_ISL_6647959|2021-11-16
+#5489    SouthAfrica/NICD-N21603-DX64204/2021|EPI_ISL_6647958|2021-11-16
+#5550    SouthAfrica/NICD-N21602-DX040380/2021|EPI_ISL_6647957|2021-11-15
+#5613    SouthAfrica/NICD-N21600-DX03569/2021|EPI_ISL_6647956|2021-11-14
+#48905   Botswana/R40B58_BHP_3321001245/2021|EPI_ISL_6640919|2021-11-11
+#49030   Botswana/R40B60_BHP_3321001247/2021|EPI_ISL_6640917|2021-11-11
+#49097   Botswana/R40B59_BHP_3321001248/2021|EPI_ISL_6640916|2021-11-11
+
+zcat new.masked.vcf.gz | cut -f 1-9,5228,5293,5354,5421,5489,5550,5613,48905,49030,49097 \
+    > B.1.1.529.vcf
+
+# Oh... actually matOptimize just plain old died at 10:30 last night.
+# Argh, I made a bad hostfile in which the same host appeared twice, OK, need to do better.
+# Will fix that, but first, add the samples.
+
+mv merged.deltaMasked.pb merged.deltaMasked.preB.1.1.529.pb
+$usher -u -T 80 -A \
+    -i merged.deltaMasked.preB.1.1.529.pb \
+    -v B.1.1.529.vcf \
+    -o merged.deltaMasked.pb \
+    >& usher.B.1.1.529.log
+
+# Interesting... this time the first one was placed with only optimal placement, but a parsimony
+# score of 41, watch out for that in the branch length filter.
+

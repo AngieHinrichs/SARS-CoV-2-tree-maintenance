@@ -1,0 +1,265 @@
+# Chris was reticent to assign a sublineage with C5730T because that was split in the tree --
+# time to do some cleanup, plus I'm noticing some other things as I find paths for new BA.2.*
+# sub-lineages.
+
+today=2022-03-26
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths -C clade-paths
+
+# BA.1 has a branch with just C5730T and a branch with G25855T and then C5730T.
+# If I temporarily prune sequences with G25855T and not C5730T and reoptimize, hopefully that
+# will join them up to get C5730T > G25855T.
+# Ha!  Actually, in the 2022-03-26 tree, that is already fixed!
+
+# Ugh, but now there's also a big C5730T > T5730C, might need to manually fix that one.
+g Ireland/TA-NVRL-S22IRL00087489/2022 sample-paths 
+#... node_1179007:G23048A node_1378138:C5730T node_1379761:T5730C ...
+# So move all children of node_1379761 to be children of node_1179007.
+# I should have asked Jakob to write the move function to move all children of a bad node
+# but silly me, I asked to move just the specified child.  Looks like there are only a few though.
+g England/MILK-2EB91B4/2021 sample-paths
+# ... node_1179007:G23048A node_1378138:C5730T node_1379761:T5730C node_1379762:C29632T
+g node_1379761: sample-paths | g -v node_1379762
+# ... node_1379761:T5730C Ireland/TA-NVRL-S22IRL00087489/2022|EPI_ISL_11375931|2022-01-25:C2902T,T7830C 
+# ... node_1379761:T5730C node_1394429:G5515T ...
+cat > nodesToMove.tsv <<EOF
+node_1379762	node_1179007
+Ireland/TA-NVRL-S22IRL00087489/2022|EPI_ISL_11375931|2022-01-25	node_1179007
+node_1394429	node_1179007
+EOF
+
+$matUtils mask --move-nodes nodesToMove.tsv \
+    -i gisaidAndPublic.$today.masked.pb \
+    -o gisaidAndPublic.$today.masked.5730fixed.pb
+#Move of node node_1379762 to node node_1179007 successful.
+#Move of node Ireland/TA-NVRL-S22IRL00087489/2022|EPI_ISL_11375931|2022-01-25 to node node_1179007 successful.
+#Move of node node_1394429 to node node_1179007 successful.
+
+# Let's make taxodium just to check.
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.5730fixed.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.5730fixed.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.5730fixed.taxodium.pb
+
+# That did fix the C5730T > T5730C situation.
+
+# Oh $@(*#%& 5924 is split again.  :(
+g Australia/QLD3654/2021 sample-paths
+# ... node_1179007:G23048A node_1237333:G5924A
+g England/LSPA-35121BF/2022 sample-paths
+# ... node_1179007:G23048A node_1185777:T11422C node_1186557:C11422T,C23664T node_1186558:G5924A
+# Can't fix that by a --move-nodes.  Well, the matOptimize below is already running... hope for
+# the best with that?  (Although that's how these get split in the first place, argh)
+
+# BA.2 has a really bad split on 2790+10198... about half of it is on A29510C > C10198T > C2790T
+# while the other half is A29510C > C2790T > C22792T > C10198T.
+# I want A29510C > C2790T+C10198T and about half of that > C22792T.
+# I hope if I prune sequences with C2790T and not C10198T or vice versa, and then reoptimize,
+# that will merge those the way I want.
+g India/KA-RFNB-4931/2022 sample-paths
+# ... node_1116090:A29510C node_1116091:C2790T
+g Denmark/DCGC-320630/2022 sample-paths
+# ... node_1116090:A29510C node_1116091:C2790T node_1116092:C22792T node_1116093:C10198T
+# That's probably going to be a lot though...
+g node_1116091: sample-paths | g -v node_1116093: | wc -l
+#6856
+# OK, not as bad as I thought it might be, hard to have a sense of branch size in taxonium.
+g node_1116091: sample-paths | g -v node_1116093: | cut -f 1 > lopForBA.2
+g Thailand/65006008__2019-nCoV/2022 sample-paths 
+# ... node_1116090:A29510C node_1146588:C10198T
+g England/BRBR-31A0F0B/2022 sample-paths
+# ... node_1116090:A29510C node_1146588:C10198T node_1147055:C2790T
+# Fewer vice-versa, but still a chunk:
+g node_1146588: sample-paths | g -v node_1147055: | wc -l
+#4768
+g node_1146588: sample-paths | g -v node_1147055: | cut -f 1 >> lopForBA.2
+wc -l lopForBA.2
+#11624 lopForBA.2
+
+$matUtils extract -i gisaidAndPublic.$today.masked.5730fixed.pb \
+    -p -s lopForBA.2 -o gisaidAndPublic.$today.masked.5730fixed.loppedForBA.2.pb
+
+$matOptimize -T 80 -r 8 -M 2 -S move_log.fixlop \
+    -i gisaidAndPublic.$today.masked.5730fixed.loppedForBA.2.pb \
+    -o gisaidAndPublic.$today.masked.5730fixed.loppedForBA.2.opt.pb \
+    >& matOptimize.fixlop.log
+
+# Taxonium again.
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.5730fixed.loppedForBA.2.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.fixlop.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.fixlop.taxodium.pb
+
+# OK, the matOptimize made the 5924 situation a bit better -- now it's just C23664T getting
+# ahead of 5924.
+# One more strategic lop...
+$matUtils extract -i gisaidAndPublic.$today.masked.5730fixed.loppedForBA.2.opt.pb \
+    -S sample-paths.fixlop
+g England/PHEC-YYNB6QN/2022 sample-paths.fixlop
+# ... node_1176742:G23048A node_1369617:C23664T
+g England/MILK-2EED481/2021 sample-paths.fixlop
+# ... node_1176742:G23048A node_1369617:C23664T node_1369618:G5924A
+g node_1369617: sample-paths.fixlop | g -v node_1369618: | cut -f 1 > lopForBA.1
+
+$matUtils extract -i gisaidAndPublic.$today.masked.5730fixed.loppedForBA.2.opt.pb \
+    -p -s lopForBA.1 -o gisaidAndPublic.$today.masked.fixloplop.pb
+$matOptimize -T 80 -r 8 -M 2 -S move_log.fixloplop \
+    -i gisaidAndPublic.$today.masked.fixloplop.pb \
+    -o gisaidAndPublic.$today.masked.fixloplop.opt.pb \
+    >& matOptimize.fixloplop.log
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.fixloplop.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.fixlop.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.fixlop.taxodium.pb
+
+# Crap, proposed478 was lopped in its entirety.  BA.1.1.1 annotation was somehow lost and
+# needs to be added.  But I think overall the un-munging is a win.
+# Oh my:
+g -Fw BA.1.1.1 $scriptDir/pango.clade-mutations.tsv > restore.tsv
+$matUtils annotate -T 50 -i gisaidAndPublic.$today.masked.fixloplop.opt.pb -M restore.tsv -o test.pb
+#Parsimony score at the best node: 0
+#BA.1.1.1        0       *       node_1279403 ...
+#...
+#Now assigning clades to nodes 
+#Segmentation fault
+# No idea what's up with the seg fault, but I could manually assign the node...
+g -E '^[A-Zp]' clade-paths.fixloplop | cut -f 1,2 > cladeNodes.reassign.fixloplop
+vi cladeNodes.reassign.fixloplop
+# Crud, have to do that for nextclade and pango separately.
+g -E '^[0-9]' clade-paths.fixloplop | cut -f 1,2 > cladeNodes.reassign.fixloplop.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.fixloplop.opt.pb \
+    -l -C cladeNodes.reassign.fixloplop.nextclade \
+    -o gisaidAndPublic.$today.masked.fixloplop.opt.nextclade.pb
+$matUtils annotate -i gisaidAndPublic.$today.masked.fixloplop.opt.nextclade.pb \
+    -C cladeNodes.reassign.fixloplop \
+    -o gisaidAndPublic.$today.masked.fixloplop.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.fixloplop.opt.nextclade.pangolin.pb \
+    -C clade-paths.fixloplop.reannotated
+diff clade-paths.fixloplop clade-paths.fixloplop.reannotated
+#> BA.1.1.1      node_1279403   ...
+
+# OK.  Tomorrow make gisaidNames version for Chris, with caveat that proposed478 went away.
+# Maybe also make pango-des v1.2.136 lineageTree, don't need proposed478 for that.
+
+# Also tomorrow: work it into the daily build by making analogous changes to 2022-03-28
+# (maybe sparing proposed478??)
+
+# But for now, let's replace 2022-03-26 so BA.1.17 isn't half-missing from metadata etc....
+ln -f gisaidAndPublic.$today.masked.fixloplop.opt.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+prevDate=2022-03-23
+# Steps after annotation in updateCombinedTree.sh...
+
+# 2022-03-29
+today=2022-03-29
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths -C clade-paths
+# Actually it's too early for clade-paths, but whatever, sample-paths is what we need for pruning.
+
+# 5924 is split...
+g Australia/QLD3654/2021 sample-paths
+# ... node_1185097:G23048A node_1220830:G5924A
+g England/LSPA-35121BF/2022 sample-paths
+# ...  node_1185097:G23048A node_1365441:C23664T node_1365442:G5924A
+g node_1365441: sample-paths | g -v node_1365442: | cut -f 1 > lopForBA.1
+wc -l lopForBA.1
+#238 lopForBA.1
+# That's not very many in the grand scheme of things... wonder if I should just permanently
+# exclude them so I don't have to keep doing this.
+
+# Let's exempt proposed478 & neighbors from lopForBA.2 this time and hope that won't
+# prevent 10198 and 2790 from being lumped together...
+g India/KA-RFNB-4931/2022 sample-paths
+# ... node_1116608:A29510C node_1116609:C2790T
+g Denmark/DCGC-320630/2022 sample-paths
+# ... node_1116608:A29510C node_1116609:C2790T node_1116610:C22792T node_1116611:C10198T
+# Exempt these: [oops, that's 482, I still forgot 478 ugh...]
+g Scotland/QEUH-39E86FB/2022 sample-paths
+# ... node_1116608:A29510C node_1116609:C2790T node_1116610:C22792T node_1147223:G22882T node_1147318:T22792C node_1147486:T27807C node_1147487:T16342C node_1147636:C27382G,T27383A node_1147637:C27384T node_1147638:C27807T node_1147639:T22882G node_1147640:C29510A node_1147641:C16342T node_1147642:T9866C node_1147643:C10198T node_1147645:T26858C node_1147646:A26530G node_1147648:C9866T
+g node_1116609: sample-paths | g -v node_1116611: | g -v node_1147648: | cut -f 1 > lopForBA.2
+wc -l lopForBA.2
+#6902 lopForBA.2
+g Thailand/65006008__2019-nCoV/2022 sample-paths 
+# ... node_1116608:A29510C node_1148812:C10198T
+g England/BRBR-31A0F0B/2022 sample-paths
+# ... node_1116608:A29510C node_1148812:C10198T node_1149338:C2790T
+g node_1148812: sample-paths | g -v node_1149338: >> lopForBA.2
+#12191 lopForBA.2
+
+# 5730 seems OK so no need for manual node moves as far as I can tell.
+
+# Repeated this after gisaidAndPublic.$today.masked.pb was replaced with the annotated version.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat lopForBA.1 lopForBA.2) -o gisaidAndPublic.$today.masked.pruned.pb
+$matOptimize -T 80 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.pruned.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.pruned.taxodium.pb
+
+# Looks OK, let's proceed with it.
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned.opt
+egrep '^[A-Zp]' clade-paths.pruned.opt | cut -f 1,2 > cladeNodes.reassign.pruned.opt
+
+# And let's add the v1.2.137 lineages.
+$matUtils annotate -T 50 -i gisaidAndPublic.$today.masked.pruned.opt.pb -M test.tsv -o test.pb
+#Assigning BA.1.18 to node node_1262463
+#Assigning BA.1.19 to node node_1247369
+vi cladeNodes.reassign.pruned.opt
+# Add those, get rid of vestigial proposed447 which is now XG but somehow the old lineage snuck in
+# from previous lineageToName, will have to watch out for that.
+
+# Argh, nextclade too.
+g -E '^[12]' clade-paths.pruned.opt | cut -f 1,2 > cladeNodes.reassign.pruned.opt.nextclade
+
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodes.reassign.pruned.opt.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -C cladeNodes.reassign.pruned.opt \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.pruned.opt.reannotated
+diff <(sort clade-paths.pruned.opt) <(sort clade-paths.pruned.opt.reannotated)
+#> BA.1.18       node_1262463     ...
+#> BA.1.19       node_1247369     ...
+#< proposed447   node_1129829     ...
+# OK, good.
+
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+prevDate=2022-03-26
+# Steps after annotation in updateCombinedTree.sh...

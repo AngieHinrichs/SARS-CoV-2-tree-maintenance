@@ -1,0 +1,199 @@
+# Ugly reversion branch in BA.4.1 pointed out by user:
+# https://github.com/cov-lineages/pango-designation/issues/1761
+
+# While looking into that, I found that findDropoutContam.pl wasn't recognizing 23A as Omicron,
+# so a bunch of recent sequences with tons of reversions had slipped through the filter and
+# should be removed from the tree.
+
+today=2023-03-15
+cd $ottoDir/$today
+
+# usher-sampled is already running at this point, but having fixed dropoutContam.pl, I can
+# make new lists, and find out what samples need to be removed from the tree.
+zcat $ncbiDir/nextclade.full.tsv.gz | $scriptDir/findDropoutContam.pl \
+    > gb.dropoutContam2
+zcat $gisaidDir/chunks/nextclade.full.tsv.gz | $scriptDir/findDropoutContam.pl \
+    > gisaid.dropoutContam2
+zcat $cogUkDir/nextclade.full.tsv.gz | $scriptDir/findDropoutContam.pl \
+    > cog.dropoutContam2
+cut -f 1 *.dropoutContam2 | awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' \
+    > dropoutContam.ids2
+
+# samples.$today doesn't exist yet, but see how this would go with yesterday's tree:
+g -Fwf dropoutContam.ids2 $ottoDir/2023-03-14/samples.2023-03-14 \
+| grep -vFwf <(tail -n+4 $scriptDir/includeRecombinants.tsv | cut -f 1) \
+    > pruneForMissedDropout
+wc -l pruneForMissedDropout
+#15226 pruneForMissedDropout
+g -Ff pruneForMissedDropout $ottoDir/2023-03-14/sample-clades | cut -f 3 | sort | uniq -c
+# I need to add some proposed* sequences to includeRecombinants.tsv to exempt them from pruning:
+g -Ff pruneForMissedDropout $ottoDir/2023-03-14/sample-clades | g proposed
+#England/NORT-YNNYFNT/2022|OX069043.1|2022-01-22 21K (Omicron)   proposed441
+#USA/TN-CDC-ASC210559252/2021|OM272834.2|2021-12-31      21K (Omicron)   proposed439
+#Australia/QLD0x00D7E0/2022|EPI_ISL_11632600|2022-01-04  21K (Omicron)   proposed437
+#Australia/QLD0x00D7DE/2022|EPI_ISL_11632598|2022-01-10  21K (Omicron)   proposed437
+#Australia/NSW-ICPMR-23048/2022|EPI_ISL_11993539|2022-01-11      21K (Omicron)   proposed437
+#Australia/QLD0x00C42F/2022|EPI_ISL_11157235|2022-01-04  21K (Omicron)   proposed437
+#Australia/QLD0x00D997/2022|EPI_ISL_11750046|2022-01-12  21K (Omicron)   proposed437
+#Australia/QLD0x00D7DF/2022|EPI_ISL_11632599|2022-01-02  21K (Omicron)   proposed437
+
+# Try again with samples.$today and updated includeRecombinants.tsv:
+g -Fwf dropoutContam.ids2 samples.$today \
+| grep -vFwf <(tail -n+4 $scriptDir/includeRecombinants.tsv | cut -f 1) \
+    > pruneForMissedDropout
+wc -l pruneForMissedDropout
+#15219 pruneForMissedDropout
+g -Ff pruneForMissedDropout sample-clades | g proposed
+# No output, good.
+g -Ff pruneForMissedDropout sample-clades | cut -f 3 | sort | uniq -c \
+| sort -nr | head
+#   5216 BA.2.12.1
+#    949 BA.5.2
+#    896 BA.5.2.1
+#    869 XBB.1.5
+#    759 BA.4.1
+#    616 BA.5.1
+#    464 BA.4
+#    445 BA.2
+#    357 BA.5.6
+#    353 BA.5.5
+# I expected to see BA.4.1 in there due to the p-d #1761 branch.  BA.2.12.1 though, wow...
+# Look in taxonium.
+g -Ff pruneForMissedDropout sample-clades | g -F BA.2.12.1 | randomLines stdin 50 stdout | cut -f 1
+# And almost all of those are USA/UT-UPHL.  I pinged Erin in SPHERES slack.
+
+# Take a look at BA.5.2 too.
+g -Ff pruneForMissedDropout sample-clades | g -F BA.5.2 | randomLines stdin 50 stdout | cut -f 1
+# Actually, some of those have all their reversions masked out by branch-specific masking
+# e.g. USA/UT-UPHL-220619605785/2022 with 10 reversions, all of which are masked out in BA.5
+# (a couple by inheritance from BA.2).
+# But then... no great loss either.
+
+g -Ff pruneForMissedDropout sample-clades | g -F BA.5.2.1 | randomLines stdin 50 stdout | cut -f 1
+# Same.
+
+g -Ff pruneForMissedDropout sample-clades | g -F XBB.1.5 | randomLines stdin 50 stdout | cut -f 1
+# Again, some ameliorated by branch-specific masking, some not, no great loss.
+
+# OK, pruneForMissedDropout looks good to go, now for the branch that motivated that investigation.
+
+omicron=$(grep ^B.1.1.529$'\t' clade-paths | cut -f 2)
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -I $omicron -S sample-paths
+
+# Past the first few nodes that imply maybe some recombination with BA.2.12.1 up to ~12160,
+# I agree with FedeGueli's "trash bin" assessment.  Prune and exclude them all.
+g USA/FL-CDC-LC0669105/2022 sample-paths
+#... node_2361851:T21570G node_2369003:C9866T node_2369004:A12160G node_2369005:C11674T node_2369006:T28724C
+g node_2369006: sample-paths | cut -f 1 > pruneForPD1761
+wc -l pruneForPD1761
+#868 pruneForPD1761
+
+# How much overlap is there between that branch and pruneForMissedDropout?
+comm -12 <(sort pruneForMissedDropout) <(sort pruneForPD1761) | wc -l
+#416
+
+sort -u pruneForMissedDropout pruneForPD1761 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2 } }' \
+    > excludeForPD1761Dropout
+wc -l excludeForPD1761Dropout
+#15671 excludeForPD1761Dropout
+g EPI_ISL excludeForPD1761Dropout | g -Fwf - $epiToPublic 
+# No output, just checking.
+g -v EPI_ISL excludeForPD1761Dropout | g -Fwf - $epiToPublic | cut -f 1 >> excludeForPD1761Dropout
+wc -l excludeForPD1761Dropout
+#23746 excludeForPD1761Dropout
+cat excludeForPD1761Dropout >> $ottoDir/badBranchSeed.ids
+
+
+# Meanwhile XBB.1.5 > T10204C has the 18348 flip-flop left over from yesterday.  Make some more
+# permanent exclusions for the ones that don't have 10204.
+g Austria/AGES-1103353/2023 sample-paths
+#... node_2440084:T23018C node_2453212:C18348T node_2453224:T10204C node_2453232:T18348C
+g node_2453212: sample-paths | g -v node_2453232: | cut -f 1 > pruneForXBB.1.5
+wc -l pruneForXBB.1.5
+#95 pruneForXBB.1.5
+g node_2453212: sample-paths | g -v node_2453224: | cut -f 1 \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2 } }' \
+    > excludeForXBB.1.5
+wc -l excludeForXBB.1.5
+#44 excludeForXBB.1.5
+g EPI_ISL excludeForXBB.1.5 | g -Fwf - $epiToPublic 
+# No output, just checking.
+g -v EPI_ISL excludeForXBB.1.5 | g -Fwf - $epiToPublic | cut -f 1 >> excludeForXBB.1.5
+wc -l excludeForXBB.1.5
+#68 excludeForXBB.1.5
+cat excludeForXBB.1.5 >> $ottoDir/badBranchSeed.ids
+
+
+wc -l pruneFor*
+# 15219 pruneForMissedDropout
+#   868 pruneForPD1761
+#    95 pruneForXBB.1.5
+# 16182 total
+
+sort -u pruneFor* | wc -l
+#15766
+
+# Prune
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should do it
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    72m0.950s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# XBB.1.5 > 10204 no flip-flop?
+g Austria/AGES-1103353/2023 sample-paths.pruned
+#... node_3001200:T23018C node_3021425:T10204C
+# Yay.  but as always, see what happens when sequences are loaded back in tomorrow.
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

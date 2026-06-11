@@ -1,0 +1,117 @@
+# I spotted some messes while seeing where Fede's PS1514 branch ended up, and realized it still
+# needs a high-radius matOptimize even to get to the right place within BA.2.75.
+# and CRAP I forgot to actually exclude all those sequences I made exclude lists for yesterday!
+
+today=2023-01-05
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# BA.2.76 has a raft of sequences that suspiciously have 5183 like BA.2.75, and reversions
+# on BA.2.76-defining 19812 and 22304.
+g India/KA-RFNB-15427/2022 sample-paths
+#... node_1700880:C2790T node_2481320:C25416T node_2520421:G22599C node_2520517:T22304A node_2520671:A19812G node_2521594:C5183T
+g India/DL-IGIB11302028112/2022 sample-paths
+#... node_1700880:C2790T node_2481320:C25416T node_2520421:G22599C node_2520517:T22304A node_2520671:A19812G node_2521594:C5183T node_2521595:C3796T,A12444G node_2521596:C4586T,G15451A node_2521597:G19812A node_2521598:C22599G node_2521599:A22304T ...
+g node_2521594: sample-paths | g -v node_2521599: | cut -f 1 > excludeForBA.2.76
+wc -l excludeForBA.2.76
+#31 excludeForBA.2.76
+g node_2521594: sample-paths | cut -f 1 > pruneForBA.2.76
+wc -l pruneForBA.2.76
+#712 pruneForBA.2.76
+
+# Big mess o' flip-flops on the way to the branch with BA.2.76.1 and .2.  Ah, that branch doesn't
+# have A19812G, so it probably should be right on BA.2.76 before A19812G (which the majority of
+# seqs do seem to have)
+g India/CH-IMTECH-INSACOG-0531-A203/2022 sample-paths
+#... node_2520517:T22304A node_2520671:A19812G node_2521970:A22304T 
+
+g India/MH-ICMR-NIV-INSACOG-G-11085/2022 sample-paths
+#... node_2520517:T22304A node_2520671:A19812G node_2521970:A22304T node_2521971:G26577C node_2521973:T22304A node_2521990:T25000C node_2521991:T22813G node_2521993:C26577G node_2521994:G19812A node_2521995:C7528T,G19684T node_2521997:G22813T node_2521998:C25000T
+g node_2521970: sample-paths | g -v node_2521998: | cut -f 1 >> pruneForBA.2.76
+wc -l pruneForBA.2.76
+#1044 pruneForBA.2.76
+
+# Mini-BA.2 in BA.2.38... OMG it's the 19s, perhaps because I didn't really exclude as intended:
+g India/AP-SMC_VJA_CCMB-01057/2022 sample-paths
+#... node_2527322:G22894T node_2527726:T18024G node_2527727:T4321C
+g Canada/QC-L00439312001/2022 sample-paths
+#... node_2527322:G22894T node_2527726:T18024G node_2527727:T4321C node_2527728:T22894G node_2527738:C22812A,G23040A node_2527742:C19217A node_2527743:A19210G node_2527744:A23040G,C28915A node_2527745:A19212G node_2527746:A19214G node_2527749:T19209G,G23040A node_2527750:C4321T,T25416C node_2527758:A28915C node_2527761:G18024T node_2527762:A23040G
+g node_2527727: sample-paths | g -v node_2527762: | cut -f 1 > excludeForMiniBA.2With19s
+wc -l excludeForMiniBA.2With19s
+#71 excludeForMiniBA.2With19s
+g node_2527727: sample-paths | cut -f 1 > pruneForMiniBA.2With19s
+wc -l pruneForMiniBA.2With19s
+#857 pruneForMiniBA.2With19s
+
+# Looks like a bit of XBF got stranded on BA.2.75 basal garbage -- ah, this is PD1514
+g India/AP-SMC_VJA_CCMB-01028/2022 sample-paths
+#... node_2484134:G23040A node_2484145:C22033A node_2484146:A26275G node_2502884:A22190G
+g Australia/ACT9508/2022 sample-paths
+#... node_2484134:G23040A node_2484145:C22033A node_2484146:A26275G node_2502884:A22190G node_2502885:G22331A node_2502888:A12444G node_2502889:A22001G,T22016C,G22577C node_2502890:G15451A,G22599C node_2502891:G22898A,T22942G,T23018C node_2502892:G18583A,T23019C,T23031C node_2502893:T3339C,C6070T node_2502894:C1627T node_2502895:C8692T node_2502896:G625T
+g node_2502884: sample-paths | g -v node_2502896: | cut -f 1 > pruneForXBF
+wc -l pruneForXBF
+#34 pruneForXBF
+
+# Exclude the stuff I meant to exclude yesterday
+sort -u ../2023-01-03/excludeFor* > pruneForMeantToExclude
+wc -l pruneForMeantToExclude
+#593 pruneForMeantToExclude
+
+wc -l pruneFor*
+#  1044 pruneForBA.2.76
+#   593 pruneForMeantToExclude
+#   857 pruneForMiniBA.2With19s
+#    34 pruneForXBF
+#  2528 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Fede's XBF bit has a long way to go, so use radius 20....
+time $matOptimize \
+    -T 80 -r 20 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    123m46.445s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned &
+
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+wait %1
+
+g Australia/ACT9508/2022 sample-paths.pruned
+#... node_2107756:C2790T node_3057287:C25416T node_3060722:G23040A node_3060733:C22033A node_3060734:C3927T,A12444G,A26275G node_3060735:G22577C node_3060736:G22898A,T22942G node_3060737:C3796T node_3060749:G15451A node_3060750:C5183T node_3060751:A22190G node_3060752:G22331A node_3060753:C4586T node_3061096:A22001G node_3061097:T22016C node_3072448:G18583A node_3072467:G22599C node_3072468:T23019C node_3072683:T23031C node_3072924:C1627T node_3072929:T23018C node_3072930:C6070T node_3072931:C8692T node_3072932:T3339C node_3072933:G625T,T3796C,T3927C,T4586C,T5183C
+
+# Good, that looks like BA.2.75 proper followed by XBF stuff.
+
+
+
+# Meanwhile, really exclude the exclude* sequences!
+sort -u ../2023-01-03/excludeFor* excludeFor* > newExcludes.treeNames
+wc -l newExcludes.treeNames
+#695 newExcludes.treeNames
+awk -F\|  '{ if ($3 == "") { print $1; } else { print $2; } }' newExcludes.treeNames \
+| g ^EPI_ISL_ > newExcludes.epis
+awk -F\|  '{ if ($3 == "") { print $1; } else { print $2; } }' newExcludes.treeNames \
+| g -v ^EPI_ISL_ > newExcludes.pub
+g -Fwf newExcludes.epis $epiToPublic
+# No output, good, that would mean dups.
+g -Fwf newExcludes.pub $epiToPublic | cut -f 1 >> newExcludes.epis
+wc -l newExcludes.*
+#  677 newExcludes.epis
+#   69 newExcludes.pub
+#  695 newExcludes.treeNames
+cat newExcludes.epis newExcludes.pub >> ../badBranchSeed.ids

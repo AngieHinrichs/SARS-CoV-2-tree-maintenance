@@ -1,0 +1,104 @@
+today=2024-06-05
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# rev-remut of 24457 on the way to JN.1.23.1
+g Brazil/BA-LACEN-293408058/2024 sample-paths
+#... node_2298323:A22893G node_2298324:A24457G node_2298342:C6696T node_2298343:A22920T node_2298350:G24457A node_2298351:C3653T,C6896T node_2298354:A24457G
+g node_2298350: sample-paths | g -v node_2298354: | cut -f 1 > pruneForJN.1.23.1
+wc -l pruneForJN.1.23.1
+#10 pruneForJN.1.23.1
+
+
+# Fede spotted a misplaced chunk of JN.1.54 on a rev branch:
+# https://github.com/cov-lineages/pango-designation/commit/d4897dae54782f87ceda609bc30252dcd22905c7#commitcomment-142660864
+g Spain/AN-PMC-40032/2024 sample-paths
+#... node_2259687:T27810C node_2264395:C22926T node_2264480:A9085G node_2264481:C8917T,C28076A,G28077A node_2264482:T22926C,T22928C 
+# It's a big mini-JN.1 rev branch, whack everything else in case they can get replaced better
+g node_2264395: sample-paths | g -v node_2264482: | cut -f 1 > pruneForJN.1.54
+wc -l pruneForJN.1.54
+#534 pruneForJN.1.54
+
+
+# KP.3.2.2 has a late C22858T
+g England/CLIMB-CM7YMIU7/2024 sample-paths
+#... node_2277054:A2611C node_2277277:C1549T,T22334C node_2277278:C22858T
+g node_2277277: sample-paths | g -v node_2277278: | cut -f 1 > pruneForKP.3.2.2
+wc -l pruneForKP.3.2.2
+#1 pruneForKP.3.2.2
+
+
+# about half of the seqs that Cornelius designated as JN.1.7.6 are misplaced on a flip-flop 1722 branch:
+g CHN/HLJCDC-0613/2024 sample-paths
+#... node_2259687:T27810C node_2270834:C1722T node_2270842:A6411C,C23707A node_2270843:T1722C
+g node_2270842: sample-paths | g -v node_2270843: | cut -f 1 > pruneForJN.1.7.6
+wc -l pruneForJN.1.7.6
+#1 pruneForJN.1.7.6
+
+
+wc -l pruneFor*
+#   10 pruneForJN.1.23.1
+#  534 pruneForJN.1.54
+#    1 pruneForJN.1.7.6
+#    1 pruneForKP.3.2.2
+#  546 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m51.955s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14171419,with radius 1, second from start 261 
+#parsimony score after optimizing: 14171410,with radius 2, second from start 357 
+#parsimony score after optimizing: 14171402,with radius 4, second from start 842 
+#parsimony score after optimizing: 14171398,with radius 8, second from start 3327 
+#parsimony score after optimizing: 14171392,with radius 16, second from start 5518 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+# No more rev-remut of 24457?
+g Brazil/BA-LACEN-293408058/2024 sample-paths.pruned
+#... node_2298085:A24457G node_2298103:C6696T node_2298104:A22920T node_2298143:C6896T node_2298144:C3653T
+# Good
+
+# 9085 first instead of rev on 22926?
+g Spain/AN-PMC-40032/2024 sample-paths.pruned
+#... node_2259690:T27810C node_2323956:A9085G node_2323957:T22928C node_2323958:C8917T node_2323959:C28076A,G28077A 
+# Good
+
+# 22858 after 2611?
+g England/CLIMB-CM7YMIU7/2024 sample-paths.pruned
+#... node_2276464:C23039G node_2276817:A2611C node_2276821:C22858T node_2276822:C1549T,T22334C
+# Good
+
+# No more flip-flop on 1722?
+g CHN/HLJCDC-0613/2024 sample-paths.pruned
+#... node_2259690:T27810C node_2324013:A6411C,C23707A
+# Good

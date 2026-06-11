@@ -1,0 +1,83 @@
+today=2024-03-05
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# JN.1 has T18453C-only (JN.1.4 minus 774T which some seqs might have, or at least Ns) -- lop
+g Belgium/Sciensano-LS-G0002-24/2023 sample-paths
+#... node_2242943:T27810C node_2267857:T18453C
+g node_2267857: sample-paths | cut -f 1 > pruneForJN.1
+wc -l pruneForJN.1
+#104 pruneForJN.1
+
+
+# BA.2.86_dropout has a mini-BA.2.86 - lop sequences in hopes they get a better placement.
+g SouthAfrica/NICD-N56222/2023 sample-paths
+#... node_2238443:G22895C,T22896A,G22898A node_2238444:A22896C,G22917T  ...
+g node_2238444: sample-paths | cut -f 1 > pruneForBA.2.86
+wc -l pruneForBA.2.86
+#268 pruneForBA.2.86
+
+
+# JN.1.4 branch pulled into JN.1 > 1060 rev branch by run-ofs 910-912
+g Netherlands/GE-RIVM-135886/2023 sample-paths
+#... node_2242943:T27810C node_2253235:C1060T node_2253690:G910A,T911A,C912A node_2253691:T1060C node_2253692:C774T,C8668T,T18453C
+g node_2253690: sample-paths | g -v node_2253692: | cut -f 1 > pruneForJN.1.4
+wc -l pruneForJN.1.4
+#6 pruneForJN.1.4
+
+
+# Stranded bit of JN.1.9 on rev branch
+g USA/MIS-L372657745/2023 sample-paths
+#... node_2242943:T27810C node_2253898:C22716T node_2253903:G22111T node_2253904:C337T node_2253906:T22716C 
+g node_2253904: sample-paths | g -v node_2253906: | cut -f 1 > pruneForJN.1.9
+wc -l pruneForJN.1.9
+#3 pruneForJN.1.9
+
+
+
+wc -l pruneFor*
+#  268 pruneForBA.2.86
+#  104 pruneForJN.1
+#    6 pruneForJN.1.4
+#    3 pruneForJN.1.9
+#  381 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m4.003s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 1060?  In JN.1.4?
+g Netherlands/GE-RIVM-135886/2023 sample-paths.pruned
+#... node_2242838:T27810C node_2256627:C774T node_2257696:T18453C node_2257697:G910A,T911A,C912A,C8668T 
+# Yep, good.  Check on lopped branches when 2024-03-06 build is done.

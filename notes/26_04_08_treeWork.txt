@@ -1,0 +1,84 @@
+today=2026-04-08
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# @Walde1nsamkeit noticed a flip-flop on 7842:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3378
+g BRA/ITpS_Tv2_001I5_001/2026 sample-paths
+#... node_2375644:C4214T node_2375800:G7842A node_2375801:G1940T,C22214G node_2375802:A7842G,C28957T ...
+# prune back to rev G7842A
+g node_2375800: sample-paths | g -v node_2375802: | cut -f 1 > pruneForLP3378
+wc -l pruneForLP3378
+#6 pruneForLP3378
+
+
+# Xu spotted a many-rev branch in XFG.1.1... lop it and let samples get added back
+# https://github.com/cov-lineages/pango-designation/issues/3207
+g USA/NY-URMC-231Y207-1/2026 sample-paths
+#... node_2363146:G19670A node_2363150:C23018T ...
+g node_2363150: sample-paths | cut -f 1 > pruneForPD3207
+wc -l pruneForPD3207
+#108 pruneForPD3207
+
+
+# Xu noted that PQ.16.1 is not placed in PQ.16
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3318#issuecomment-4114891297
+g Hubei/HCDC-11068/2025 sample-paths
+#... node_2538179:G22865T node_2552942:C28677T node_2552946:C10156T,T20361C,A22320G,A22812C,G22820A,T25461G,G27916A
+g node_2552942: sample-paths | g -v node_2552946: | cut -f 1 > pruneForPQ.16.1
+wc -l pruneForPQ.16.1
+#6 pruneForPQ.16.1
+
+
+wc -l pruneFor*
+#   6 pruneForLP3378
+# 108 pruneForPD3207
+#   6 pruneForPQ.16.1
+# 120 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    57m27.807s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+
+# Check paths
+
+# No more flip-flop on 7842?
+g BRA/ITpS_Tv2_001I5_001/2026 sample-paths.pruned
+#... node_2375603:C4214T node_2375993:G1940T,C22214G,C28957T
+
+# In PQ.16 with 10156 first?
+g Hubei/HCDC-11068/2025 sample-paths.pruned
+#... node_2538136:G22865T node_2553267:G27916A node_2553268:C10156T,T20361C,A22320G,A22812C,G22820A,T25461G,C28677T
+# Nope, another branch attracted it.
+
+
+# Check all 3 cases tomorrow.

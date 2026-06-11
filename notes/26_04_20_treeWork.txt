@@ -1,0 +1,74 @@
+today=2026-04-20
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Xu (and Fede) noticed a missing bit of RV.1 with late 22899.
+# https://github.com/cov-lineages/pango-designation/issues/3213
+g USA/NJ-PHEL-V25017978/2025 sample-paths
+#... node_2360916:C25083T node_2361014:G2534A,T18623C,C25378T node_2361015:G22899A ...
+g node_2361014: sample-paths | g -v node_2361015: | cut -f 1 > pruneForRV.1
+wc -l pruneForRV.1
+#5 pruneForRV.1
+
+
+# Xu found a piece of LP #3300 on a 21627 rev branch that regains 21627.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3300#issuecomment-4272474066
+# There are a lot of bits on that rev branch that regain 21627,
+# should lop most of it and let things be replaced.
+g USA/CA-CDPH-500150805/2025 sample-paths
+#... node_2377758:C20178T node_2389067:A21627C node_2389071:C12473T,C25611T node_2389073:C21627A ...
+g node_2389067: sample-paths | g -v node_2389073: | cut -f 1 > pruneForLP3300
+#325 pruneForLP3300
+
+
+wc -l pruneFor*
+#  325 pruneForLP3300
+#    5 pruneForRV.1
+#  330 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    64m52.875s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15337354,with radius 1, second from start 236
+#parsimony score after optimizing: 15337345,with radius 2, second from start 340
+#parsimony score after optimizing: 15337340,with radius 4, second from start 776
+#parsimony score after optimizing: 15337340,with radius 8, second from start 2916
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+
+# Check paths
+
+# 22899 right after 25083?
+g USA/NJ-PHEL-V25017978/2025 sample-paths.pruned
+#... node_2360920:C25083T node_2360935:G22899A node_2360936:G2534A,T18623C,C25378T
+
+# no more flip-flop on 21627?
+g USA/CA-CDPH-500150805/2025 sample-paths.pruned
+#... node_2377760:C20178T node_2391687:C12473T,C25611T

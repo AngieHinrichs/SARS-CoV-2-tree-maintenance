@@ -1,0 +1,153 @@
+# Yikes, just noticed that BA.1.1 is split in the 2022-05-26 tree.  There is a BA.2 > 22599 branch
+# that is annnotated BA.1.1, but that is missing the majority of BA.1.1 that also has 2470T --
+# there is a BA.2 > 2470 > 22599 branch that is most of BA.1.1 but is not annotated BA.1.1.
+# Try some strategic pruning of samples with 2470 but without 22599 and hope optmization joins
+# them back up into 22599 > 2470 again.  Otherwise might need to do some kind of multi-label
+# hack....
+
+today=2022-05-26
+cd $ottoDir/$today
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+# Chop from the 2470-without-22599 node here here (except for later acquisitions of G22599A
+g USA/AZ-CDC-LC0486587/2022 sample-paths
+#... node_1551334:G23048A node_1679630:C2470T
+
+# Keep from the 22599 node:
+g Belgium/MBLG-CTMAPF17200460/2022 sample-paths
+#... node_1551334:G23048A node_1679630:C2470T node_1679631:G22599A 
+
+g node_1679630: sample-paths \
+| g -v node_1679631: \
+| g -v G22599A \
+| cut -f 1 > lopForBA.1.1
+wc -l lopForBA.1.1
+#726 lopForBA.1.1
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s lopForBA.1.1 \
+    -o gisaidAndPublic.$today.masked.prunedForBA.1.1.pb
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.prunedForBA.1.1.pb \
+    -o gisaidAndPublic.$today.masked.prunedForBA.1.1.opt.pb \
+    >& matOptimize.usher_branch.prunedForBA.1.1.log
+#real    17m27.140s
+g arsimon matOptimize.usher_branch.prunedForBA.1.1.log
+#original parsimony score:8421378
+#parsimony score after optimizing: 8420925,with radius 8, second from start 668 
+#parsimony score after optimizing: 8420917,with radius 8, second from start 696 
+#parsimony score after optimizing: 8420915,with radius 8, second from start 721 
+#parsimony score after optimizing: 8420913,with radius 8, second from start 744 
+#parsimony score after optimizing: 8420913,with radius 8, second from start 766 
+#Parsimony score before 8420913
+#Final Parsimony score 8420913
+
+# After re-annotation there should be a huge increase in this count:
+tawk '$3 == "BA.1.1"' sample-clades | wc -l
+#68846
+
+# Reannoate
+time $matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.$today.masked.prunedForBA.1.1.opt.pb \
+    -P cladeToPath \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade
+#real    3m15.509s
+rm gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+time $matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -P $ottoDir/$prevDate/lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c $ottoDir/$prevDate/lineageToName \
+    -f 0.95 \
+    -D details.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    >& annotate.pango
+# 46 paths changed, going to take a while.
+#real    15m22.455s
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Check new BA.1.1 count
+mv sample-clades{,.prePrunedForBA.1.1}
+$matUtils summary -i gisaidAndPublic.$today.masked.pb -C sample-clades
+awk '$3 == "BA.1.1"' sample-clades | wc -l
+#0
+# OK WTF
+mv clade-paths{,.preDupsPruned}
+mv clade-paths.test clade-paths.prePrunedForBA.1.1
+mv sample-paths{,.prePrunedForBA.1.1}
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths -S sample-paths
+g -F BA.1.1$'\t' clade-paths
+#BA.1.1  node_2006081     ... > G23048A > G22599A
+g Belgium/MBLG-CTMAPF17200460/2022 sample-paths
+#... node_1924109:G23048A node_2006081:G22599A node_2006964:C22987T node_2006973:C2470T node_2007027:T22987C 
+# OMG what is up with the C22987T > C2470T > T22987C... Here we go again with pruning.
+g node_2006964: sample-paths | less
+g node_2006964: sample-paths | g -v node_2007027: | wc -l
+#218
+g node_2006964: sample-paths | g -v node_2007027: | cut -f 1 > lopFor22987Wtf
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s lopFor22987Wtf \
+    -o gisaidAndPublic.$today.masked.prunedFor22987Wtf.pb
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.prunedFor22987Wtf.pb \
+    -o gisaidAndPublic.$today.masked.prunedFor22987Wtf.opt.pb
+# Oops, forgot to log... oh well:
+#original parsimony score:8420707
+#Final Parsimony score 8420684
+#real    15m9.129s
+
+# Oh oops that should have been tawk not awk:
+tawk '$3 == "BA.1.1"' sample-clades | wc -l
+#643160
+# Still, we don't need that bogus C22987T > C2470T > T22987C messing up the path to *most* of BA.1.1.
+
+# Reannoate
+time $matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.$today.masked.prunedFor22987Wtf.opt.pb \
+    -P cladeToPath \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade
+#real    3m26.764s
+rm gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+time $matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -P $ottoDir/$prevDate/lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c $ottoDir/$prevDate/lineageToName \
+    -f 0.95 \
+    -D details.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    >& annotate.pango
+# 46 paths again, dang, going to miss the 1pm cron job.  Should have used today's lineageToPath.
+#real    15m41.325s
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Check new BA.1.1 count
+mv sample-clades{,.prePrunedFor22987Wtf}
+mv clade-paths{,.prePrunedFor22987Wtf}
+mv sample-paths{,.prePrunedFor22987Wtf}
+$matUtils summary -i gisaidAndPublic.$today.masked.pb -C sample-clades
+tawk '$3 == "BA.1.1"' sample-clades | wc -l
+#642942
+# Take a look at clade-paths just to be sure.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths
+# OK, seeing good stuff now like
+#BA.1.1  ... G23048A > G22599A
+#BA.1.1.2        ... > G23048A > G22599A > C2470T > C10560G
+
+mv samples.$today{,.prePrunedForBA.1.1}
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -u samples.$today
+
+# Copy-paste subsequent steps from updateCombinedTree.sh to update; double-check in taxonium.
+

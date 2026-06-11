@@ -1,0 +1,141 @@
+# AY.46.6 is messed up in the big tree... most of the samples have an additional mutation,
+# and the same mutation appears in a few sequences without the clade-defining mutation,
+# and those samples all got shuffled over to the branch with the extra mutation instead of
+# the clade-defining mutation.
+# Meanwhile I've identified a few back-mutation-riddled branches in Omicron that we'd
+# probably be better off without -- they could potentially become mini-Omicrons like we've
+# had trouble with (and perhaps still do) in Delta & Alpha.
+
+today=2022-01-09
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths -S sample-paths
+samplePaths=$ottoDir/$today/sample-paths
+
+# Fix AY.46.6 (hopefully): Lop at node for Italy/LAZ-OPBG_2000576/2021,
+# keep next node - Switzerland/SG-UZH-IMV-3ba4e137/2021
+g Italy/LAZ-OPBG_2000576/2021 sample-paths 
+#Italy/LAZ-OPBG_2000576/2021|EPI_ISL_7671712|2021-08-30  ... node_392349:C10977T node_393935:C8326T 
+g Switzerland/SG-UZH-IMV-3ba4e137/2021 sample-paths
+#Switzerland/SG-UZH-IMV-3ba4e137/2021|OU622292.1|2021-08-12      ... node_392349:C10977T node_393935:C8326T node_393938:C6310T 
+g node_393935: sample-paths | g -v node_393938: > pruneForAY.46.6
+wc -l pruneForAY.46.6
+#21 pruneForAY.46.6
+
+# Lop some garbage branches from Omicron...
+g Belgium/rega-21877/2021 sample-paths
+#Belgium/rega-21877/2021|EPI_ISL_7982929|2021-12-03      ... node_1021515:A28461G 
+g node_1021515: sample-paths | cut -f 1 > baddiesToPrune
+wc -l baddiesToPrune
+#237 baddiesToPrune
+g USA/MS-MSPHL-0680/2021 sample-paths | awk '{print $1 " ... " $NF;}'
+#USA/MS-MSPHL-0680/2021|OL862344.1|2021-12-07 ... node_1022747:G22882T
+g node_1022747: sample-paths | cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#398 baddiesToPrune
+g Mexico/CMX-INMEGEN-46-127/2021 sample-paths | awk '{print $1 " ... " $NF;}'
+# Oops, it has private mutations, don't care about those.
+g Mexico/CMX-INMEGEN-46-127/2021 sample-paths | awk '{print $1 " ... " $(NF-1);}'
+#Mexico/CMX-INMEGEN-46-127/2021|EPI_ISL_8318958|2021-12-27 ... node_1022835:A28882G,C28883G
+g node_1022835: sample-paths | cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#431 baddiesToPrune
+g Israel/ICH-741108941/2021 sample-paths | awk '{print $1 " ... " $NF;}'
+# private muts, don't care
+g Israel/ICH-741108941/2021 sample-paths | awk '{print $1 " ... " $(NF-1);}'
+#Israel/ICH-741108941/2021|EPI_ISL_8295820|2021-12-23 ... node_1027700:A28882G,C28883G
+g node_1027700: sample-paths | cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#585 baddiesToPrune
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneForAY.46.6 baddiesToPrune) -O -o gisaidAndPublic.$today.masked.pruned.pb
+
+# Do a quick optimization in hopes that AY.46.6 will be fixed.
+time $matOptimize -T 50 -M 1 -r 8 -S move_log.pruned -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    30m39.531s
+g arsimony matOptimize.pruned.log | head
+#original parsimony score:5929917
+#parsimony score after optimizing: 5929721,with radius 8, second from start 359 
+#parsimony score after optimizing: 5929697,with radius 8, second from start 371 
+#parsimony score after optimizing: 5929697,with radius 8, second from start 382 
+#parsimony score after optimizing: 5929697,with radius 8, second from start 393 
+#...
+g arsimony matOptimize.pruned.log | tail
+#...
+#parsimony score after optimizing: 5929697,with radius 8, second from start 1778 
+#parsimony score after optimizing: 5929697,with radius 8, second from start 1788 
+#parsimony score after optimizing: 5929697,with radius 8, second from start 1799 
+#Final Parsimony score 5929697
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.pruned.opt
+
+# Look for some AY.46.6 designated samples... the ones that were C8326T > C6310T should now be
+# C6310T > C8326T
+g Germany/BW-RKI-I-233535/2021 sample-paths.pruned.opt 
+#Germany/BW-RKI-I-233535/2021|EPI_ISL_4227343|2021-08-22 ... node_395536:C6310T node_395822:C8326T ...
+g France/IDF-CERBAHC-08478989/2021 sample-paths.pruned.opt 
+#France/IDF-CERBAHC-08478989/2021|EPI_ISL_3984194|2021 ... node_395536:C6310T node_395822:C8326T ...
+g Slovenia/23-015451-MB/2021 sample-paths.pruned.opt
+#Slovenia/23-015451-MB/2021|EPI_ISL_5105255|2021-09-21 ... node_395536:C6310T node_395822:C8326T ...
+#Great!  Also look for AY.46.6.1 since what tipped me off was that apparently not descending from
+# AY.46.6.
+g Italy/EMR_AUSLRomagna_C091-21-31/2021 sample-paths.pruned.opt 
+#Italy/EMR_AUSLRomagna_C091-21-31/2021|EPI_ISL_5580520|2021-10-24 ... node_395536:C6310T node_395822:C8326T node_398097:G4975A node_399660:C25162T node_399661:C29409T node_399669:T6226C,C27297T,C27418T,A28973G 
+
+# Make sure the right nodes are assigned for AY.46.6 and AY.46.6.1.
+g -F AY.46.6 $scriptDir/pango.clade-mutations.tsv > test.tsv
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb -M test.tsv -o test.pb
+#Assigning AY.46.6 to node node_395536
+#Assigning AY.46.6.1 to node node_399669
+# OK, those are the expected nodes from paths above.
+
+# Replace the main big tree result with the pruned & opt tree.
+rm gisaidAndPublic.$today.masked.nextclade.pb gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+ln -f gisaidAndPublic.$today.masked.pruned.opt.pb gisaidAndPublic.$today.masked.pb
+
+# Exclude the Omicron garbage branch IDs from future runs.
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' baddiesToPrune >> ../badBranchSeed.ids
+
+# Interrupt today's usher cluster run, replace its starting protobuf prevRenamed.pb, and
+# restart cluster run.
+prevDate=$today
+today=$(date +%F)
+cd $ottoDir/$today
+baseProtobuf=$ottoDir/$prevDate/gisaidAndPublic.$prevDate.masked.pb
+$matUtils extract -i $baseProtobuf -p -s dupsToRemove -o prevDupTrimmed.pb
+$matUtils mask -r prevTree.renaming -i prevDupTrimmed.pb -o prevRenamed.pb >& rename2.out
+ssh ku "cd /hive/data/outside/otto/sarscov2phylo/$today && para stop"
+ssh ku "cd /hive/data/outside/otto/sarscov2phylo/$today && para push"
+# Hopefully that went under the radar of the build script's 'para make', so I won't have to
+# manually continue... will check on the cluster job in a while.
+
+# There was a nextclade 21M assignment problem (more wiggling in root of Omicron), so redo the
+# clade and lineage annotations too, then regenerate public download files.
+today=2022-01-09
+cd $ottoDir/$today
+time $matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.$today.masked.pb \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade
+#real    6m6.655s
+g skip annotate.nextclade
+# No output, good.
+time $matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c $ottoDir/$prevDate/lineageToName \
+    -f 0.95 \
+    -D details.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    >& annotate.pango
+g skip annotate.pango
+rm gisaidAndPublic.$today.masked.pb
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Continue with post-annotate steps in updateCombinedTree.sh

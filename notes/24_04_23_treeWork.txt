@@ -1,0 +1,57 @@
+today=2024-04-23
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# Yesterday's treeWork wasn't quite enough to get 1762 first:
+g France/CVL-HCL723001703401/2023 sample-paths
+#... node_2253950:T27810C node_2298750:C11747T node_2298751:C1762A
+g node_2298750: sample-paths | g -v node_2298751: | cut -f 1 > pruneForLP1525
+wc -l pruneForLP1525
+#14 pruneForLP1525
+
+
+wc -l pruneFor*
+#14 pruneForLP1525
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#TODO
+#real    107m4.003s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+
+g France/CVL-HCL723001703401/2023 sample-paths.pruned
+#... node_2253837:T27810C node_2274564:C1762A node_2274565:C11747T
+# OK good, 1762 first, hopefully it will stay that way in the 2024-04-24 build.
+
+

@@ -1,0 +1,125 @@
+today=2024-11-18
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# XZ pointed out that MK.1 is split by late 21654 after 4795
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2205
+g England/CLIMB-CM7Y8QME/2024 sample-paths
+#... node_2385442:T19305C node_2385854:C4795T node_2385855:C21654T
+g node_2385854: sample-paths | g -v node_2385855: | cut -f 1 > pruneForMK.1
+wc -l pruneForMK.1
+#4 pruneForMK.1
+
+
+# New lineage LP.9 has a bunch of LA-EVTL sequences that don't have 22896 in the tree but
+# were designated by Cornelius... maybe they have N at 22896??  Prune, re-add,
+# see if we can change pango.clade-mutations.tsv line to end in 22896C instead of 22896N.
+g USA/MD-MDH-10424/2024 sample-paths
+#... node_2403032:G3838T,C22088T node_2403033:C29353T node_2403034:C21772T node_2403035:A22896C
+g node_2403033: sample-paths | g -v node_2403035: | cut -f 1 > pruneForLP.9
+wc -l pruneForLP.9
+#6 pruneForLP.9
+
+
+# New MC.13.2 is on a flip-flop (23820) branch
+g Brazil/ES-LACENES-321632056/2024 sample-paths
+#... node_2360523:A19722G node_2368742:C23280T node_2368743:C10681T,G22865T node_2368744:T23280C
+g node_2368742: sample-paths | g -v node_2368744: | cut -f 1 > pruneForMC.13.2
+wc -l pruneForMC.13.2
+#6 pruneForMC.13.2
+
+
+# New NC.1.1, as described and designated, has a lot of seqs missing 21627 with a late 5180...
+# At least, it would seem that's why Cornelius called it NC.1.1?  prune & see...
+g Brazil/SC-LACENSC-422167272/2024 sample-paths
+#... node_2333822:G22132T node_2333823:G5180A node_2333834:C21627A
+g node_2333823: sample-paths | g -v node_2333834: | cut -f 1 > pruneForNC.1.1
+wc -l pruneForNC.1.1
+#36 pruneForNC.1.1
+
+
+# New NC.1.2 has late 21627
+g Scotland/CLIMB-CM7YFW4C/2024 sample-paths
+#... node_2332531:G22132T node_2332539:A2556G node_2332540:A1674C,C11095T node_2332541:G2556A,A22896C,C27002T node_2332542:C4093T,C14931T node_2332543:C21627A,C22498T ...
+g node_2332539: sample-paths | g -v node_2332543: | cut -f 1 > pruneForNC.1.2
+wc -l pruneForNC.1.2
+#5 pruneForNC.1.2
+
+
+# Another possibly late 21627:
+g Denmark/DCGC-688459/2024 sample-paths
+#... node_2332284:T22928C node_2332697:C25587T node_2332699:C21627A ...
+g node_2332697: sample-paths | g -v node_2332699: | cut -f 1 > pruneFor21627
+wc -l pruneFor21627
+#3 pruneFor21627
+
+
+wc -l pruneFor*
+#   3 pruneFor21627
+#   6 pruneForLP.9
+#   6 pruneForMC.13.1
+#   6 pruneForMC.13.2
+#   4 pruneForMK.1
+#  36 pruneForNC.1.1
+#   5 pruneForNC.1.2
+#  66 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# 21654 before 4795?
+g England/CLIMB-CM7Y8QME/2024 sample-paths.pruned
+#... node_2385423:T19305C node_2385785:C21654T node_2385786:C4795T
+# Good.
+
+# No more 23820 flip-flop?
+g Brazil/ES-LACENES-321632056/2024 sample-paths.pruned
+#... node_2360508:A19722G node_2375552:C10681T node_2375553:G22865T
+# Good.
+
+# 21627 immediately after 22132?
+g Scotland/CLIMB-CM7YFW4C/2024 sample-paths.pruned
+#... node_2333814:G22132T node_2333815:C21627A node_2333816:C4093T,C11095T,C14931T,C22498T,A22896C,C27002T ...
+# Good.
+
+# 21627 immediately after 22928?
+g Denmark/DCGC-688459/2024 sample-paths.pruned
+#... node_2332285:T22928C node_2333114:C21627A ...
+# Good.
+
+# But as always, see what happens when sequences are added back.

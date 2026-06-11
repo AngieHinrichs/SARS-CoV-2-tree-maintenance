@@ -1,0 +1,259 @@
+# BA.5 moved to a BA.2.9 garbage branch this week, which at first I didn't think was too bad --
+# but then I made a lineageTree.pb and found that the reversions on the way to BA.5 were causing
+# a lot of sequences to get incorrect BA.2.9 calls, ugh.  So first, fix that; also fix up some
+# other lineage paths with kinks that I noticed, and a false homoplasy noticed by @FedeGueli
+# in cov-lineages/pango-designation#621.
+
+today=2022-06-21
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.2022-06-21.masked.pb -S sample-paths
+
+# BA.5: prune from Italy/CAM-TIGEM-IZSM-COLLI-30423/2022 grandparent (C27384T),
+# keep from Spain/PV-HUB-51530786/2022 (T22917G)
+g Italy/CAM-TIGEM-IZSM-COLLI-30423/2022 sample-paths
+#... node_1527538:C25624T node_1558215:A1585C node_1564029:C16289T node_1564031:C27384T ...
+g Spain/PV-HUB-51530786/2022 sample-paths
+#...node_1527538:C25624T node_1558215:A1585C node_1564029:C16289T node_1564031:C27384T node_1564033:T16289C node_1564047:C1585A node_1564050:T25624C node_1564061:T27383A node_1564078:C27382G node_1564129:T22792C node_1564193:T9866C node_1564197:C27259A node_1564198:T26858C node_1564199:G26529A node_1564200:G12160A node_1564201:G23040A node_1564202:T23018G node_1564204:T22917G ...
+g node_1564031: sample-paths | g -v node_1564204: > pruneForBA.5
+wc -l pruneForBA.5
+#3263 pruneForBA.5
+# A lot... but they're all at least a bit troubled, and will be added back tomorrow.
+
+# FedeGueli's set:
+# Lop from France/OCC-HCL722002906301/2022, keep from many:
+g France/OCC-HCL722002906301/2022 sample-paths
+#... node_1564205:C27889T node_1569605:T27438C
+# Keep just Denmark/DCGC-529066/2022, no node
+g Australia/NSW-ICPMR-27323/2022 sample-paths
+#... node_1564205:C27889T node_1569605:T27438C node_1569644:T29685C node_1569645:C29666T
+g CzechRepublic/NRL_s3469/2022 sample-paths
+#... node_1564205:C27889T node_1569605:T27438C node_1569631:T2790C node_1569632:C26681T,C26985T node_1569633:C6190T,C29666T
+g Spain/CT-HUJT-RB32876/2022 sample-paths
+#... node_1564205:C27889T node_1569605:T27438C node_1569618:C6855T node_1569619:C29666T
+g England/QEUH-3E2A6AD/2022 sample-paths
+#... node_1564205:C27889T node_1569605:T27438C node_1569606:G16700T node_1569607:C29666T
+g node_1569605: sample-paths | g -v Denmark/DCGC-529066/2022 \
+| g -v node_1569645: | g -v node_1569633: | g -v node_1569619: | g -v node_1569607: \
+| cut -f 1 > pruneForBA.5.1
+#128 pruneForBA.5.1
+
+# Remove some sequences whose IDs were shuffled in GenBank but have been fixed:
+sort -u <(cut -f 2 /data/tmp/angie/LA-BIE.mismatches.tsv) \
+        <(cut -f 4 /data/tmp/angie/LA-BIE.mismatches.tsv) \
+| g -Fwf - samples.$today > pruneForLA-BIE
+wc -l pruneForLA-BIE
+#177 pruneForLA-BIE
+
+# I re-downloaded some GISAID chunks after Chris & Aine found examples of duplicate sequences
+# causing troube for pango-designations and it turned out that some had been withdrawn or updated
+# in GISAID.  At some point I need to go on a hunt for sequences in the tree that were updated
+# after they were added to the tree, but for now, take care of the designated sequences:
+cat > pruneForUpdates <<EOF
+Australia/NSW-ICPMR-19182/2022|EPI_ISL_8752433|2022-01-08
+Australia/NSW-ICPMR-19356/2022|EPI_ISL_8752607|2022-01-03
+Australia/NSW-ICPMR-19249/2022|EPI_ISL_8752500|2022-01-10
+Belgium/MBLG-CTMAPF69683870/2021|EPI_ISL_7829631|2021-12-06
+Belgium/MBLG-CTMAPF73019660/2021|EPI_ISL_7829626|2021-12-06
+Belgium/MBLG-CTMAOT12101836/2021|EPI_ISL_7829627|2021-12-02
+Belgium/MBLG-CTMAPF88971514/2021|EPI_ISL_7829625|2021-12-05
+Yunnan/IVDC-561/2022|EPI_ISL_11873924|2022-01-22
+Zhejiang/IVDC-573/2022|EPI_ISL_11873936|2022-01-01
+EOF
+
+# BA.2.61 has a mut/reversion on 815 in its path.  Prune from France/ARA-HMN-22022250616/2022,
+# keep from Canada/QC-L00460412001/2022.
+g France/ARA-HMN-22022250616/2022 sample-paths
+#... node_1372153:C815T node_1372175:C4276T
+g Canada/QC-L00460412001/2022 sample-paths
+#... node_1372153:C815T node_1372175:C4276T node_1372177:T815C
+g node_1372175: sample-paths | g -v node_1372177: | cut -f 1 > pruneForBA.2.61
+wc -l pruneForBA.2.61
+#19 pruneForBA.2.61
+
+# BA.2.64 has a reversion on 25000
+# nt:C3961T, nt:G11266T
+# But I don't see a reversionless branch with 3961 and 11266.  There is a tiny branch with those
+# and a buttload of reversions and probable errors, within a big garbage raft.
+# Would be interesting to see how pangolin calls these with lineageTree:
+#Indonesia/BT-NIHRD-MI_22_31395/2022|EPI_ISL_12560737|2022-04-03
+#Indonesia/BT-NIHRD-MI_22_31341/2022|EPI_ISL_12560715|2022-03-31
+#Indonesia/BT-NIHRD-MI_22_31331/2022|EPI_ISL_12560707|2022-03-31
+#Indonesia/BT-NIHRD-MI_22_31336/2022|EPI_ISL_12560710|2022-03-31
+#Indonesia/JA-NIHRD-WGS_22_04512/2022|EPI_ISL_12559802|2022-04-06
+#Indonesia/SB-NIHRD-WGS_22_04550/2022|EPI_ISL_12559836|2022-03-10
+#Indonesia/SB-NIHRD-WGS_22_04551/2022|EPI_ISL_12559837|2022-03-01
+#Indonesia/SB-NIHRD-WGS_22_04549/2022|EPI_ISL_12559835|2022-03-01
+#Indonesia/SB-NIHRD-WGS_22_04552/2022|EPI_ISL_12559838|2022-03-01
+#Indonesia/BT-NIHRD-MI-22-31287/2022|EPI_ISL_12559675|2022-03-31
+#Indonesia/BT-NIHRD-MI-22-31193/2022|EPI_ISL_12559668|2022-03-30
+#Indonesia/BT-NIHRD-MI-22-31192/2022|EPI_ISL_12559667|2022-03-30
+
+# BA.2.70 has a back-mut on 22792 on its path (so it should be in the non-22792 part of BA.2).
+# Lop from OW657104.1, keep from Croatia/33676/2022 (BA.2.70).
+g -F OW657104.1 sample-paths
+#... node_1446280:C22792T node_1503998:C9286T node_1504005:T22792C
+g Croatia/33676/2022 sample-paths
+#... node_1446280:C22792T node_1503998:C9286T node_1504005:T22792C node_1504006:G5230T node_1504007:A866G
+g node_1504005: sample-paths | g -v node_1504007 | cut -f 1 > pruneForBA.2.70
+wc -l pruneForBA.2.70
+#132 pruneForBA.2.70
+
+# BA.2.3.9 has a reversion on 241, which is masked by Pango... but are there other branches
+# with G28986T that don't have that rev?  Crud, yep, there's a BA.2.3 > T10198C > G28986T.
+# And yes, a plain old BA.2.3 > G28986T that should be the main BA.2.3.9.
+# So I need multiple labels in pango.clade-mutations.tsv and also to prune some garbage
+# to get the mostly-re-mut'd samples in that 241rev branch back on the main branch.
+# Lop from Netherlands/DR-UMCG-MMB_4951/2022, keep from Denmark/DCGC-467041/2022
+g Netherlands/DR-UMCG-MMB_4951/2022 sample-paths
+#... node_1400756:C25810T node_1403012:T241C node_1403013:G28986T
+g Denmark/DCGC-467041/2022 sample-paths
+#... node_1400756:C25810T node_1403012:T241C node_1403013:G28986T node_1403014:C25416T node_1403015:C241T
+g node_1403013: sample-paths | g -v node_1403015: | cut -f 1 > pruneForBA.2.9.3
+wc -l pruneForBA.2.9.3
+#91 pruneForBA.2.9.3
+
+# Let's see how it looks after pruning & optimization.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    24m48.644s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+wc -l clade-paths*
+#   1830 clade-paths
+#   1828 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.70
+#BA.5
+
+# BA.5 not on a BA.2.9 garbage path:
+g Spain/PV-HUB-51530786/2022 sample-paths.opt
+#... node_1618765:C2790T node_2006704:T9866C node_2011512:C22949A node_2011513:G12160A,T22917G,T23018G,G23040A node_2011514:A22949C,G26529A,T26858C,C27259A,C27382G,T27383A,C27384T
+# Aw, what the heck is with the mut/back-mut on 22949?  Might want to do one more round of
+# prune & opt for that.
+g node_2011513: sample-paths.opt | g -v node_2011514: | cut -f 1 > pruneForBA.5.again
+wc -l pruneForBA.5.again
+#1 pruneForBA.5.again
+cat pruneForBA.5.again
+#Italy/CAM_IZSM_RD20505088492_IZSM_COLLI_TIGEM/2022|EPI_ISL_13297955|2022-06-07
+
+# FedeGueli's set in main BA.5.1:
+g Denmark/DCGC-529066/2022 sample-paths.opt
+#... node_2011515:C27889T node_2015299:C29666T node_2015300:T27438C ...
+g Australia/NSW-ICPMR-27323/2022 sample-paths.opt
+#... node_2011515:C27889T node_2015299:C29666T node_2015300:T27438C ...
+g CzechRepublic/NRL_s3469/2022 sample-paths.opt
+#... node_2011515:C27889T node_2015299:C29666T node_2015300:T27438C ...
+g Spain/CT-HUJT-RB32876/2022 sample-paths.opt
+#... node_2011515:C27889T node_2015299:C29666T node_2015300:T27438C ...
+g England/QEUH-3E2A6AD/2022 sample-paths.opt
+#... node_2011515:C27889T node_2015299:C29666T node_2015300:T27438C ...
+
+# BA.2.61 no more mut/back-mut on 815:
+g Canada/QC-L00460412001/2022 sample-paths.opt
+#... node_1618765:C2790T node_2021235:C4276T 
+
+# BA.2.70... still has a mut/back-mut on 22792... ah, because of C9286T.  There is no BA.2 > C9286T.
+g Croatia/33676/2022 sample-paths.opt
+#... node_1618765:C2790T node_1786805:C22792T node_1861027:C9286T node_1861034:A866G,G5230T node_1861035:T22792C 
+# If I temporarily cut the C22792T+C9286T samples, leaving the C9286T+A866G,G5230T samples, that
+# would probably get BA.2.70 moved into the non-22792 part of BA.2, but when the C22792T+C9286T
+# samples come back, would BA.2.70 just be moved back again?  Maybe not, might as well give it a
+# try.
+g node_1861027: sample-paths.opt | g -v node_1861035: | cut -f 1 > pruneForBA.2.70.again
+# Wait, how many have C9286T+A866G,G5230T and C22792T?  Just one:
+g node_1861034: sample-paths.opt | g -v node_1861035: | cut -f 1 
+#Austria/Medilab_49/2022|EPI_ISL_11113449|2022-02-25
+# 22792 is weird.
+
+# OK, take 2 with added prunes:
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    25m28.422s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+wc -l clade-paths*
+#   1830 clade-paths
+#   1828 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+BA.2.70
+BA.5
+
+# BA.5 on a direct path from BA.2 root:
+g Spain/PV-HUB-51530786/2022 sample-paths.opt
+#... node_1618765:C2790T node_2006675:T9866C node_2010319:T26858C node_2010320:C27259A node_2010321:G12160A,T22917G,T23018G,G23040A,G26529A,C27382G,T27383A,C27384T
+
+# FedeGueli's set in main BA.5.1:
+g Denmark/DCGC-529066/2022 sample-paths.opt
+#... node_2010322:C27889T node_2014106:C29666T node_2014107:T27438C ...
+g Australia/NSW-ICPMR-27323/2022 sample-paths.opt
+#... node_2010322:C27889T node_2014106:C29666T node_2014107:T27438C ...
+g CzechRepublic/NRL_s3469/2022 sample-paths.opt
+#... node_2010322:C27889T node_2014106:C29666T node_2014107:T27438C ...
+g Spain/CT-HUJT-RB32876/2022 sample-paths.opt
+#... node_2010322:C27889T node_2014106:C29666T node_2014107:T27438C ...
+g England/QEUH-3E2A6AD/2022 sample-paths.opt
+#... node_2010322:C27889T node_2014106:C29666T node_2014107:T27438C
+
+# BA.2.61 no more mut/back-mut on 815:
+g Canada/QC-L00460412001/2022 sample-paths.opt
+#... node_1618765:C2790T node_2021215:C4276T
+
+# BA.2.70 no more mut/back-mut on 22792:
+g Croatia/33676/2022 sample-paths.opt
+#... node_1618765:C2790T node_1686091:T523G node_1686093:C9286T node_1686095:G5230T node_1686096:G523T,A866G
+# Argh what is the 523 mut/back-mut?!  Later, whatever, ship it, need to start cluster run tonight.
+
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+ln -f gisaidAndPublic.$today.masked.pruned.opt.pb gisaidAndPublic.$today.masked.pb
+
+mv sample-paths{,.prePrune}
+mv sample-paths{.opt,}
+
+# I added some labels to pango.clade-mutations.tsv for BA.2.3.9 reversions, so first remove
+# BA.2.3.9 from today's lineageToPath{,.public}, then re-annotate using that.
+vi lineageToPath
+vi lineageToPath.public
+vi ../2022-06-20/lineageToPath.public
+
+time $matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.$today.masked.pb \
+    -P cladeToPath \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade
+time $matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c lineageToName \
+    -f 0.95 \
+    -D details.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    >& annotate.pango
+g Could annotate.pango
+#WARNING: Could not assign a node to clade BA.2.3.9_rev241 with 0 samples since placement node(s) did not overlap with enough clade samples!
+# That's OK because I have temporarily removed the samples with the reversion on 241.
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Copy-paste remaining steps from updateCombinedTree.sh.
+

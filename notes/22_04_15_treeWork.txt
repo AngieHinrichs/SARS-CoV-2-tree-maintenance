@@ -1,0 +1,256 @@
+# Remove dups; do a little pruning & re-optimizing to replace a massive back-mut branch
+# that makes up about half of the current BA.1.19 and seems to have been misplaced there
+# because of reversions on 22992 and 22995.  Only a few such sequences have C21034T that
+# defines BA.1.19.
+
+today=2022-04-13
+cd $ottoDir/$today
+
+# Any new dups since the 9 I found yesterday in 2022-04-12?  (22_04_14_gisaidNamesForChris.txt)
+cut -f 1 idToName | uniq -c | awk '$1 > 1 {print $2;}' | wc -l
+#9
+cut -f 1 idToName | uniq -c | awk '$1 > 1 {print $2;}' | head | g -Fwf - idToName
+# Same ones, good, can use ../2022-04-12/dupsToPrune .
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths -S sample-paths
+samplePaths=$ottoDir/$today/sample-paths
+
+g Germany/BW-RKI-I-474421/2022 $samplePaths
+#... node_1245833:C21034T node_1246160:A22992G ...
+g England/PHEC-5U075Z61/2022 $samplePaths
+#... node_1245833:C21034T node_1246160:A22992G node_1246161:A22995C node_1246162:T21034C ...
+g node_1246160: $samplePaths | g -v node_1246162: | cut -f 1 > pruneForBA.1.19
+wc -l pruneForBA.1.19
+#5 pruneForBA.1.19
+
+# BA.2.10.1 has one too (23955)
+g India/OR-ILSGS14988/2022 $samplePaths
+#... node_1130415:G23955A node_1130824:G26577C ...
+g India/WB-INSACOG-1931502626436/2021 $samplePaths
+#... node_1130415:G23955A node_1130824:G26577C node_1130825:A23955G ...
+g node_1130824: $samplePaths | g -v node_1130825: | cut -f 1 > pruneForBA.2.10.1
+wc -l pruneForBA.2.10.1
+#36 pruneForBA.2.10.1
+
+# So does BA.2.10 (16342):
+g India/KA-SLS-SEQ-28336/2022 $samplePaths 
+#... node_1126073:T16342C node_1128963:C25624T
+g Sweden/2A63272230099/2022 $samplePaths
+#... node_1126073:T16342C node_1128963:C25624T node_1128964:C16342T
+g node_1128963: $samplePaths | g -v node_1128964: | cut -f 1 > pruneForBA.2.10
+wc -l pruneForBA.2.10
+#14 pruneForBA.2.10
+
+# BA.2.12 (23673):
+g England/DHSC-CYBQ66H/2022 $samplePaths 
+#... node_1171137:C23673T node_1171395:C10369T ...
+g SriLanka/aicbu4977/2022 $samplePaths
+#... node_1171137:C23673T node_1171395:C10369T node_1171396:T23673C
+g node_1171395: $samplePaths | g -v node_1171396: | cut -f 1 > pruneForBA.2.12
+wc -l pruneForBA.2.12
+#5 pruneForBA.2.12
+
+# Try to rejoin some little splinters of BA.2.12.1...
+g USA/NY-CDC-QDX34993135/2022 $samplePaths 
+#... node_1171174:C21721T node_1171335:T7098C 
+g USA/NY-SUNYQB-61210401418190/2022 $samplePaths 
+#... node_1171174:C21721T node_1171335:T7098C node_1171336:A11957G node_1171337:T22917A
+g node_1171335: $samplePaths | g -v node_1171337: | cut -f 1 > pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#15 pruneForBA.2.12.1
+g USA/MD-HP28972-PIDBLKTGKJ/2022 $samplePaths 
+#... node_1171174:C21721T node_1171195:A28877T,G28878C
+g USA/NY-PRL-2022_0329_00A04/2022 $samplePaths 
+#... node_1171174:C21721T node_1171195:A28877T,G28878C node_1171196:T22917A
+g node_1171195: $samplePaths | g -v node_1171196: | cut -f 1 >> pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#20 pruneForBA.2.12.1
+g USA/NY-CDC-ASC210749428/2022 samples.$today >> pruneForBA.2.12.1
+g USA/VT-Broad-CRSP_7GA7O7HHUIFZUOGQ/2022 $samplePaths
+#... node_1171174:C21721T node_1171175:C25521T node_1171176:T11522G,C11575T,C16092T,C27945T
+g USA/VT-Broad-CRSP_T5OKFYH4JQ7FYZIW/2022 $samplePaths
+#... node_1171174:C21721T node_1171175:C25521T node_1171176:T11522G,C11575T,C16092T,C27945T node_1171189:T22917A 
+g USA/NY-CDC-ASC210758151/2022 $samplePaths
+#... node_1171174:C21721T node_1171175:C25521T node_1171176:T11522G,C11575T,C16092T,C27945T node_1171177:G27798T node_1171180:G17721T,C21549T node_1171181:T22917A
+g USA/HI-H229120/2022 $samplePaths 
+#... node_1171174:C21721T node_1171175:C25521T node_1171176:T11522G,C11575T,C16092T,C27945T node_1171177:G27798T node_1171178:G2035T node_1171179:T22917A 
+g USA/NY-CDC-QDX35240053/2022 $samplePaths
+#... node_1171174:C21721T node_1171175:C25521T node_1171176:T11522G,C11575T,C16092T,C27945T node_1171177:G27798T node_1171186:T22917A 
+g USA/NY-NYCPHL-010912/2022 $samplePaths 
+#... node_1171174:C21721T node_1171175:C25521T node_1171176:T11522G,C11575T,C16092T,C27945T node_1171177:G27798T node_1171182:C28677T node_1171185:T11674C,T22917A
+g USA/NY-NYCPHL-010911/2022 $samplePaths
+#... node_1171174:C21721T node_1171175:C25521T node_1171176:T11522G,C11575T,C16092T,C27945T node_1171177:G27798T node_1171182:C28677T node_1171183:C203T node_1171184:T22917A 
+g node_1171176: $samplePaths | g -v node_1171189: | g -v node_1171181: | g -v node_1171179: \
+| g -v node_1171186: | g -v node_1171185: | g -v node_1171184: | cut -f 1 >> pruneForBA.2.12.1
+#30 pruneForBA.2.12.1
+# For comparison with after pruning & optimization:
+g -F $'\t'BA.2.12.1 sample-clades | wc -l
+#1176
+
+# OK, looks reasonable aside from that.  Except BA.1.1.1's 16064 is all over BA.1 with
+# combinatorial reversions and multi-nucs, and the main body of BA.1.1.1 is on a branch with
+# reversions and re-muts on 26530 and 25000, but that would be tons of sequences to prune.
+
+# So proceed with pruning & opt...
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat ../2022-04-12/dupsToPrune pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+$matOptimize -T 150 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+chmod 664 gisaidAndPublic.$today.masked.pruned.opt.*pb
+
+# Make taxonium & check...
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.pruned.opt.taxodium.pb
+pigz -p 8 -f gisaidAndPublic.$today.masked.pruned.opt.taxodium.pb
+
+# Looks like the pruning & opt had the desired effects of moving things around.
+# See if we lost any clade annotations.
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned.opt
+wc -l clade-paths*
+#   1706 clade-paths.new
+#   1697 clade-paths.pruned.opt
+# [not shown: proposed437 dropped out due to appearance of new sample; I had to add some masked
+#  muts to the definition & re-add it.  That's why there's clade-paths.new.]
+diff <(cut -f 1 clade-paths.new | sort) <(cut -f 1 clade-paths.pruned.opt | sort)
+#< 21L (Omicron)
+#< BA.1.1.1
+#< BA.1.13
+#< BA.1.17
+#< BA.1.17.2
+#< BA.1.18
+#< BA.1.20
+#< BA.2.12.1
+#< BA.2.3
+# Wow!  Didn't expect to lose a nextclade annotation too.  OK, reannotate those.
+g ^21L $scriptDir/nextstrain.clade-mutations.tsv > test.tsv
+tawk '$1 == "BA.1.1.1" || $1 == "BA.1.13" || $1 == "BA.1.17" || $1 == "BA.1.17.2" ||
+      $1 == "BA.1.18" || $1 == "BA.1.20" || $1 == "BA.2.12.1" || $1 == "BA.2.3"'  \
+    $scriptDir/pango.clade-mutations.tsv >> test.tsv
+$matUtils annotate -T 150 -i gisaidAndPublic.$today.masked.pruned.opt.pb -M test.tsv -o test.pb
+#Now assigning clades to nodes 
+#Segmentation fault (core dumped)
+# Doh!  Well, while running that in the debugger, glean node IDs from output before that point.
+21L (Omicron)	node_1227469
+BA.1.1.1	node_1335438
+BA.1.13	node_1458219
+BA.1.17	node_1415127
+BA.1.17.2	node_1423611
+BA.1.18	node_1445471
+BA.1.20	node_1461894
+BA.2.12.1	node_1168430
+BA.2.3	node_1223057
+# The SEGV was due to a NULL clade annotation where "" was expected.  Adding -l to clear prior
+# annotations let it run OK.  Something in pruning or opt must not be preserving some expectation
+# about maintaining the array size of annotations.  Annotate should probably watch out for that.
+
+# Nextstrain clades
+g -E '^[12]' clade-paths.pruned.opt | cut -f 1,2 > cladeNodes.reassign.pruned.opt.nextclade
+vi cladeNodes.reassign.pruned.opt.nextclade
+# Add 21L node from above
+# Pango lineages
+tail -n+2 clade-paths.pruned.opt \
+| g -E '^[A-Za-z]' | cut -f 1,2 > cladeNodes.reassign.pruned.opt.pango
+vi cladeNodes.reassign.pruned.opt.pango
+# Add lineage nodes from above
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodes.reassign.pruned.opt.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -C cladeNodes.reassign.pruned.opt.pango \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.pruned.opt.reannotate
+wc -l clade-paths*
+#   1706 clade-paths.new
+#   1697 clade-paths.pruned.opt
+#   1706 clade-paths.pruned.opt.reannotate
+
+# Replace & get the next daily build going.
+
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Paste in post-annotate steps from updateCombinedTree.sh, start next daily build.
+
+# Oh wait... A bunch of BA.1's (the ones I had to reannotate above) got pushed into
+# BA.1 > G22599A > A22599G... argh!  Didn't look at the big picture carefully enough in taxonium.
+# I could probably fix it with a manual move, but just in case there are other hiccups I
+# think I'll run matOptimize again.
+# I should probably always optimize twice after pruning, and definitely twice after masking new
+# sites.
+$matOptimize -T 150 -r 8 -M 1 -S move_log.pruned.reopt \
+    -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -o gisaidAndPublic.$today.masked.pruned.reopt.pb \
+    >& matOptimize.pruned.reopt.log
+# Check annotations
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.reopt.pb -C clade-paths.pruned.reopt
+wc -l clade-paths.new clade-paths.pruned.reopt
+#  1706 clade-paths.new
+#  1697 clade-paths.pruned.reopt
+
+# Taxonium before reannotating, just to be sure things are back in the right place:
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.pruned.reopt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.pruned.reopt.taxodium.pb
+pigz -p 8 -f gisaidAndPublic.$today.masked.pruned.reopt.taxodium.pb
+
+# OK, yes, proceed with reannotating.
+diff <(cut -f 1 clade-paths.pruned.opt | sort) <(cut -f 1 clade-paths.pruned.reopt | sort)
+# Same ones missing as before -- can use the same test.tsv from above.
+$matUtils annotate -l -T 150 -i gisaidAndPublic.$today.masked.pruned.reopt.pb -M test.tsv -o test.pb
+21L (Omicron)	node_1227468
+BA.1.1.1	node_1335399
+BA.1.13	node_1474652
+BA.1.17	node_1431496
+BA.1.17.2	node_1440026
+BA.1.18	node_1461914
+BA.1.20	node_1478327
+BA.2.12.1	node_1168429
+BA.2.3	node_1223056
+
+# Nextstrain clades
+g -E '^[12]' clade-paths.pruned.reopt | cut -f 1,2 > cladeNodes.reassign.pruned.reopt.nextclade
+vi cladeNodes.reassign.pruned.reopt.nextclade
+# Add 21L node from above
+# Pango lineages
+tail -n+2 clade-paths.pruned.reopt \
+| g -E '^[A-Za-z]' | cut -f 1,2 > cladeNodes.reassign.pruned.reopt.pango
+vi cladeNodes.reassign.pruned.reopt.pango
+# Add lineage nodes from above
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.reopt.pb \
+    -l -C cladeNodes.reassign.pruned.reopt.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.reopt.nextclade.pb
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.reopt.nextclade.pb \
+    -C cladeNodes.reassign.pruned.reopt.pango \
+    -o gisaidAndPublic.$today.masked.pruned.reopt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.reopt.nextclade.pangolin.pb \
+    -C clade-paths.pruned.reopt.reannotate
+wc -l clade-paths*
+#   1697 clade-paths.pruned.reopt
+#   1706 clade-paths.pruned.reopt.reannotate
+
+# Replace again...
+ln -f gisaidAndPublic.$today.masked.pruned.reopt.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+# Paste in post-annotate steps from updateCombinedTree.sh.  Leave the next daily build
+# running, hopefully its post-merge optimize step will fix it but better check....

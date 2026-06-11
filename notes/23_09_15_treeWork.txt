@@ -1,0 +1,114 @@
+today=2023-09-15
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# EG.10.1 isn't annotated because a couple weird seqs are causing late 23664.
+g Scotland/CLIMB-CM7YEXRQ/2023 sample-paths
+#... node_2363140:C335T,T23042C node_2363141:T8482C,T16251C,C28399T node_2363142:C23664T
+g England/CLIMB-CM7YRWU5/2023 sample-paths
+#... node_2363140:C335T,T23042C node_2363167:G8372T,C18175T node_2363168:G11312A,C23664T
+g node_2363140: sample-paths | g -v node_2363142: | g -v node_2363168: | cut -f 1 > pruneForEG.10.1
+wc -l pruneForEG.10.1
+#2 pruneForEG.10.1
+
+
+# Remove all the JE.1 samples to get GJ.1.2.2 out of GJ.1.2.1/JE.1.
+# This tree won't be released, it will be the input to tomorrow's build.
+# Continuation of 2023-09-14 treeWork for
+# https://github.com/cov-lineages/pango-designation/commit/18177cf7f1f1e97b634e0ece171e7b96e483fa66
+g USA/CA-HLX-STM-EACBZ9V2R/2023 sample-paths
+#... node_2502931:A22910G node_2502932:A22995G node_2502948:G22910A ...
+g node_2502932: sample-paths | g -v node_2502948: | cut -f 1 > pruneForGJ.1.2.2
+wc -l pruneForGJ.1.2.2
+#33 pruneForGJ.1.2.2
+
+
+# rev22264 now on path to HK.3.  Continuation of 2023-09-14 work for
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/537#issuecomment-1711549617
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/763#issuecomment-1711645428
+# https://github.com/cov-lineages/pango-designation/issues/2194#issuecomment-1702973887
+g CHN/SH-XG2308-11801/2023 sample-paths
+#... node_2348194:C6541T node_2348424:C22264T node_2348427:G22927T node_2348435:T22264C
+g node_2348424: sample-paths | g -v node_2348435: | cut -f 1 > pruneForHK.3
+wc -l pruneForHK.3
+#49 pruneForHK.3
+
+
+# This didn't seem to work when added back, try again:
+# Nkrmnzr pointed out a sequence ith 21602N, give it another chance
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/730#issuecomment-1716447114
+echo 'Canada/ON-KHS-05850-v1/2023|EPI_ISL_18222018|2023-08-30' > pruneFor21602
+# Check whether Canada/ON-PHL-23-29879/2023 gets 21602 first (after 853) after opt.
+
+
+wc -l pruneFor*
+#   1 pruneFor21602
+#   2 pruneForEG.10.1
+#  33 pruneForGJ.1.2.2
+#  49 pruneForHK.3
+#  85 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    108m18.825s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13123468,with radius 1, second from start 285
+#parsimony score after optimizing: 13123463,with radius 2, second from start 376
+#parsimony score after optimizing: 13123461,with radius 4, second from start 819
+#parsimony score after optimizing: 13123460,with radius 8, second from start 3136
+#parsimony score after optimizing: 13123456,with radius 16, second from start 5528
+
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# That's going to run overnight so I might not be able to check before tomorrow's build needs
+# today's tree.  So, optimistically, use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# EG.10.1 unified with C23664T after 23042?
+g Scotland/CLIMB-CM7YEXRQ/2023 sample-paths.pruned
+#... node_2363129:C335T,T23042C,C23664T node_2363130:T8482C,T16251C,C28399T
+g England/CLIMB-CM7YRWU5/2023 sample-paths.pruned
+#... node_2363129:C335T,T23042C,C23664T node_2363155:G8372T,G11312A,C18175T
+# Yep.
+
+# No more rev on 22910?
+g CHN/SH-XG2308-11801/2023 sample-paths.pruned
+#... node_2348199:C6541T node_2353281:G22927T
+# Yep.
+
+# 21602 after 853?
+g Canada/ON-PHL-23-29879/2023 sample-paths.pruned
+#... node_2353281:G22927T node_2353316:C853T node_2353317:C21602A
+# Yep.
+
+
+# But for all of those, the real question is what will happen when pruned samples are added back
+# in the 2023-09-16 build.

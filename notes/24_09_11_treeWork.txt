@@ -1,0 +1,155 @@
+today=2024-09-11
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# new MU.1 should be child of KP.1.1.5 but has a late 21738
+g Canada/ON-PHL-202408220/2024 sample-paths
+#... node_2296938:A24819G node_2298233:C2488T node_2298234:C19172T,T21738C ...
+g node_2298233: sample-paths | g -v node_2298234: | cut -f 1 > pruneForKP.1.1.5
+wc -l pruneForKP.1.1.5
+#1 pruneForKP.1.1.5
+
+
+# Xu thinks this flip-flop on 22858 and the lack of S:85 (C21815T) on earlier nodes is caused
+# by missing cov on S:85, try prune & replace just in case:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1934
+g Belgium/AZDelta-2425-01198/2024 sample-paths
+#... node_2312889:G15372T node_2315449:C22858T node_2315456:A13121T node_2315457:C12616T node_2315462:C21815T node_2315463:T22858C
+# prune back to C22858T
+g node_2315449: sample-paths | g -v node_2315463: | cut -f 1 > pruneForLP1934
+wc -l pruneForLP1934
+#168 pruneForLP1934
+
+
+# Xu found a split branch (late 28209)
+# https://github.com/cov-lineages/pango-designation/issues/2738
+g Brazil/PA-014457-IEC/2024 sample-paths
+#... node_2358067:G22599C node_2358124:C10525T node_2358125:G28209C
+g node_2358124: sample-paths | g -v node_2358125: | cut -f 1 > pruneForPD2738
+wc -l pruneForPD2738
+#3 pruneForPD2738
+
+
+# JN.1.16.1 is on a triple-rev branch from KP.2
+g Denmark/DCGC-670929/2024 sample-paths
+#... node_2285007:G17334T node_2285051:G24872T node_2285116:C7113T node_2285117:T22928C node_2287633:G22599C node_2288816:T24872G node_2288820:T17334G node_2288821:T7113C
+# prune back to rev T24872G
+g node_2288816: sample-paths | g -v node_2288821: | cut -f 1 > pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#213 pruneForJN.1.16.1
+
+
+# big chunk of JN.1.11.1 on rev branch
+g Canada/BC-BCCDC-708472/2024 sample-paths
+#... node_2285117:T22928C node_2302810:T25207C node_2302811:G22599C node_2302817:T22795G node_2302821:C25207T
+# prune back to rev T25207C
+g node_2302810: sample-paths | g -v node_2302821: | cut -f 1 > pruneForJN.1.11.1
+wc -l pruneForJN.1.11.1
+#25 pruneForJN.1.11.1
+
+
+# KP.1.1.3 on rev/re-mut branch
+g Ireland/LK-UHL-687258/2024 sample-paths
+#... node_2285883:A24819G node_2286088:G1820A node_2286093:G22599C node_2286123:C4999T node_2286124:A1820G
+# prune back to G1820A
+g node_2286088: sample-paths | g -v node_2286124: | cut -f 1 > pruneForKP.1.1.3
+wc -l pruneForKP.1.1.3
+#110 pruneForKP.1.1.3
+
+
+# Xu found weird branch placed in LF.9 with a lot of JN.1.48.1 mutations... recombinant or 
+# just misplacement??
+# https://github.com/cov-lineages/pango-designation/commit/20f4b0af2dc12e93b96f5f58b886c1158fd4c320
+g Luxembourg/LNS8127025/2024 sample-paths
+#... node_2288821:T7113C node_2295721:T21740C node_2295722:A6616G,G11204A,C23275T,C25688T node_2295723:C8092T,T18471C,C25378T
+g node_2295722: sample-paths | g -v node_2295723: | cut -f 1 > pruneForJN.1.48.1
+wc -l pruneForJN.1.48.1
+#3 pruneForJN.1.48.1
+
+
+wc -l pruneFor*
+#   25 pruneForJN.1.11.1
+#  213 pruneForJN.1.16.1
+#    3 pruneForJN.1.48.1
+#  110 pruneForKP.1.1.3
+#    1 pruneForKP.1.1.5
+#  168 pruneForLP1934
+#    3 pruneForPD2738
+#  523 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14417183,with radius 1, second from start 232
+#parsimony score after optimizing: 14417174,with radius 2, second from start 322
+#parsimony score after optimizing: 14417164,with radius 4, second from start 777
+#parsimony score after optimizing: 14417161,with radius 8, second from start 3203
+#parsimony score after optimizing: 14417148,with radius 16, second from start 5553
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 22858?
+g Belgium/AZDelta-2425-01198/2024 sample-paths.pruned
+#... node_2310505:G15372T node_2313320:C12616T node_2313321:A13121T node_2313322:C21815T
+# Yep
+
+# 28209 before 10525?
+g Brazil/PA-014457-IEC/2024 sample-paths.pruned
+#... node_2357940:G22599C node_2357997:G28209C node_2357998:C10525T
+# Yep
+
+# No more revs on 24872, 17334, 7113?
+g Denmark/DCGC-670929/2024 sample-paths.pruned
+#... node_2285013:G17334T node_2285057:G24872T node_2285122:C7113T node_2285123:T22928C node_2287597:G22599C node_2288856:C26894T node_2288858:T7113C node_2288859:T17334G node_2288860:T26894C node_2288861:T24872G 
+# Doh!  Now it's a quadruple-rev.  Need to prune some more.
+
+# No more rev on 25207?
+g Canada/BC-BCCDC-708472/2024 sample-paths.pruned
+#... node_2285123:T22928C node_2321028:T22795G node_2321029:G22599C
+# Yep
+
+# No more rev/remut on 1820?
+g Ireland/LK-UHL-687258/2024 sample-paths.pruned
+#... node_2285889:A24819G node_2286087:C335T node_2286090:G22599C node_2286094:C4999T node_2286095:T335C
+# New flip-flop on 335, ugh
+
+# In JN.1.48.1 with C8092T,T18471C,C25378T,C25688T before A6616G,G11204A,C23275T?
+g Luxembourg/LNS8127025/2024 sample-paths.pruned
+#... node_2285013:G17334T node_2285057:G24872T node_2285122:C7113T node_2285123:T22928C node_2287597:G22599C node_2288856:C26894T node_2288858:T7113C node_2288859:T17334G node_2288860:T26894C node_2288861:T24872G node_2295760:T21740C node_2295790:C8092T,G11204A,T18471C,C23275T,C25378T,C25688T node_2295791:A6616G
+# Nope... looks like these seqs don't have 29134 which is defining for JN.1.48.
+
+# Of course, check all of those after sequences are added back.
+
+# 2024-09-12 -- stable (good ones are still good, messed up ones still messed up)

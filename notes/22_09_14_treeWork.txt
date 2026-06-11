@@ -1,0 +1,202 @@
+# BA.2.75 is a mess.  Well, there are many messes, but let's start there.
+
+today=2022-09-14
+cd $ottoDir/$today
+
+$matUtils extract -T5 -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# There's a BA.2.75 > rev > mini-BA.2.75.3, see if we can get that moved into BA.2.75.3.
+g India/OR-ILSGS19084/2022 sample-paths
+#... node_1819818:A22001G node_1821612:G26577C
+g India/AP-CCMB-CID3791/2022 sample-paths
+#... node_1819818:A22001G node_1821612:G26577C node_1821654:G18583A node_1821656:T23019C,G27798T node_1821657:C26577G
+g India/OR-ILSGS18365/2022 sample-paths
+#... node_1819818:A22001G node_1821612:G26577C node_1821654:G18583A node_1821674:T25000C node_1821675:A18583G node_1821676:C2710T,A12140G node_1821677:C25000T node_1821678:C26577G
+g node_1821612: sample-paths | g -v node_1821657: | g -v node_1821678: | cut -f 1 > pruneForBA.2.75.3
+wc -l pruneForBA.2.75.3
+#183 pruneForBA.2.75.3
+
+# All of BA.2.75.2 is upstream of BA.2.75 on a branch that is missing A22001G and C4586T.
+g India/WB-INSACOG-1931503198823/2022 sample-paths
+#... node_1819815:G22331A node_1819816:T22016C
+g India/DL-ILBS-WGS6887/2022 sample-paths
+#... node_1819815:G22331A node_1819816:T22016C node_1822054:G22599C node_1822059:T23019C node_1822060:C5192T node_1822061:G25157A node_1822062:A22001G node_1822073:C4586T
+g Canada/AB-ABPHL-72205/2022 sample-paths
+#... node_1819815:G22331A node_1819816:T22016C node_1819817:C4586T node_1819818:A22001G
+g node_1819816: sample-paths | g -v node_1822073: | g -v node_1819818: | cut -f 1 > pruneForBA.2.75.2
+wc -l pruneForBA.2.75.2
+#666 pruneForBA.2.75.2
+
+# There's also a branch upstream of that missing T22016C as well, see if we can glean some there.
+g India/WB-INSACOG-1931503237524/2022 sample-paths
+#... node_1819812:A22190G node_1819815:G22331A
+g India/KA-RFNB-14054/2022 sample-paths
+#... node_1819812:A22190G node_1819815:G22331A node_1822197:A22033C node_1822342:T22813G node_1822348:G19962T node_1822349:C9532T node_1822350:G8602A node_1822351:T22917G
+g India/RJ-SMS-ICMR-INSACOG-TS-15139/2022 sample-paths
+#... node_1819812:A22190G node_1819815:G22331A node_1822408:C4586T node_1822444:A22001G
+g India/WB-INSACOG-1931503215451/2022 sample-paths
+#... node_1819812:A22190G node_1819815:G22331A node_1822408:C4586T node_1822431:C19402T,G29027T node_1822434:A22001G,T22016C
+g USA/CA-GBW-VWPOAAAZ191463/2022 sample-paths
+#... node_1819812:A22190G node_1819815:G22331A node_1822197:A22033C node_1822381:C4586T node_1822384:A23283T node_1822385:G22599C
+g node_1819815: sample-paths | g -v node_1822351: | g -v node_1822444: | g -v node_1822431: \
+| g -v node_1822381: | g -v node_1819816: | cut -f 1 > pruneForBA.2.75.basal
+wc -l pruneForBA.2.75.basal
+#802 pruneForBA.2.75.basal
+
+# Need branch-specific masking in BA.2.75 for reversions on 4586, 22001 and 22016 too.
+# (And probably more...)
+
+#BA.5.1.15 needs to be moved so 10183 isn't first.
+# https://github.com/cov-lineages/pango-designation/issues/1039#issuecomment-1237470371
+g Peru/PIU-INS-23693/2022 sample-paths
+#... node_1732551:C29666T node_1758841:C10183T
+g Peru/AMA-INS-22994/2022 sample-paths
+#... node_1732551:C29666T node_1758841:C10183T node_1758842:C10790T
+g node_1758841: sample-paths | g -v node_1758842: | cut -f 1 > pruneForBA.5.1.15
+wc -l pruneForBA.5.1.15
+#16 pruneForBA.5.1.15
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) -o gisaidAndPublic.$today.masked.pruned.pb
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    48m44.883s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Moved to BA.2.75.3 proper?
+g India/AP-CCMB-CID3791/2022 sample-paths.pruned
+#... node_2247390:A22001G node_2247391:T22016C node_2247941:G18583A node_2248174:T23019C node_2248176:G27798T
+# OK, BA.2.75 root has changed to C4586T,G22331A > A22001G > T22016C, so yes, now that's BM.1 proper!
+# Ah, and this had a reversion on 18583 so it should be in BA.2.75 proper:
+g India/OR-ILSGS18365/2022 sample-paths.pruned
+#... node_2247390:A22001G node_2247391:T22016C node_2249316:A12140G node_2249317:C2710T
+
+# Moved to BA.2.75 proper?  Yep.
+g India/DL-ILBS-WGS6887/2022 sample-paths.pruned
+#... node_2247390:A22001G node_2247391:T22016C node_2249456:G22599C node_2249457:T23019C node_2249458:G25157A node_2249459:C5192T
+# Yep
+g Canada/AB-ABPHL-72205/2022 sample-paths.pruned
+#... node_2247390:A22001G node_2247391:T22016C
+# Yep.
+g India/KA-RFNB-14054/2022 sample-paths.pruned
+#... node_2247389:C4586T,G22331A node_2249723:A22033C node_2249724:T4586C,G8602A,C9532T,G19962T,T22917G node_2249725:T22813G
+# Nope -- it's still missing A22001G and T22016C, and doesn't have enough other muts to be pulled out
+g India/RJ-SMS-ICMR-INSACOG-TS-15139/2022 sample-paths.pruned
+#... node_2247389:C4586T,G22331A node_2247390:A22001G
+# Not quite, still missing T22016C
+g India/WB-INSACOG-1931503215451/2022 sample-paths.pruned
+#... node_2247389:C4586T,G22331A node_2249759:C19402T,G29027T node_2249763:A22001G,T22016C
+# Not quite... still being held in by sequences with C19402T,G29027T but not A22001G,T22016C.
+g USA/CA-GBW-VWPOAAAZ191463/2022 sample-paths.pruned
+#... node_2247389:C4586T,G22331A node_2249723:A22033C node_2249735:A23283T node_2249736:G22599C
+# Dang, reversion on 22033, and no A22001G,T22016C.
+
+# 10790 first?  (unsplit BA.5.1.15)
+g Peru/AMA-INS-22994/2022 sample-paths.pruned
+#... node_2141329:C29666T node_2173043:C10790T node_2173044:C10183T
+# Yep.
+
+# Apply new branch-specific masking to BA.2.75 - upstream of BA.2.75 root, from node_2247389:
+maskFile=maskBA.2.75.tsv
+# BA.2 sites:
+for i in 670 2790 10198 21618 22674 22679 22686 22688 23063 23075 23948 24424 24469 26577 ; do
+    echo -e "N${i}N\tnode_2247389"
+done > $maskFile
+# For BA.2.75-specific sites, make sure we just wipe out reversions, not the BA.2.75 alleles
+# that we want to keep on that node and subsequent nodes.
+for backMut in T4586C A15451G G22001A C22016T A22033C G22190A A22331G C22577G A22898G G22942T G26275A; do
+    echo -e "$backMut\tnode_2247389"
+done >> $maskFile
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -m $maskFile \
+    -o gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.masked.pb
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.BA.2.75.masked \
+    -i gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.masked.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.masked.opt.pb \
+    >& matOptimize.BA.2.75.masked.log
+
+# Now look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.masked.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# Definitely improved.  Optimization pulled in some things from branches missing mutations,
+# so they're now in BA.2.75 proper but with reversions.  Do one more mask & opt to really
+# clear those up.
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.masked.opt.pb \
+    -S sample-paths.pruned.BA.2.75.masked.opt
+BA275Node=$(grep Australia/QLD0x010633/2022 sample-paths.pruned.BA.2.75.masked.opt \
+          | awk '{print $NF;}' | sed -re 's/:.*//;')
+maskFile=remaskBA.2.75.tsv
+# These are BA.2.75-defining but prone to dropout.  Make sure we just wipe out reversions,
+# not the BA.2.75 alleles that we want to keep on that node and subsequent nodes.
+for backMut in T4586C G22001A C22016T A22033C G22190A C22577G G26275A; do
+    echo -e "$backMut\t$BA275Node"
+done > $maskFile
+# These BA.2.75-defininte sites are less bad off, might want to back off on these if/when there
+# are 10s of thousands of BA.2.75 sequences & more chances for recombinants:
+for backMut in A15451G A22331G A22898G G22942T; do
+    echo -e "$backMut\t$BA275Node"
+done >> $maskFile
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.masked.opt.pb \
+    -m $maskFile \
+    -o gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.remasked.pb
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.BA.2.75.remasked \
+    -i gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.remasked.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.remasked.opt.pb \
+    >& matOptimize.BA.2.75.remasked.log
+
+# Annotate lineages that went away... starting over with nextclade.
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.BA.2.75.remasked.opt.pb \
+    -l \
+    -P cladeToPath \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+# I added a few new lineages to pango.clade-mutations.tsv
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#> BA.5.2.17
+#> BF.23
+#< BM.1_rev26577
+#> BU.1
+# And BM.1_rev26577 went away because we're masking rev26577 now, good.
+
+# Look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# OK, good.  The 2022-09-15 tree is already out there and 2022-09-16 is in progress --
+# kill that job and restart using the results of this as a starting point.
+
+ln -s ../$today/gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    $ottoDir/2022-09-15/gisaidAndPublic.2022-09-15.masked.useMe.pb
+
+# Meanwhile also need to send out update to Chris et al.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+# Paste updateCombinedTree.sh steps to update metadata for that.

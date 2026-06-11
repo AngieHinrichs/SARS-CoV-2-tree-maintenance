@@ -1,0 +1,113 @@
+today=2025-04-28
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Xu spotted a late 21627 after C3096T and said it's due to a few sequences with missing coverage
+# https://github.com/cov-lineages/pango-designation/issues/2940
+g USA/IL-RIPHL_123815_G/2025 sample-paths
+#... node_2421509:C3096T node_2421511:T3055C node_2421512:T5465C node_2421513:C21627A node_2421514:C21365T
+g node_2421511: sample-paths | g -v node_2421514: | cut -f 1 > pruneForPD2940
+wc -l pruneForPD2940
+#7 pruneForPD2940
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    102m11.571s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14853070,with radius 1, second from start 170
+#parsimony score after optimizing: 14853054,with radius 2, second from start 242
+#parsimony score after optimizing: 14853051,with radius 4, second from start 562
+#parsimony score after optimizing: 14853049,with radius 8, second from start 2213
+#parsimony score after optimizing: 14853045,with radius 16, second from start 5563
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# 21627 before 3055, 5465?
+g USA/IL-RIPHL_123815_G/2025 sample-paths.pruned
+#... node_2421300:C21365T node_2421308:C3096T,T5465C node_2421309:T3055C,C21627A
+# Nope... guess I missed some!
+
+# How many odd sequences?
+g node_2421308: sample-paths.pruned | g -v node_2421309: | cut -f 1
+#USA/KY-KSPHL-0005921/2025|EPI_ISL_19810965|2025-02-24
+
+# -- Just the one.  And it's elsewhere in the starting tree, weird.  Well, exclude it too.
+echo "USA/KY-KSPHL-0005921/2025|EPI_ISL_19810965|2025-02-24" >> pruneForPD2940
+wc -l pruneForPD2940
+#8 pruneForPD2940
+
+# Give it another go.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    102m12.598s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14853066,with radius 1, second from start 168
+#parsimony score after optimizing: 14853050,with radius 2, second from start 240
+#parsimony score after optimizing: 14853048,with radius 4, second from start 565
+#parsimony score after optimizing: 14853046,with radius 8, second from start 2250
+#parsimony score after optimizing: 14853042,with radius 16, second from start 5567
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# 21627 before 3055, 5465?
+g USA/IL-RIPHL_123815_G/2025 sample-paths.pruned
+#... node_2421513:C3096T node_2421517:C21627A node_2421518:T3055C,T5465C,C21365T
+# Good.

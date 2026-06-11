@@ -1,0 +1,148 @@
+today=2024-02-12
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+
+# separate 27507 acquisitions lumped together leading to big rev branches
+# https://github.com/cov-lineages/pango-designation/issues/2458
+spare these:
+g Russia/SPE-MH154084S/2023 sample-paths
+#... node_1132314:C6541T node_1132652:C27507T node_1132733:C9319T,A22995G node_1132734:T26609C node_1132742:T27507C
+g Canada/BC-BCCDC-681233/2023 sample-paths
+#... node_1132314:C6541T node_1132652:C27507T node_1132667:G22927T node_1132676:G25455T node_1132677:T27507C
+g node_1132652: sample-paths | g -v node_1132742: | g -v node_1132677: | cut -f 1 > pruneFor27507
+wc -l pruneFor27507
+#159 pruneFor27507
+
+
+# JN.1.7 > G22599A > A22599C should be just JN.1.7 > G22599C.  Try lop & replace.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1371
+g USA/NY-NYULH-18094/2024 sample-paths
+#... node_2257154:G25012T node_2257241:G22599A node_2257242:A22599C ...
+g node_2257242: sample-paths | cut -f 1 > pruneFor22599
+wc -l pruneFor22599
+#6 pruneFor22599
+
+
+# Fede spotted a rev branch in JN.1.1:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1089#issuecomment-1939432519
+g USA/NY-URMC-O1S1M695-1/2024 sample-paths
+#... node_2237511:T27810C node_2251061:C1762A node_2251062:C11747T node_2252977:C21627T node_2252978:A21631T node_2252979:A1762C,T11747C
+g Australia/NSW-ICPMR-52347/2023 sample-paths
+#... node_2237511:T27810C node_2251061:C1762A node_2251062:C11747T node_2252977:C21627T node_2253037:A21625T,A21626G,C21629T node_2253040:A1762C,T11747C 
+g node_2252977: sample-paths | g -v node_2252979: | g -v node_2253040: | cut -f 1 > pruneForJN.1.1
+wc -l pruneForJN.1.1
+#14 pruneForJN.1.1
+
+
+# Whack & replace BA.5.1_no29666 because it's becoming a mini-BA.5.1.  Spare some bits that
+# have gained 29666.
+g Sweden/1599452664/2022 sample-paths
+#... node_1627245:C27889T node_2121909:T27438C node_2122044:T27412G node_2122045:A5086G node_2122046:C29666T
+g Canada/ON-PHL-22-35799/2022 sample-paths
+#... node_1627245:C27889T node_2121909:T27438C node_2122105:C28791T node_2122106:T6478C node_2122107:G440T,G25552T node_2122108:T25210C,C29666T
+g France/OCC-IPP43323/2022 sample-paths
+#... node_1627245:C27889T node_2121909:T27438C node_2122090:C14708T node_2122091:C16329T node_2122095:C29666T
+g MEX/YUC_010402UIMY/2022 sample-paths
+#... node_1627245:C27889T node_2121909:T27438C node_2122150:C27294T node_2122178:G26153T node_2122179:C29666T
+g France/ARA-HCL022113277801/2022 sample-paths
+#... node_1627245:C27889T node_2121909:T27438C node_2121910:C17285T node_2121926:G25489A node_2121927:C29666T
+g node_2121909: sample-paths | g -v node_2122046: | g -v node_2122108: | g -v node_2122095: \
+| g -v node_2122179: | g -v node_2121927:  | cut -f 1 > pruneForBA.5.1
+wc -l pruneForBA.5.1
+#1117 pruneForBA.5.1
+
+
+# * HK.1 has a couple sizeable revs on defining 22332 after oft-recurring G22927T (S:L455F).
+g Canada/ON-PHL-23-35648/2023 sample-paths
+#... node_1151698:G22332T node_1151983:G22927T node_1152082:T13162C node_1152083:T22332G 
+g node_1152082: sample-paths | g -v node_1152083: | cut -f 1 > pruneForHK.1
+wc -l pruneForHK.1
+#11 pruneForHK.1
+
+g CHN/SH-XG2309-13937/2023 sample-paths
+#... node_1151698:G22332T node_1151983:G22927T node_1152043:G581A,C16092T,T25815C node_1152044:T22332G node_1152074:C16308T,A20776G
+g node_1152043: sample-paths | g -v node_1152074: | cut -f 1 >> pruneForHK.1
+wc -l pruneForHK.1
+#106 pruneForHK.1
+
+g SouthKorea/KDCA269184/2023 sample-paths
+#... node_1151698:G22332T node_1151983:G22927T node_1152009:C28093T node_1152026:T22332G
+g node_1152009: sample-paths | g -v node_1152026: | cut -f 1 >> pruneForHK.1
+wc -l pruneForHK.1
+#158 pruneForHK.1
+
+# Another case of different mutation at same position being put in series -- whack & replace:
+g Luxembourg/LNS0266655/2023 sample-paths
+#... node_1151698:G22332T node_1151983:G22927T node_1151984:T22332A ...
+g node_1151984: sample-paths | cut -f 1 >> pruneForHK.1
+wc -l pruneForHK.1
+#246 pruneForHK.1
+
+g SouthKorea/KDCA276190/2023 sample-paths
+#... node_1151698:G22332T node_1151983:G22927T node_1152163:G4148A node_1152164:T22332G
+g node_1152163: sample-paths | g -v node_1152164: | cut -f 1 >> pruneForHK.1
+wc -l pruneForHK.1
+#248 pruneForHK.1
+
+g France/IDF-IPP24350/2023 sample-paths
+#... node_1151698:G22332T node_1151983:G22927T node_1152170:T418C node_1152171:T22332G
+g node_1152170: sample-paths | g -v node_1152171: | cut -f 1 >> pruneForHK.1
+wc -l pruneForHK.1
+#250 pruneForHK.1
+
+
+# HK.3.1 has rev branch
+g Sichuan/MSCDC-2-4/2023 sample-paths
+#... node_1156071:C22033A node_1156649:C3775A,A19073G node_1156654:A22033C
+g node_1156649: sample-paths | g -v node_1156654: | cut -f 1 > pruneForHK.3.1
+wc -l pruneForHK.3.1
+#6 pruneForHK.3.1
+
+
+wc -l pruneFor*
+#    6 pruneFor22599
+#  159 pruneFor27507
+# 1117 pruneForBA.5.1
+#  250 pruneForHK.1
+#    6 pruneForHK.3.1
+#   14 pruneForJN.1.1
+# 1552 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m4.003s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+

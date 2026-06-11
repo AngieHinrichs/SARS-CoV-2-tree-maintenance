@@ -1,0 +1,147 @@
+today=2023-02-14
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# XBB.1.12 parent branch has flip-flops on 29580 and 22346 on its path.
+# It also has 27915 after 11956 which is sus.
+g Australia/WA8427/2022 sample-paths
+#... node_2524889:G22317T node_2524890:C11956T node_2524906:C29580T node_2524908:G27915T node_2524909:G22346T node_2524910:T29580C node_2524913:T22346G
+g node_2524906: sample-paths | g -v node_2524913: | cut -f 1 > pruneForXBB.1.12
+wc -l pruneForXBB.1.12
+#16 pruneForXBB.1.12
+
+# Mess on the way to BA.5.2.8 and BA.5.2.59: flip-flops on 1627, 28330, 27513, rev 27012
+# But take care not to blow away important sub-branches like BA.5.2.{2,10,26} and XBE.
+g Israel/SMC-7074651/2022 sample-paths
+#... node_2319994:C16616A node_2325322:T27513C node_2325408:T27012C node_2326473:T1627C node_2326477:G28330A node_2326573:C27513T node_2326579:C1627T node_2326580:A28330G
+# There are remuts of 27012 all over that large branch... what a mess, it was probably a case of
+# lots of Ns being imputed based on a few bad reference backfills.  :(
+g node_2325322: sample-paths | g -v node_2325408: | cut -f 1 > pruneForBA.5.2
+wc -l pruneForBA.5.2
+#444 pruneForBA.5.2
+g node_2326473: sample-paths | g -v node_2326477: | cut -f 1 >> pruneForBA.5.2
+wc -l pruneForBA.5.2
+#460 pruneForBA.5.2
+g node_2326573: sample-paths | g -v node_2326580: | cut -f 1 >> pruneForBA.5.2
+wc -l pruneForBA.5.2
+#486 pruneForBA.5.2
+
+#XBJ has sister branch that perhaps would be merged in (for #1583) if we remove Philippines/PH-RITM-3177/2022|EPI_ISL_16017331 and SouthKorea/KDCA182315/2022|EPI_ISL_16340475
+g Japan/TKYkbm65265/2022 sample-paths
+#... node_2573112:A28550C node_2573113:G3072A,C8016T,G26529A,T26858C,A28330G node_2573114:T25810C,C25896T,C27012T node_2573115:A253G,A16011G,C21682T,G23016A,T24349C,C25452T,G28857A node_2573116:C27259A,C27513T,C27741T,C27847T,C27889T
+g Australia/WA7198/2022 sample-paths
+#... node_2573112:A28550C node_2573113:G3072A,C8016T,G26529A,T26858C,A28330G node_2573114:T25810C,C25896T,C27012T node_2573129:C27259A,C27513T node_2573130:C27889T
+g node_2573113: sample-paths | g -v node_2573116: | g -v node_2573130: | cut -f 1 > pruneForXBJ
+wc -l pruneForXBJ
+#5 pruneForXBJ
+
+#BQ.1.1.48 & .49 just got moved to a swizzle path with flip-flops on 5144 and 13737
+g Australia/NSW-ICPMR-34886/2022 sample-paths
+#... node_2019268:A17039G node_2037482:C5144T node_2037523:T13737C node_2037524:T5144C,C13737T node_2037525:C14097T 
+g node_2037523: sample-paths | g -v node_2037524: | cut -f 1 > pruneForBQ.1.1.48
+wc -l pruneForBQ.1.1.48
+#7 pruneForBQ.1.1.48
+
+#misplaced group of Peru seqs upstream of XBB start -- could probably place with main XBB
+g Peru/ANC-INS-34858/2022 sample-paths
+#... node_2523415:T23031C node_2543957:C1684T,T6025C,T10663C,C13384T,C17288T,C18568T,G21830A,C27532T node_2543958:C22664A node_2543959:G22895C,T22896C node_2543960:A22893G 
+g node_2543957: sample-paths | g -v node_2543960: | cut -f 1 > pruneForXBB
+wc -l pruneForXBB
+#8 pruneForXBB
+
+wc -l pruneFor*
+#  486 pruneForBA.5.2
+   945 pruneForBA.5.2
+#    7 pruneForBQ.1.1.48
+#    8 pruneForXBB
+#   16 pruneForXBB.1.12
+#    5 pruneForXBJ
+#  522 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should be fine
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    55m59.044s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Flip-flops on 29580 and 22346 gone?
+g Australia/WA8427/2022 sample-paths.pruned
+#... node_3110705:G22317T node_3110706:C11956T node_3110725:G27915T
+# Yep, although bummer that C11956T is first instead of this being placed on the big G27915T branch.
+# Flip-flops on 1627, 28330, 27513 gone?
+g Israel/SMC-7074651/2022 sample-paths.pruned
+#... node_2865823:C16616A node_2967345:T27012C
+# Yep
+# In XBJ proper?
+g Japan/TKYkbm65265/2022 sample-paths.pruned
+#... node_3167909:A28550C node_3167910:G3072A,C8016T,T25810C,C25896T,G26529A,T26858C,C27012T,C27259A,C27513T,C27889T,A28330G node_3167955:A16011G node_3167956:C21682T,C27847T node_3167961:A253G,G23016A,T24349C,C25452T,C27741T,G28857A
+g Australia/WA7198/2022 sample-paths.pruned
+#... node_3167909:A28550C node_3167910:G3072A,C8016T,T25810C,C25896T,G26529A,T26858C,C27012T,C27259A,C27513T,C27889T,A28330G
+# Yep.
+# Flip-flops on 5144 and 13737 gone?
+g Australia/NSW-ICPMR-34886/2022 sample-paths.pruned
+#... node_2503627:A17039G node_2580987:C14097T
+# Yep.
+# In XBB proper?
+g Peru/ANC-INS-34858/2022 sample-paths.pruned
+#... node_3109036:G22895C,T22896C node_3109037:C22664A node_3109625:A22893G node_3109626:C1684T,T6025C,T10663C,C13384T,C17288T,C18568T,G21830A,C27532T
+g India/MH-KasturbaMCGM-ICMR-INSACOG-WG5439/2022 sample-paths.pruned
+#... node_3109036:G22895C,T22896C node_3109037:C22664A
+# Yep!  XBB.4 in fact.
+
+# Replace original version and use it for another round of lineageTree.
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+
+# Check all those paths above after pruned sequences are added back, to see if we need to
+# make any permanent exclusions.

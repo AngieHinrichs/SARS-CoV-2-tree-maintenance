@@ -1,0 +1,52 @@
+# Try the feature I just added to makeNewMaskedVcf.sh: make a file .masked.useMe.pb with a bunch
+# of sequences pruned, for tomorrow to add back without having to remove them from the pushed-to-RR
+# tree.
+
+today=2022-06-26
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Cluster FedeGueli questioned... lop & let it be added back tomorrow, then answer in
+# https://github.com/cov-lineages/pango-designation/issues/786
+g Luxembourg/LNS2666301/2022 sample-paths
+#... node_1646601:C29666T node_1646602:T27438C node_1648359:C29614T node_1648698:A14827G
+g node_1648698: sample-paths | cut -f 1 > lopForPD786
+wc -l lopForPD786
+#57 lopForPD786
+# And a little rev-yuck he didn't ask about but I can try to boot anyway:
+g Germany/ST-RKI-I-841950/2022 sample-paths
+#... node_1648009:T9534C,G18163A,A23604C,C29510A
+g node_1648009: sample-paths | cut -f 1 >> lopForPD786
+#70 lopForPD786
+
+# Another cluster FedeGueli questioned..
+# https://github.com/cov-lineages/pango-designation/issues/787
+g India/KA-RFNB-8407/2022 sample-paths
+#... node_1634951:T22304A node_1635010:A4638C
+g node_1635010: sample-paths | cut -f 1 > lopForPD787
+wc -l lopForPD787
+#15 lopForPD787
+
+# And a split branch from the same issue... lop from England/LSPA-3D537D6/2022, keep from
+# India/UP-ICMR-INSACOG-KGMU-ZY38/020/2022 and USA/2214600000116-31-F1-1/2022
+g England/LSPA-3D537D6/2022 sample-paths
+#... node_1589073:C25416T node_1634946:G22599C 
+g India/UP-ICMR-INSACOG-KGMU-ZY38/020/2022 sample-paths
+#... node_1589073:C25416T node_1634946:G22599C node_1635022:A19812G
+g USA/2214600000116-31-F1-1/2022 sample-paths
+#... node_1589073:C25416T node_1634946:G22599C node_1634951:T22304A 
+g node_1634946: sample-paths | g -v node_1635022: | g -v node_1634951: | cut -f 1 >> lopForPD787
+wc -l lopForPD787
+#71 lopForPD787
+
+# OK, prune them and leave it for tomorrow's job add them back. 
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat lop*) \
+    -o gisaidAndPublic.$today.masked.useMe.pb
+
+# Checking 2022-06-27:
+# Luxembourg/LNS2666301/2022 is right back where it was
+# Germany/ST-RKI-I-841950/2022 moved to some other branch
+# No more little reversion cluster for 787 as far as I can tell.  Still a few 22304 revs, whatever.
+# The splits are still split though.. might need to optimize, not just lop, and even then who knows,
+# not a slam-dunk.

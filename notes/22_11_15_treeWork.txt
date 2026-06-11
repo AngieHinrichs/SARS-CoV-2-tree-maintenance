@@ -1,0 +1,226 @@
+# Time for some mask, prune & re-opt.
+
+today=2022-11-15
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Recently the early 100s (e.g. 106) and far 3' UTR like 29762, 29769 have been pointed out as
+# problematic by Cornelius & others -- do more masking for BA.2 onward.
+
+# Also, BL.1.3 has a weird placement in BA.2.75.3 because of noise on 21302-21305; mask in BA.2.75.
+# Really 21302/21304/21305 should be masked whenever they appear together, but not alone.
+# There are other bogus combo branches with reversions, mini-BA.5.1, ... -- but also legit-looking
+# independent occurrences.  Need that kind of run-of-bases masking at the sequence level!
+
+# Masking doesn't change node IDs, so mask first, then prune.
+
+BA2Node=$(grep England/DHSC-CYBAB7G/2022 sample-paths \
+          | awk '{print $(NF-1);}' | sed -re 's/:.*//;')
+maskFile=moreUTRs.mask
+
+for i in 76 77 78 79 80 81 83 84 85 86 88 89 91 92 93 94 96 97 98 99 100 101 103 105 106 110 119 121 123 124 126 127 129 130 131 132 133 134 135 136 139 140 141 143 144 145 146 147 148 151 152 154 157 158 159 162 164 179 180; do
+    echo -e "N${i}N\t$BA2Node"
+done >> $maskFile
+
+# 3'UTR trouble spots (in addition to 29766 mentioned above):
+for i in 29760 29762 29764 29767 29769 29770 29771 29772 29773 29774 29775 29776 29777 29778 29779 \
+    29781 29782 29784 29786 29793 29800 29803 ; do
+    echo -e "N${i}N\t$BA2Node"
+done >> $maskFile
+
+BA275Node=$(grep India/WB-INSACOG-1931503209307/2022 sample-paths \
+          | awk '{print $NF;}' | sed -re 's/:.*//;')
+
+for i in 21302 21304 21305; do
+    echo -e "N${i}N\t$BA275Node"
+done >> $maskFile
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb -m $maskFile \
+    -o gisaidAndPublic.$today.moreMasked.pb
+#real    3m53.981s
+
+
+# Still have several of BQ.1 > A17039G > rando > G22599C branches that probably belong in BQ.1.1.
+cat > pruneForBQ.1.1 <<EOF
+France/IDF-cerba-22V0670173/2022|EPI_ISL_15429885|2022-10-11
+USA/NY-PRL-221007_00M17/2022|EPI_ISL_15381091|2022-10-05
+SouthKorea/KDCA129419/2022|EPI_ISL_15351548|2022-09-16
+USA/NY-CDC-QDX42256530/2022|OP679663.1|2022-10-08
+USA/SC-CDC-QDX41074969/2022|OP488563.1|2022-09-04
+Nigeria/NCDC-NR-GL-006423/2022|EPI_ISL_15464264|2022-09-12
+USA/NY-NYULH8693/2022|EPI_ISL_15427449|2022-09-18
+EOF
+wc -l pruneForBQ.1.1 
+#7 pruneForBQ.1.1
+
+# See if we can get rid of fwd/rev C18086T > A17039G > T18086C on the way to BQ.1.1
+g France/IDF-LBZCentre-AU2210170030/2022 sample-paths
+#... node_2025193:T22942A node_2025250:C18086T
+g Belgium/rega-45611/2022 sample-paths
+#... node_2025193:T22942A node_2025250:C18086T node_2025254:A17039G node_2025260:T18086C
+g node_2025250: sample-paths | g -v node_2025260: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#53 pruneForBQ.1.1
+
+# Also the fwd/rev C19011T > G22599C > T19011C on the way to BQ.1.1
+# (There's also a C29769T > ... > T29769C but the masking will take care of that)
+g USA/NJ-CDC-LC0895621/2022 sample-paths
+#... node_2025254:A17039G node_2025260:T18086C node_2026122:C19011T
+g Italy/EMR_AUSLRomagna_C108-22-13/2022 sample-paths
+#... node_2025254:A17039G node_2025260:T18086C node_2026122:C19011T node_2026124:G22599C node_2026125:C29769T node_2026126:T19011C
+g node_2026122: sample-paths | g -v node_2026125: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#69 pruneForBQ.1.1
+
+# BA.2.56 has a big chunk with reversion on defining 22916, pulled in by some samples with A10323G.
+g Japan/TKYhug2729/2022 sample-paths
+#... node_1685787:C2790T node_1748604:C22916A node_1749479:A10323G
+g Scotland/QEUH-3D3595C/2022 sample-paths
+#... node_1685787:C2790T node_1748604:C22916A node_1749479:A10323G node_1749487:A22916C
+g node_1749479: sample-paths | g -v node_1749487: | cut -f 1 > pruneForBA.2.56
+wc -l pruneForBA.2.56
+#205 pruneForBA.2.56
+
+# BA.5.3.3 has a big chunk w/rev on defining 6843.
+g England/LSPA-3F04365/2022 sample-paths
+#... node_2001868:C1931A node_2002625:C6843T node_2003190:A21137G
+g SouthAfrica/NICD-N44984/2022 sample-paths
+#... node_2001868:C1931A node_2002625:C6843T node_2003190:A21137G node_2003193:T6843C
+g node_2003190: sample-paths | g -v node_2003193: | cut -f 1 > pruneForBA.5.3.3
+wc -l pruneForBA.5.3.3
+#6 pruneForBA.5.3.3
+
+# That BA.2 > C25624T (no 22792) branch of the big tree has at least some 22792N seqs -->
+# prune & allow to be replaced, hopefully on BA.2.9.
+g Sweden/10307285/2022 sample-paths
+#... node_1685787:C2790T node_1778753:C25624T
+g node_1778753: sample-paths | cut -f 1 > pruneForBA.2.9
+wc -l pruneForBA.2.9
+#6170 pruneForBA.2.9
+
+# FedeGueli pointed out that the path to BE.8 has two reversions, try prune & opt.
+g England/LSPA-3E4B4CA/2022 sample-paths
+#... node_2004211:G28681T node_2004219:T28693C node_2004412:T27904G
+g Denmark/DCGC-599999/2022 sample-paths
+#... node_2004211:G28681T node_2004219:T28693C node_2004412:T27904G node_2004413:A27373C node_2004448:G22599C node_2004449:C22498T,C26110T node_2004450:C1853T,C14178T node_2004451:G27904T node_2004452:C27373A
+g node_2004412: sample-paths | g -v node_2004452: | cut -f 1 > pruneForBE.8
+wc -l pruneForBE.8
+#133 pruneForBE.8
+
+# BQ.1.25 is placed in BQ.1.1 (with reversion on 17039) because of a few strays with C22855T
+g Belgium/12216906301/2022 sample-paths
+#... node_2026157:T29769C node_2027752:C22855T ...
+g Denmark/DCGC-592274/2022 sample-paths
+#... node_2026157:T29769C node_2027752:C22855T node_2027754:T8038C,G17039A,T25569C,G26031A
+g node_2027752: sample-paths | g -v node_2027754: | cut -f 1 > pruneForBQ.1.25
+wc -l pruneForBQ.1.25
+#4 pruneForBQ.1.25
+
+# Cornelius spotted a misplaced BQ.1.10 > G22599C caused by fwd/rev at 106 (masked now) and
+# a single sample with G22599C but without T27600C
+echo 'France/IDF-HMN-22102030245/2022|EPI_ISL_15327153|2022-09-26' > pruneForBQ.1.10
+
+wc -l pruneFor*
+#   205 pruneForBA.2.56
+#  6170 pruneForBA.2.9
+#     6 pruneForBA.5.3.3
+#   133 pruneForBE.8
+#    69 pruneForBQ.1.1
+#     1 pruneForBQ.1.10
+#     4 pruneForBQ.1.25
+#  6588 total
+
+# Now prune the masked pb.
+$matUtils extract -i gisaidAndPublic.$today.moreMasked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Use a larger radius than usual & allow more time.
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    96m8.207s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after  masking, pruning, opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# fwd/rev on 18086 gone?
+g Belgium/rega-45611/2022 sample-paths.pruned
+#... node_2499975:T22942A node_2502278:A17039G
+
+# fwd/rev on 19011 gone?
+g Italy/EMR_AUSLRomagna_C108-22-13/2022 sample-paths.pruned
+#... node_2499975:T22942A node_2502278:A17039G node_2503980:G22599C
+
+# Moved out of BA.2.56 (no fwd/rev 22916)?
+g Scotland/QEUH-3D3595C/2022 sample-paths.pruned
+#... node_2089644:C2790T node_3031688:A10323G
+
+# Moved out of BA.5.3.3 (no fwd/rev on 6843?)
+g SouthAfrica/NICD-N44984/2022 sample-paths.pruned
+#... node_2472117:C1931A node_2513797:A21137G
+
+# BE.8 free from fwd/rev on 27904 and 27373?
+g Denmark/DCGC-599999/2022 sample-paths.pruned
+#... node_2474824:G28681T node_2474832:T28693C node_2476575:C26110T node_2476576:C1853T,C14178T,C22498T,G22599C
+
+# BQ.1.25 free of fwd/rev on 17039?
+g Denmark/DCGC-592274/2022 sample-paths.pruned
+#... node_2499975:T22942A node_2501655:G22599C node_2501660:T8038C,C22855T,T25569C,G26031A
+
+# Cornelius's branch on BQ.1.10 now?
+g Denmark/DCGC-605200/2022 sample-paths.pruned
+#... node_2499975:T22942A node_2502278:A17039G node_2503980:G22599C node_2503981:C27600T
+# -- No but it has A17039G so it's probably not just BQ.1.10.
+
+# This branch also had a reversion on 27600 so should be on just BQ.1.1:
+g Australia/NSW-ICPMR-36023/2022 sample-paths.pruned
+#... node_2499975:T22942A node_2502278:A17039G node_2503980:G22599C
+
+# Now to reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#> BA.5.1.31
+# Just added that one to pango.clade--mutations.tsv, good.
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+
+# Check all those paths above after pruned sequences are added back, to see if we need to
+# make any permanent exclusions.

@@ -1,0 +1,203 @@
+# today=2023-07-27
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# Cornelius reports HS.1 (XBB.1.5.95.1) has T15888C first but should have C5817T first.
+# https://github.com/cov-lineages/pango-designation/commit/158fe24787378f360f695c4d721fa5de21664585
+g USA/CA-SEARCH-131734/2022 sample-paths
+#... node_2267228:T23018C node_2308918:T15888C node_2308919:C5817T
+g node_2308918: sample-paths | g -v node_2308919: | cut -f 1 > pruneForHS.1
+wc -l pruneForHS.1
+#10 pruneForHS.1
+
+
+# FedeGueli points out a misplaced bit of FP.4
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/489
+g Vietnam/BMH-519133/2023 sample-paths
+#... node_2260775:C13968A node_2260782:C3241T node_2260783:C29095T node_2260784:C2536T,C6573T,C15045T node_2260785:C6997T,T23018C
+# Prune from 3241
+g node_2260782: sample-paths | g -v node_2260785: | cut -f 1 > pruneForFP.4
+
+
+# NkRMnZr found a 19s-artifact branch in XBB.1.9.2 that contains a mini-XBB.1.5:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/496
+# I spot-checked a bunch of sequences in nextclade.full.tsv files, hoping that some of those
+# sequences were just pulled in by Ns, but no, many many sequences all have
+# T19209G,A19210G,A19212G,A19214G,C19217A.  In many different countries.
+# I could probably just grep for that in nextclade files and auto-exclude.
+# Xu Zou suggested masking but masking 5 bases at a whack seems like a big hammer...
+# even masking 1 base loses some real info.  Then again maybe nobody cares about those
+# bases (ORF1ab:6315-6318, ORF1b 1914-1917, nsp14 390-393 I think).
+# For now just whack that branch.  Permanently.
+g France/PAC-ChTo-T230511398/2023 sample-paths
+#... node_2236255:A27507C node_2236300:T19209G,A19210G,A19212G,A19214G,C19217A
+g node_2236300: sample-paths | cut -f 1 > pruneFor19s
+wc -l pruneFor19s
+#317 pruneFor19s
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' pruneFor19s > excludeFor19s
+g -v EPI_ISL excludeFor19s | g -Fwf - $epiToPublic | cut -f 1 >> excludeFor19s
+wc -l excludeFor19s
+#330 excludeFor19s
+cat excludeFor19s >> ../badBranchSeed.ids
+
+
+# Whack this mini-XBB.1.9 and let it be re-added.  Something is going on with 28251 and 28254.
+# Some sequences e.g. Japan/PG-533077/2023|EPI_ISL_17881792|2023-04-28 and
+# Japan/TKYnat13174/2023|EPI_ISL_17540105|2023-04-02 have dubious-looking T28251G,C28253T,A28254C,
+# while others are probably pulled in by Ns because they have a deletion on 28254 and according
+# to nextalign (who knows what mafft is doing) an insertion of CTG after 28250:
+# Bulgaria/BG-EU_023231_Pl215/2023|EPI_ISL_17859388|2023-04-26
+# France/IDF-IPP11811/2023|EPI_ISL_17639013|2023-04-17
+# Tianjin/TJCDC-0303-22/2023|EPI_ISL_17488850|2023-02-28
+# For now, whack & re-add in hopes that the ones with Ns find their ways home...
+g Indonesia/JK-NIHRD-W00867/2023 sample-paths
+#... node_2250554:C26873T node_2250555:T4579A,T28251G,A28254C
+g node_2250555: sample-paths | cut -f 1 > pruneFor2825s
+wc -l pruneFor2825s
+#242 pruneFor2825s
+
+
+# Little branch with 22995G is separated from main 22995G by a two-rev branch:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/347
+g Mauritius/37916/2023 sample-paths
+#... node_2348165:C13665T node_2348173:G20055A node_2348174:G18163A node_2348175:C3903T,C12295T,G22113T,A22995G,C29510A
+g node_2348173: sample-paths | g -v node_2348175: | cut -f 1 > pruneForLP347
+wc -l pruneForLP347
+#7 pruneForLP347
+
+
+# Whack some XBB_dropouts
+g SouthKorea/KDCA236714/2023 sample-paths
+#... node_2210650:G22577C node_2210651:G22331A,G22599C
+g node_2210651: sample-paths | cut -f 1 > pruneForXBB_dropout
+wc -l pruneForXBB_dropout
+#522 pruneForXBB_dropout
+
+
+# A lot of late-28079 little branches just upstream of XBB.1.5.13
+
+g USA/NJ-PHEL-V22053770/2022 sample-paths
+#... node_2344098:T21880C node_2344134:C20451T node_2344135:G28079T
+g node_2344134: sample-paths | g -v node_2344135: | cut -f 1 > pruneForXBB.1.5.13
+wc -l pruneForXBB.1.5.13
+#3 pruneForXBB.1.5.13
+
+g Brazil/ES-LACENES-321418976/2023 sample-paths
+#... node_2344098:T21880C node_2344099:C2334T node_2344115:G2095A,C11606T node_2344120:G28079T
+g USA/NJ-CDC-LC0979109/2022 sample-paths
+#... node_2344098:T21880C node_2344099:C2334T node_2344101:C22377T node_2344102:G28079T
+g Chile/AR-21498/2023 sample-paths
+#... node_2344098:T21880C node_2344099:C2334T node_2344108:T8737C,C26029A node_2344109:G28079T
+g node_2344099: sample-paths | g -v node_2344120: | g -v node_2344102: | g -v node_2344109: \
+| cut -f 1 >> pruneForXBB.1.5.13
+wc -l pruneForXBB.1.5.13
+#21 pruneForXBB.1.5.13
+
+g USA/FL-CDC-QDX49125732/2023 sample-paths
+#... node_2344098:T21880C node_2344200:C18654T,T25144C node_2344201:G28079T
+g node_2344200: sample-paths | g -v node_2344201: | cut -f 1 >> pruneForXBB.1.5.13
+wc -l pruneForXBB.1.5.13
+#22 pruneForXBB.1.5.13
+
+g USA/PA-CDC-STM-A9RG8T6S8/2023 sample-paths
+#... node_2344098:T21880C node_2344191:C6903T,G14268A node_2344192:C835T node_2344193:G28079T
+g node_2344191: sample-paths | g -v node_2344193: | cut -f 1 >> pruneForXBB.1.5.13
+wc -l pruneForXBB.1.5.13
+#25 pruneForXBB.1.5.13
+
+#$ Little mini-FL.2(.3) pulled into parental XBB.1.9.1 by some revvy sequences
+g Botswana/BHP_1100219671/2023 sample-paths
+#... node_2234244:T15096C node_2234258:T11956C node_2234259:C15096T node_2234260:T23948G node_2234261:A2162G node_2234268:T4579A node_2234269:G23948T
+g node_2234244: sample-paths | g -v node_2234269: | cut -f 1 > pruneForFL.2
+wc -l pruneForFL.2
+#86 pruneForFL.2
+
+
+# FL.2 has a little branch C7165T with 11 seqs but only 2 of them (really one dup from Germany)
+# are assigned FL.2 by pangolin (and there's a 4579 rev branch) -- lop & replace, probably most
+# will end up in XBB.1.9.1 > C7165T.
+g Pakistan/NIH-B129-S10/2023 sample-paths
+#... node_2255549:T4579A node_2257040:C7165T
+g node_2257040: sample-paths | cut -f 1 > pruneForXBB.1.9.1
+wc -l pruneForXBB.1.9.1
+#11 pruneForXBB.1.9.1
+
+
+wc -l pruneFor*
+#  317 pruneFor19s
+#  242 pruneFor2825s
+#   86 pruneForFL.2
+#    6 pruneForFP.4
+#   10 pruneForHS.1
+#    7 pruneForLP347
+#   25 pruneForXBB.1.5.13
+#   11 pruneForXBB.1.9.1
+#  522 pruneForXBB_dropout
+# 1226 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#ToDO
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# C5817T before T15888C?
+g USA/CA-SEARCH-131734/2022 sample-paths.pruned
+#... node_2266828:T23018C node_2335804:C5817T node_2335805:T15888C
+# Good.
+
+# In FP.4 proper with T23018C > C3241T > C2536T?
+g Vietnam/BMH-519133/2023 sample-paths.pruned
+#... node_2260400:T23018C node_2260476:C3241T node_2260561:C2536T node_2260562:C6573T,C6997T,C29095T node_2260563:C15045T
+# Good.
+
+# A22995G just after 13665?
+g Mauritius/37916/2023 sample-paths.pruned
+#... node_2347747:C13665T node_2347748:A22995G node_2347749:C12295T,G22113T,C29510A...
+# Good (but who knows if it will stick when seqs are added back -- NBD because issue was closed)
+
+# 28079 just after 21880?
+g USA/NJ-PHEL-V22053770/2022 sample-paths.pruned
+#... node_2343694:T21880C node_2343725:G28079T node_2343726:C20451T
+g Brazil/ES-LACENES-321418976/2023 sample-paths.pruned
+#... node_2343694:T21880C node_2343725:G28079T node_2346156:C2334T node_2346345:G2095A,C11606T
+g USA/NJ-CDC-LC0979109/2022 sample-paths.pruned
+#... node_2343694:T21880C node_2343725:G28079T node_2346156:C2334T node_2346333:C22377T
+g Chile/AR-21498/2023 sample-paths.pruned
+#... node_2343694:T21880C node_2343725:G28079T node_2346156:C2334T node_2346339:T8737C,C26029A
+g USA/FL-CDC-QDX49125732/2023 sample-paths.pruned
+#... node_2343694:T21880C node_2343725:G28079T node_2346377:C18654T,T25144C...
+g USA/PA-CDC-STM-A9RG8T6S8/2023 sample-paths.pruned
+#... node_2343694:T21880C node_2343725:G28079T node_2346370:C835T,C6903T,G14268A
+# Good.
+
+# OK, interrupt 2023-07-28 daily build and restart with this.
+ln -s gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb

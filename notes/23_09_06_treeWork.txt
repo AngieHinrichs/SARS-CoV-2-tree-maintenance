@@ -1,0 +1,151 @@
+today=2023-09-06
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# EG.5.1(.1) has a zillion 22927s -- try to unify ones that are getting 22927 later because of
+# a very small number of sequences.
+
+g Spain/CT-HUB-08579/2023 sample-paths
+#... node_2337683:C1889T node_2338134:C7086T node_2338135:C23673T node_2338136:G22927T
+g node_2338134: sample-paths | g -v node_2338136: | cut -f 1 > pruneForEG.5.1
+wc -l pruneForEG.5.1
+#2 pruneForEG.5.1
+
+# So many singletons causing late 22927... though given the early dates (most 22927s seem to
+# appear in August), maybe not implausible...??
+
+# Spare this one -- it's one mut on the EG.5.1.1 polytomy but it's 2 months before others that
+# get 22927.
+#echo "Gansu/BYCDC086/2023|EPI_ISL_17951257|2023-06-01" >> pruneForEG.5.1
+# Ditto this:
+#echo "CHN/TZCDC072/2023|C_AA029476.1|2023-05-29" >> pruneForEG.5.1
+
+# This one has other mut before it that should pull back in when added back (total 2 muts
+# before 22927) if the current placement is not caused by N at 22927.
+echo "CHN/HLJCDC-1482/2023|C_AA027500.1|2023-06-06" >> pruneForEG.5.1
+# Ditto this:
+echo "Tianjn/TJCDC0630-17/2023|EPI_ISL_17956695|2023-06-16" >> pruneForEG.5.1
+
+# This singleton is tieing in sequences that don't have T15198A to a 28251+28254 branch on
+# the T15198A branch (reversion on 15198 for all others).  So not just a 22927 problem,
+# a more familiar 28251+28254 problem...
+echo "USA/NJ-CDC-QDX81999901/2023|OR268367.1|2023-06-22" >> pruneForEG.5.1
+wc -l pruneForEG.5.1
+#5 pruneForEG.5.1
+
+
+# clean up XCM root
+echo "Spain/CL-42838/2023|EPI_ISL_18118213|2023-07-20" > pruneForXCM
+
+
+#BA.2.35 has flip-flop on 9412 in path
+g Netherlands/GE-RIVM-101308/2022 sample-paths
+#... node_2267351:G28936T node_2267352:T9412C node_2267362:T22917G node_2267394:C9412T
+g node_2267352: sample-paths | g -v node_2267394: | cut -f 1 > pruneForBA.2.35
+wc -l pruneForBA.2.35
+#154 pruneForBA.2.35
+
+
+# BA.2.75.6 has flip-flop on 24287 in path
+g India/OR-ILSGS18989/2022 sample-paths
+#... node_2530437:T22016C node_2530821:A24287G node_2530823:G22599C node_2530824:G24287A
+g node_2530821: sample-paths | g -v node_2530824: | cut -f 1 > pruneForBA.2.75.6
+wc -l pruneForBA.2.75.6
+#5 pruneForBA.2.75.6
+
+
+# BA.5.10 is stuck on some crazy quad-undo path in BA.5.2, yikes.
+g England/PHEC-YYGSDQQ/2022 sample-paths
+#... node_3242067:C27012T node_3250120:C25896T node_3251333:A12030G node_3251334:C9803T,C20762T node_3251335:C884T,A12310G,A16616C,C19011T node_3251336:T25896C,T27513C,G28330A,G29422T node_3251337:A26392G node_3251338:T27012C node_3251339:G22346T node_3251357:T19011C
+g node_3251333: sample-paths | g -v node_3251357: | cut -f 1 > pruneForBA.5.10
+wc -l pruneForBA.5.10
+#284 pruneForBA.5.10
+
+
+# late 10204 on this maybe-XBB.1.5.49 branch
+g Mexico/CMX-INER-IBT-2444/2023 sample-paths
+#... node_2373657:T23018C node_2429184:C29272T node_2429185:T6886C,C13517T,A29687G node_2429186:A4987G node_2429187:T10204C ...
+g node_2429185: sample-paths | g -v node_2429187: | cut -f 1 > pruneForXBB.1.5.49
+wc -l pruneForXBB.1.5.49
+#4 pruneForXBB.1.5.49
+
+
+# bit of FL.21 trapped out by some other mut first
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/617
+echo "USA/TX-TAMGHRC-SHS_98064/2023|EPI_ISL_18212504|2023-08-14" > pruneForFL.21
+
+
+# Stranded bit of XBB.1.9.2 on a rev garbage branch in EG.5.1.1
+g USA/NY-CDC-LC1047519/2023 sample-paths
+#... node_2333847:C6541T node_2333891:C27507A node_2333892:T29625C node_2333893:T25572C node_2333898:A28447G node_2333899:C29386T node_2333908:T6541C,A13627G node_2333909:T2334C,T5422C,A5720G,C7044A,T9693C,G27065A,A28182G node_2333910:C22570T
+g node_2333891: sample-paths | g -v node_2333910: | cut -f 1 > pruneForXBB.1.9.2
+wc -l pruneForXBB.1.9.2
+#46 pruneForXBB.1.9.2
+
+
+# England/CLIMB-CM7YGJST get 19883 imputed by Ns and then pulls in branch without 19983, lop it.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/537
+# 19983 reversions also noted here:
+# https://github.com/cov-lineages/pango-designation/commit/f6556710dd5e198e827b227bd3db24ae11b45c74
+echo "England/CLIMB-CM7YGJST/2023|2023-08-05" > pruneFor19983
+
+# Fede asks about some sequences that are one node shy of EG.5.1.1 -- try lop & replace.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/759
+g Australia/WA13271/2023 sample-paths
+#... node_2331286:C29625T node_2331703:A18492G node_2331704:G21718T
+g node_2331703: sample-paths | g -v node_2331704: | cut -f 1 > pruneForEG.5.1.1
+wc -l pruneForEG.5.1.1
+#16 pruneForEG.5.1.1
+
+
+wc -l pruneFor*
+#    1 pruneFor19983
+#  154 pruneForBA.2.35
+#    5 pruneForBA.2.75.6
+#  284 pruneForBA.5.10
+#    5 pruneForEG.5.1
+#   16 pruneForEG.5.1.1
+#    1 pruneForFL.21
+#    4 pruneForXBB.1.5.49
+#   46 pruneForXBB.1.9.2
+#    1 pruneForXCM
+#  517 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#TODO
+
+g radius matOptimize.pruned.log
+
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# That's going to run overnight so I might not be able to check before tomorrow's build needs
+# today's tree.  So, optimistically, use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+

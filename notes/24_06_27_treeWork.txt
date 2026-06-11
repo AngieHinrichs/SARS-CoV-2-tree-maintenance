@@ -1,0 +1,156 @@
+today=2024-06-27
+cd $ottoDir/$today
+# Go Omicron-wide this time because I found some problems in BA.1, BA.5 while updating lineageTree
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# Fede spotted a misplaced bit of LB.1.3 (late C18131T)
+g Israel/SMC-7117414/2024 sample-paths
+# back one node to C18131T
+#... node_2317453:T22928C node_2317478:C23277T node_2317479:C18131T ...
+# Force-move to LB.1.3
+g Canada/AB-ABPHL-118192/2024 sample-paths
+#... node_2317453:T22928C node_2317491:C18131T
+echo -e "node_2317479\tnode_2317491" > forceMove.tsv
+
+
+# rev/re-mut on 26530 causes chunk of BA.1.1 to be misplaced in BA.1.  The whole rev branch is
+# a multi-mini-BA.1; lop the rest of it, give samples a chance at a better placement.
+# [Might be worth masking 26530 rev in all of BA.1.]
+g FRA/IHUCOVID-063027_Nova1/2022 sample-paths
+#... node_532004:G23048A node_907175:G26530A node_909932:C2470T node_909933:G19509A node_910003:A26530G node_910051:G22599A
+# Prune all the way back to G26530A rev
+g node_907175: sample-paths | g -v node_910051: | cut -f 1 > pruneForBA.1.1
+wc -l pruneForBA.1.1
+#19997 pruneForBA.1.1
+# That's a lot!  But there are a lot of mini's in there, give the sequences a chance.
+
+
+# A big chunk of JN.1.4.5 has split off with late C28201T after C28948T.
+g SouthKorea/KDCA283276/2024 sample-paths
+#... node_2304739:T18453C node_2309263:C28948T node_2309266:C28201T
+g node_2309263: sample-paths | g -v node_2309266: | cut -f 1 > pruneForJN.1.4.5
+wc -l pruneForJN.1.4.5
+#18 pruneForJN.1.4.5
+
+
+# Chunk of BA.1.17.2 split off with late C23664T
+g USA/CA-CDPH-3000313293/2022 sample-paths
+#... node_574576:G5924A node_585259:C4113T node_585260:C23664T ...
+g node_585259: sample-paths | g -v node_585260: | cut -f 1 > pruneForBA.1.17.2
+wc -l pruneForBA.1.17.2
+#6 pruneForBA.1.17.2
+
+
+# BA.5.1_no29666 is on a weird garbage raft in BA.5.1_dropout, probably whack the whole raft.
+g USA/DC-Curative-488074/2022 sample-paths
+#... node_1644173:C27259A node_1644681:A28330G
+g node_1644681: sample-paths | cut -f 1 > pruneForBA.5.1
+wc -l pruneForBA.5.1
+#2024 pruneForBA.5.1
+
+
+# Nkrmnzr reported that most of JN.1.54.1 is misplaced (by one odd sequence)
+# https://github.com/cov-lineages/pango-designation/issues/2666
+g Spain/GA-CHP-28223662/2024 sample-paths
+#... node_2323691:C12400T node_2323692:G22201A,G22781A node_2323693:T6552C,A9085G,T17556C
+g node_2323692: sample-paths | g -v node_2323693: | cut -f 1 > pruneForJN.1.54.1
+wc -l pruneForJN.1.54.1
+#1 pruneForJN.1.54.1
+
+
+# Memorablea spotted a mut/rev branch in LB.1
+# https://github.com/Memorablea/COVID-19-/issues/102#issuecomment-2190784517 / Fede email
+g Sweden/C-000200729263N2/2024 sample-paths
+#... node_2317622:C27509T node_2317626:T22111G node_2317627:C12073T,C23277T node_2317628:T27509C,A29799G ...
+g node_2317626: sample-paths | g -v node_2317628: | cut -f 1 > pruneForLB.1
+wc -l pruneForLB.1
+#4 pruneForLB.1
+
+wc -l forceMove.tsv pruneFor*
+#      1 forceMove.tsv
+#  19997 pruneForBA.1.1
+#      6 pruneForBA.1.17.2
+#   2024 pruneForBA.5.1
+#     18 pruneForJN.1.4.5
+#      1 pruneForJN.1.54.1
+#      4 pruneForLB.1
+#  22051 total
+
+
+# Force-move first since it depends on node IDs
+$matUtils mask --move-nodes forceMove.tsv -i gisaidAndPublic.$today.masked.pb \
+    -o gisaidAndPublic.$today.masked.forceMove.pb.gz
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.forceMove.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m37.554s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14191838,with radius 1, second from start 281
+#parsimony score after optimizing: 14191830,with radius 2, second from start 387
+#parsimony score after optimizing: 14191821,with radius 4, second from start 904
+#parsimony score after optimizing: 14191818,with radius 8, second from start 3419
+#parsimony score after optimizing: 14191818,with radius 16, second from start 5520
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# In LB.1.3 with C18131T before C23277T?
+g Israel/SMC-7117414/2024 sample-paths.pruned
+#... node_2313359:T22928C node_2313391:C18131T node_2313515:C23277T ...
+# Yes
+
+# In BA.1.1 (G23048A > G22599A ...)?
+g FRA/IHUCOVID-063027_Nova1/2022 sample-paths.pruned
+#... node_532004:G23048A node_675916:G22599A node_711447:C2470T node_711448:G19509A
+# Yes
+
+# In JN.1.4.5 with C28201T before C28948T?
+g SouthKorea/KDCA283276/2024 sample-paths.pruned
+#... node_2300652:T18453C node_2308420:C28201T node_2308421:C28948
+# Yes
+
+# In BA.1.17.2 (G23048A > G5924A > C23664T)?
+g USA/CA-CDPH-3000313293/2022 sample-paths.pruned
+#... node_532004:G23048A node_574576:G5924A node_586534:C23664T node_586535:C4113T ...
+# Yes
+
+# In JN.1.54.1 (A9085G > T22928C > G22781A > T17556C)?
+g Spain/GA-CHP-28223662/2024 sample-paths.pruned
+#... node_2319020:A9085G node_2319021:T22928C node_2319038:T17556C,G22781A ...
+# Yes
+
+# No more mut/rev 27509?
+g Sweden/C-000200729263N2/2024 sample-paths.pruned
+#... node_2313359:T22928C node_2313384:C23277T node_2313385:C12073T,T22111G,A29799G ...
+# Yes
+
+# Check in taxonium when 2024-06-28 build is done.

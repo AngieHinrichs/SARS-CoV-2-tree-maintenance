@@ -1,0 +1,396 @@
+today=2023-07-05
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# https://github.com/yatisht/usher/issues/346
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/314
+# T10204C branch of XBB.1.5 with 111k sequences is misplaced on XBB.1
+g Austria/AGES-1121882/2023 sample-paths
+#... node_2176917:G22317T node_2178555:G27915T node_2224678:T17124C node_2225261:T10204C node_2225603:T24845C node_2225604:T23018C node_2225605:C24845T 
+g node_2225261: sample-paths | g -v node_2225605: | cut -f 1 > pruneForXBB.1.5
+wc -l pruneForXBB.1.5
+#1180 pruneForXBB.1.5
+
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/288 flip-flop
+g Japan/PG-527633/2023 sample-paths
+#... node_2256505:T23018C node_2296350:C15024T node_2296355:C28519T node_2296359:T15024C
+g node_2296350: sample-paths | g -v node_2296359: | cut -f 1 > pruneForLP288
+wc -l pruneForLP288
+#20 pruneForLP288
+
+
+# https://github.com/cov-lineages/pango-designation/issues/2074 -- FL.4-maybe placed in FL.2
+g Indonesia/JK-CW62-4337/2023 sample-paths
+#... node_2192153:T23018C node_2207858:T4579A node_2208176:G16741T node_2208177:C2416T node_2208178:A4579T
+g node_2208177: sample-paths | g -v node_2208178: | cut -f 1 > pruneForPD2074
+wc -l pruneForPD2074
+#1 pruneForPD2074
+
+
+# https://github.com/cov-lineages/pango-designation/issues/2016 big chunk of FL.2.3 has reversion
+# on A21998C (S:K146Q) -- maybe FL.2.3 should be A17615G-first.
+g CHN/GDCDC_MZ_0038/2023 sample-paths
+#... node_2207858:T4579A node_2208586:C21998A node_2208590:A17615G
+g node_2208586: sample-paths | g -v node_2208590: | cut -f 1 > pruneForPD2016
+wc -l pruneForPD2016
+#21 pruneForPD2016
+
+
+#XBB.1.16.11 is split into three (or four?), although one of them seems like it might be a separate
+# acquisition of C23123A (S:P521T).  Try linSamples XBB.1.16.11 (--> three branches; four if color
+# by pangolin-assigned).  Well, try to unify, see what happens when samples are added back.
+
+g Canada/AB-ABPHL-96636/2023 sample-paths
+#... node_2179030:C29386T node_2182260:G21777A node_2182262:T1908C node_2182263:C23123A
+g node_2182260: sample-paths | g -v node_2182263: | cut -f 1 > pruneForXBB.1.16.11
+wc -l pruneForXBB.1.16.11
+#11 pruneForXBB.1.16.11
+
+g Australia/NSW-ICPMR-47818/2023 sample-paths
+#... node_2179030:C29386T node_2182067:C2232T node_2182068:T25496A node_2182069:C23123A
+g node_2182067 sample-paths | g -v node_2182069: | cut -f 1 >> pruneForXBB.1.16.11
+wc -l pruneForXBB.1.16.11
+#27 pruneForXBB.1.16.11
+
+g India/UP-ILSGS21598/2023 sample-paths
+#... node_2179030:C29386T node_2183704:T25496A node_2183705:C23123A
+g node_2183704: sample-paths | g -v node_2183705: | cut -f 1 >> pruneForXBB.1.16.11
+wc -l pruneForXBB.1.16.11
+#30 pruneForXBB.1.16.11
+
+
+# BN.1.3.6 has many reversions on lineage-defining A27043G -- fix the largest.
+
+g SouthKorea/KDCA180218/2022 sample-paths
+#... node_2384431:G27043A node_2385080:T16521C node_2385081:A27043G
+g node_2385080: sample-paths | g -v node_2385081: | cut -f 1 > pruneForBN.1.3.6
+wc -l pruneForBN.1.3.6
+#13 pruneForBN.1.3.6
+
+g USA/CA-HLX-STM-DK7GVZ3EC/2022 sample-paths
+#... node_2384431:G27043A node_2384638:C29625T node_2384639:A27043G
+g node_2384638: sample-paths | g -v node_2384639: | cut -f 1 >> pruneForBN.1.3.6
+wc -l pruneForBN.1.3.6
+#20 pruneForBN.1.3.6
+
+g Germany/BW-RKI-I-1027811/2022 sample-paths
+#... node_2384431:G27043A node_2384437:C346T node_2384438:A27043G
+g node_2384437: sample-paths | g -v node_2384438: | cut -f 1 >> pruneForBN.1.3.6
+wc -l pruneForBN.1.3.6
+#21 pruneForBN.1.3.6
+
+g Vietnam/18158/2022 sample-paths
+#... node_2384431:G27043A node_2384996:A4314G node_2384997:G2193T node_2384998:A27043G ...
+g node_2384996: sample-paths | g -v node_2384998: | cut -f 1 >> pruneForBN.1.3.6
+wc -l pruneForBN.1.3.6
+#29 pruneForBN.1.3.6
+
+g SouthKorea/KDCA200419/2023 sample-paths
+#... node_2384431:G27043A node_2384748:C27247T node_2384749:C13119T,C16616T node_2384750:A27043G
+g node_2384748: sample-paths | g -v node_2384750: | cut -f 1 >> pruneForBN.1.3.6
+wc -l pruneForBN.1.3.6
+#37 pruneForBN.1.3.6
+
+g SouthKorea/KDCA152586/2022 sample-paths
+#... node_2384431:G27043A node_2384878:G25500A node_2384879:A27043G ...
+g node_2384878: sample-paths | g -v node_2384879: | cut -f 1 >> pruneForBN.1.3.6
+wc -l pruneForBN.1.3.6
+#38 pruneForBN.1.3.6
+
+
+# XBB.1.5.66 has a very weakly tied in branch with reversion on defining 1820
+g USA/PA-CDC-QDX46395861/2023 sample-paths
+#... node_2305204:G1820A node_2305232:C6781T node_2305233:T28945C node_2305235:A1820G
+g node_2305232: sample-paths | g -v node_2305235: | cut -f 1 > pruneForXBB.1.5.66
+#3 pruneForXBB.1.5.66
+
+
+# XBB.1.5.67 has a very weakly tied in branch with reversion on defining 21691
+g Canada/AB-ABPHL-94902/2023 sample-paths
+#... node_2296934:C21691T node_2296973:A10042G node_2296974:C2607T,C28873T node_2296975:T21691C
+g node_2296973: sample-paths | g -v node_2296975: | cut -f 1 > pruneForXBB.1.5.67
+wc -l pruneForXBB.1.5.67
+#3 pruneForXBB.1.5.67
+
+
+# EG.2 placed as child of EG.4
+g Indonesia/YO-BBTKLPP-W42-S68B2/2023 sample-paths
+#... node_2198836:C28651T node_2199165:A22995G node_2199166:C20428T node_2199167:T28651C node_2199176:T20428C
+g node_2199166: sample-paths | g -v node_2199176: | cut -f 1 > pruneForEG.2
+wc -l pruneForEG.2
+#28 pruneForEG.2
+
+
+# BA.5.1_no29666 has become a mini-BA.5.1; lop & replace in hopes that things find their correct
+# lineages.
+g Chile/LI-64347/2022 sample-paths
+#... node_2588524:C27889T node_2617637:T27438C
+g node_2617637: sample-paths | cut -f 1 > pruneForBA.5.1_no29666
+wc -l pruneForBA.5.1_no29666
+#4548 pruneForBA.5.1_no29666
+
+# BA.5.2.1_no28330 has a sizable mini-BA.5.2.21 (C5284T) - lop & replace.
+g Canada/AB-ABPHL-70922/2022 sample-paths
+#... node_3050681:G26529A node_3077545:G28330A node_3077638:C5284T 
+g node_3077638: sample-paths | cut -f 1 > pruneForBA.5.2.1_no28330
+wc -l pruneForBA.5.2.1_no28330
+#98 pruneForBA.5.2.1_no28330
+
+
+# XBB.1.5.37 has flip-flop on 28419
+g England/PHEP-YYGPJE8/2023 sample-paths
+#... node_2225605:C24845T node_2243934:C28419T node_2243938:A24696G node_2243939:T28419C 
+g node_2243934: sample-paths | g -v node_2243939: | cut -f 1 > pruneForXBB.1.5.37
+wc -l pruneForXBB.1.5.37
+#23 pruneForXBB.1.5.37
+
+
+# XBB.1.5.77 has flip-flop on 24706
+g USA/FL-CDC-QDX45530745/2023 sample-paths
+#... node_2225605:C24845T node_2233035:T24706C node_2233040:T18732C node_2233041:C24706T
+g node_2233035: sample-paths | g -v node_2233041: | cut -f 1 > pruneForXBB.1.5.77
+wc -l pruneForXBB.1.5.77
+#12 pruneForXBB.1.5.77
+
+
+# path to BQ.1.1.18 has a couple flip-flops, late A17039G
+g France/CVL-LBZCentre-A2211280068/2022 sample-paths
+# node_2901408:T22942A node_2907216:C4456T node_2907410:A17039G node_2907496:C22893A node_2907519:G22599C node_2907523:T4456C node_2907568:C6541T node_2907569:A22893C
+g node_2907410: sample-paths | g -v node_2907569: | cut -f 1 > pruneForBQ.1.1.18
+wc -l pruneForBQ.1.1.18
+#729 pruneForBQ.1.1.18
+
+
+# BQ.1.11 is placed upstream of BQ.1, late acquisition of 22942
+g USA/NY-PRL-221028_00I09/2022 sample-paths
+#node_2899983:T14257C node_2899984:C29541T node_2899986:T22942A 
+g node_2899984: sample-paths | g -v node_2899986: | cut -f 1 > pruneForBQ.1.11
+wc -l pruneForBQ.1.11
+#45 pruneForBQ.1.11
+
+
+# https://github.com/yatisht/usher/issues/345: DV.8 is placed as child of DV.1 by a few seqs
+g Sweden/01_SE100_23CS500811/2023 sample-paths
+#... node_2416263:C22088T node_2416264:G23401T node_2416748:C19602T node_2416749:C8299T node_2416751:T22088C
+g node_2416748: sample-paths | g -v node_2416751: | cut -f 1 > pruneForDV.8
+wc -l pruneForDV.8
+#6 pruneForDV.8
+
+
+wc -l pruneFor*
+#  4548 pruneForBA.5.1_no29666
+#    98 pruneForBA.5.2.1_no28330
+#    38 pruneForBN.1.3.6
+#   729 pruneForBQ.1.1.18
+#    45 pruneForBQ.1.11
+#     6 pruneForDV.8
+#    28 pruneForEG.2
+#    20 pruneForLP288
+#    21 pruneForPD2016
+#     1 pruneForPD2074
+#    30 pruneForXBB.1.16.11
+#  1180 pruneForXBB.1.5
+#    23 pruneForXBB.1.5.37
+#     3 pruneForXBB.1.5.66
+#     3 pruneForXBB.1.5.67
+#    12 pruneForXBB.1.5.77
+#  6785 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    105m55.142s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 12764857,with radius 1, second from start 225 
+#parsimony score after optimizing: 12764843,with radius 2, second from start 315 
+#parsimony score after optimizing: 12764828,with radius 4, second from start 846 
+#parsimony score after optimizing: 12764821,with radius 8, second from start 3550 
+#parsimony score after optimizing: 12764815,with radius 16, second from start 5542 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# T10204C branch of XBB.1.5 with 111k sequences misplaced on XBB.1?
+g Austria/AGES-1121882/2023 sample-paths.pruned
+#... node_2175167:G22599C node_2176922:G22317T node_2178560:G27915T node_2224646:T17124C node_2225258:T23018C node_2225259:T10204C
+# Good.
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/288 flip-flop
+g Japan/PG-527633/2023 sample-paths.pruned
+#... node_2225258:T23018C node_2312839:C28519T
+# Good.
+
+# https://github.com/cov-lineages/pango-designation/issues/2074 -- FL.4-maybe placed in FL.2
+g Indonesia/JK-CW62-4337/2023 sample-paths.pruned
+#... node_2192141:T23018C node_2207835:T4579A node_2208153:G16741T node_2208182:A4579T node_2208183:C2416T
+# Dang, looks like the reversion just moved upstream -- maybe joined another 4579-rev branch?
+# Check in taxonium, probably need to prune more.
+# Ha!  All of FL.4 got moved into the FL.2 rev branch.
+
+# https://github.com/cov-lineages/pango-designation/issues/2016 big chunk of FL.2.3 has reversion
+# on A21998C (S:K146Q) -- maybe FL.2.3 should be A17615G-first.
+g CHN/GDCDC_MZ_0038/2023 sample-paths.pruned
+#... node_2207835:T4579A node_2211625:A17615G node_2211626:C21998A
+# Good, A17615G is first, no flip-flop.
+
+# C23123A first?
+g Canada/AB-ABPHL-96636/2023 sample-paths.pruned
+#... node_2179035:C29386T node_2189562:C23123A node_2189621:G21777A node_2189622:T1908C
+g Australia/NSW-ICPMR-47818/2023 sample-paths.pruned
+#... node_2179035:C29386T node_2189562:C23123A node_2189563:T25496A node_2189564:C2232T
+g India/UP-ILSGS21598/2023 sample-paths.pruned
+#... node_2179035:C29386T node_2189562:C23123A node_2189563:T25496A
+# Good -- see what happens when other samples are added back,
+
+# In BN.1.3 not BN.1.3.6 with rev27034?
+g SouthKorea/KDCA180218/2022 sample-paths.pruned
+#... node_2381042:C7390A node_2385768:T16521C
+g USA/CA-HLX-STM-DK7GVZ3EC/2022 sample-paths.pruned
+#... node_2381042:C7390A node_2385656:C29625T
+g Germany/BW-RKI-I-1027811/2022 sample-paths.pruned
+#... node_2381042:C7390A node_2385690:C346T
+g Vietnam/18158/2022 sample-paths.pruned
+#... node_2381042:C7390A node_2385725:G2193T,A4314G
+g SouthKorea/KDCA200419/2023 sample-paths.pruned
+#... node_2381042:C7390A node_2383941:C16616T node_2383942:C13119T,C27247T
+g SouthKorea/KDCA152586/2022 sample-paths.pruned
+#... node_2381042:C7390A node_2385754:G25500A ...
+# Good, see what happens when samples are added back.
+
+# XBB.1.5.66 has a very weakly tied in branch with reversion on defining 1820
+g USA/PA-CDC-QDX46395861/2023 sample-paths.pruned
+#... node_2225258:T23018C node_2313778:T28945C node_2313779:C6781T
+# Good.
+
+# XBB.1.5.67 has a very weakly tied in branch with reversion on defining 21691
+g Canada/AB-ABPHL-94902/2023 sample-paths.pruned
+#... node_2225258:T23018C node_2299627:A10042G node_2299628:C2607T,C28873T
+# Good.
+
+# EG.2 placed as child of EG.4 (20428 and 28651 flip-flops)
+g Indonesia/YO-BBTKLPP-W42-S68B2/2023 sample-paths.pruned
+#... node_2198824:C28651T node_2199153:A22995G node_2199156:T28651C
+# Dang, still have a flip-flop on 28651, look in taxonium and prune more.
+
+# XBB.1.5.37 has flip-flop on 28419
+g England/PHEP-YYGPJE8/2023 sample-paths.pruned
+#... node_2225259:T10204C node_2255291:A24696G
+# Good.
+
+# XBB.1.5.77 has flip-flop on 24706
+g USA/FL-CDC-QDX45530745/2023 sample-paths.pruned
+#... node_2225259:T10204C node_2254672:T18732C
+# Good.
+
+# path to BQ.1.1.18 has a couple flip-flops
+g France/CVL-LBZCentre-A2211280068/2022 sample-paths.pruned
+#... node_2898479:T22942A node_2921780:G22599C node_2923257:A17039G node_2923258:C6541T
+# Good, see what happens when seqs are added back.
+
+# BQ.1.11 is placed upstream of BQ.1, late acquisition of 22942
+g USA/NY-PRL-221028_00I09/2022 sample-paths.pruned
+#... node_2898376:T14257C node_2898479:T22942A node_2898480:C29541T
+# Good.
+
+# https://github.com/yatisht/usher/issues/345: DV.8 is placed as child of DV.1 by a few seqs
+# (flip-flop on 22088)
+g Sweden/01_SE100_23CS500811/2023 sample-paths.pruned
+#... node_2415333:T4402A node_2417637:G23401T node_2417638:C8299T,C19602T
+# Good.
+
+
+# Remove more sequences to get FL.4 and EG.2 in the right places.
+g CHN/HB-Xiaogan-1777/2023 sample-paths.pruned
+#... node_2192141:T23018C node_2207835:T4579A node_2208153:G16741T node_2208182:A4579T
+g node_2208153: sample-paths.pruned | g -v node_2208182: | cut -f 1 > pruneMoreForFL.4
+wc -l pruneMoreForFL.4
+#109 pruneMoreForFL.4
+
+g Indonesia/YO-BBTKLPP-W42-S68B2/2023 sample-paths.pruned
+#... node_2198824:C28651T node_2199153:A22995G node_2199156:T28651C
+g node_2199153: sample-paths.pruned | g -v node_2199156: | cut -f 1 > pruneMoreForEG.2
+wc -l pruneMoreForEG.2
+#15 pruneMoreForEG.2
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(cat pruneMoreFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    21m24.640s
+# Suspiciously quick, but end of log indicates that it got less than minimum improvement after
+# the short-radius rounds and stopped.
+#Last round improvement 0.000000
+#Less than minimium improvement,stalled for -1 iterations
+#...
+#Final Parsimony score 12764645
+#...
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 12764645,with radius 1, second from start 256
+#parsimony score after optimizing: 12764645,with radius 2, second from start 345
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# FL.4 in right place with no more 4579 flip-flop?
+g CHN/HB-Xiaogan-1777/2023 sample-paths.pruned
+#... node_2192141:T23018C node_2213554:G16741T
+g Indonesia/JK-CW62-4337/2023 sample-paths.pruned
+#... node_2192141:T23018C node_2213554:G16741T node_2213555:C2416T
+# Good.
+
+# EG.2 in right place with no 20428 and 28651 flip-flops?
+g Indonesia/YO-BBTKLPP-W42-S68B2/2023 sample-paths.pruned
+#... node_2198816:A16878T node_2198817:A27507C node_2206159:A22995G
+# Good.
+
+# I interrupted the 2023-07-06 build -- restart using the (re-)pruned & opt pb.
+ln -s gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb

@@ -1,0 +1,133 @@
+today=2024-09-16
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# JN.1.16.1 is on a triple-rev branch from KP.2
+g Denmark/DCGC-670929/2024 sample-paths
+#... node_2285188:G17334T node_2285232:G24872T node_2296917:C7113T node_2296918:T22928C node_2310441:G22599C node_2311730:C26894T node_2311732:T7113C node_2311733:T17334G node_2311734:T26894C node_2311735:T24872G
+# prune back to C26894T
+g node_2311730: sample-paths | g -v node_2311735: | cut -f 1 > pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#239 pruneForJN.1.16.1
+
+
+# KP.1.1.3 on rev/re-mut branch
+# Last time (24_09_11_treeWork.txt), KP.1.1.3 was on a flip-flop 1820 path, and removing that
+# just got it moved to a 335-flip-flop path.  This time get rid of both possibilities
+g Ireland/LK-UHL-687258/2024 sample-paths
+#... node_2308619:A24819G node_2308821:C335T node_2308824:G22599C node_2308828:C4999T node_2308829:T335C
+# prune back to C335T
+g node_2308821: sample-paths | g -v node_2308829: | cut -f 1 > pruneForKP.1.1.3
+wc -l pruneForKP.1.1.3
+#18 pruneForKP.1.1.3
+# Also lop these two branches (last time's 1820 samples):
+g env/Germany/BY-LGL-6249761/2024 sample-paths
+#... node_2308619:A24819G node_2310412:G25352T ...
+g node_2310412: sample-paths | cut -f 1 >> pruneForKP.1.1.3
+wc -l pruneForKP.1.1.3
+#45 pruneForKP.1.1.3
+g Canada/AB-ABPHL-116146/2024 sample-paths
+#... node_2308619:A24819G node_2310425:G1820A
+g node_2310425: sample-paths | cut -f 1 >> pruneForKP.1.1.3
+wc -l pruneForKP.1.1.3
+#82 pruneForKP.1.1.3
+
+
+# Xu found a big chunk of MC.1 with late C23277T after C13297T
+# https://github.com/cov-lineages/pango-designation/issues/2763
+g Ireland/D-SVUH-FAZ30949-050/2024 sample-paths
+#... node_2288110:A13121T node_2294685:C13297T node_2294686:C23277T
+g node_2294685: sample-paths | g -v node_2294686: | cut -f 1 > pruneForMC.1
+wc -l pruneForMC.1
+#39 pruneForMC.1
+
+
+# Xu pointed out a big chunk of KP.2 with late 22599 after T22795G
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1992#issuecomment-2336478837
+g Japan/FR301-0013/2024 sample-paths
+#... node_2296918:T22928C node_2306234:T22795G node_2306235:G22599C
+g node_2306234: sample-paths | g -v node_2306235: | cut -f 1 > pruneForKP.2
+wc -l pruneForKP.2
+#4 pruneForKP.2
+
+
+# Fede and Xu pointed out big chunk of KP.3 with late 23039
+g Ireland/D-BH-870030240/2024 sample-paths
+#... node_2285232:G24872T node_2285259:T22928C node_2285271:G15372T node_2285272:C7113T node_2285280:C23039G
+# prune back to G15372T
+g node_2285271: sample-paths | g -v node_2285280: | cut -f 1 > pruneForKP.3
+wc -l pruneForKP.3
+#62 pruneForKP.3
+
+
+wc -l pruneFor*
+#  239 pruneForJN.1.16.1
+#   82 pruneForKP.1.1.3
+#    4 pruneForKP.2
+#   62 pruneForKP.3
+#   39 pruneForMC.1
+#  426 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14417148,with radius 16, second from start 5553
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+
+# JN.1.16.1 free of its flip-flops?
+g Denmark/DCGC-670929/2024 sample-paths.pruned
+#... node_2266669:T27810C node_2285192:G17334T node_2285236:G24872T node_2285277:C7113T node_2285278:T22928C node_2309909:G22599C node_2318864:T24872G node_2318865:T17334G node_2318866:T7113C 
+# Damn, nope, it found another partial-branch, will have to try again with more pruning.
+
+# KP.1.1.3?
+g Ireland/LK-UHL-687258/2024 sample-paths.pruned
+#... node_2285278:T22928C node_2306174:A24819G node_2306389:G22599C node_2306390:C4999T
+# Good.
+
+# In MC.1 with 23277 before 13297?
+g Ireland/D-SVUH-FAZ30949-050/2024 sample-paths.pruned
+#... node_2289256:A13121T node_2293884:C23277T node_2293885:C13297T
+# Good.
+
+# In KP.2 with 22599 before 22795?
+g Japan/FR301-0013/2024 sample-paths.pruned
+#... node_2285278:T22928C node_2309909:G22599C node_2309910:T22795G
+# Good.
+
+# In KP.3 with 23039 after 7113 and before 15372?
+g Ireland/D-BH-870030240/2024 sample-paths.pruned
+#... node_2285236:G24872T node_2285277:C7113T node_2285278:T22928C node_2286425:C23039G node_2286426:G15372T
+# Good.

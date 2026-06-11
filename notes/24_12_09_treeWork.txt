@@ -1,0 +1,60 @@
+today=2024-12-09
+cd $ottoDir/$today
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+#real    4m13.288s
+
+# KP.2.3 has a couple branches of ~1k each, pulled into a rev on 17334, spotted while showing Tami how to find
+# big rev branches in taxonium.
+g USA/CA-SEARCH-141921/2024 sample-paths
+#... node_2399515:G25593T node_2399516:T17334G node_2399521:C18555T node_2399522:C28714T node_2399523:G12208A node_2399528:G17334T
+g Canada/BC-BCCDC-706766/2024 sample-paths
+#... node_2399515:G25593T node_2399516:T17334G node_2399521:C18555T node_2399522:C28714T node_2399809:G17334T
+g node_2399516: sample-paths | g -v node_2399528: | g -v node_2399809: | cut -f 1 > pruneForKP.2.3
+wc -l pruneForKP.2.3
+#108 pruneForKP.2.3
+
+# That's all for now.
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 17334?
+g USA/CA-SEARCH-141921/2024 sample-paths.pruned
+#... node_2399518:G25593T node_2401239:C28714T node_2401240:C18555T node_2401241:G12208A
+g Canada/BC-BCCDC-706766/2024 sample-paths.pruned
+#... node_2399518:G25593T node_2401239:C28714T node_2401240:C18555T
+# Good.

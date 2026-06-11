@@ -1,0 +1,108 @@
+today=2025-06-04
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# MC.41 is on a 16376 flip-flop branch
+g USA/CA-PFZ04851/2025 sample-paths
+#... node_2344152:A13121T node_2369091:C16376T node_2369094:G19962A,G23856T node_2369095:T16376C node_2369096:T6322C,G22599C ...
+g node_2369094: sample-paths | g -v node_2369096: | cut -f 1 > pruneForMC.41
+wc -l pruneForMC.41
+#2 pruneForMC.41
+
+
+# New lineage PT.1 (XEC.4.1.1.1) is split -- there's a late G22865T after T29728G
+g USA/NY-URMC-P5S1U797-1/2025 sample-paths
+#... node_2385293:C15960T node_2385297:T29728G node_2385301:G22865T ...
+g node_2385297: sample-paths | g -v node_2385301: | cut -f 1 > pruneForPT.1
+wc -l pruneForPT.1
+#9 pruneForPT.1
+
+
+# New lineage PU.1 is on a rev-re-mut 18657 branch.  Prune from the rev node.
+g Japan/FR035-0116/2025 sample-paths
+#... node_2385241:T8906G node_2385242:T18657C node_2385243:C22564T,G25507A node_2385244:C18657T
+g node_2385242: sample-paths | g -v node_2385244: | cut -f 1 > pruneForPU.1
+wc -l pruneForPU.1
+#7 pruneForPU.1
+
+
+# New lineage XFG.3 is split with late 13608 after a bunch of mutations including
+# flip-flopping 8561... start pruning at C18885T.
+g Scotland/CLIMB-CM7YRG8F/2025 sample-paths
+#... node_2332971:C10615T node_2332972:C18885T node_2332973:G8561T,T28822G node_2332974:C13608T node_2332975:T8561G
+g node_2332972: sample-paths | g -v node_2332975: | cut -f 1 > pruneForXFG.3
+wc -l pruneForXFG.3
+#4 pruneForXFG.3
+
+
+wc -l pruneFor*
+#   2 pruneForMC.41
+#   9 pruneForPT.1
+#   7 pruneForPU.1
+#   4 pruneForXFG.3
+#  22 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    103m10.642s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14886847,with radius 1, second from start 214 
+#parsimony score after optimizing: 14886831,with radius 2, second from start 297 
+#parsimony score after optimizing: 14886830,with radius 2, second from start 333 
+#parsimony score after optimizing: 14886830,with radius 2, second from start 370 
+#parsimony score after optimizing: 14886826,with radius 4, second from start 771 
+#parsimony score after optimizing: 14886826,with radius 4, second from start 807 
+#parsimony score after optimizing: 14886824,with radius 8, second from start 2797 
+#parsimony score after optimizing: 14886824,with radius 8, second from start 2833 
+#parsimony score after optimizing: 14886822,with radius 16, second from start 5535 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 16376?
+g USA/CA-PFZ04851/2025 sample-paths.pruned
+#... node_2344151:A13121T node_2368253:G22599C node_2368254:T6322C,G19962A,G23856T
+# Good.
+
+# 22865 first?
+g USA/NY-URMC-P5S1U797-1/2025 sample-paths.pruned
+#... node_2385288:C15960T node_2385295:G22865T node_2385297:C15952T node_2385298:T29728G
+# Good.  (As always, check after tomorrow's build)
+
+# No more flip-flop on 18657?
+g Japan/FR035-0116/2025 sample-paths.pruned
+#... node_2385238:T8906G node_2385260:C22564T,G25507A
+# Good.
+
+# 13608 first?
+g Scotland/CLIMB-CM7YRG8F/2025 sample-paths.pruned
+#... node_2332948:C10615T node_2332950:C13608T node_2332951:C18885T,T28822G
+# Good.
+

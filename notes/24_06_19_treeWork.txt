@@ -1,0 +1,120 @@
+today=2024-06-19
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# Fede found that JN.1.16.1 is placed as sublineage of JN.1.18.3 -- force move.
+g Shanghai/SCDC-HG0229-601/2024 sample-paths
+#... node_2260114:T27810C node_2303561:T22928G node_2303562:G22599C node_2303629:G22928C
+g CHN/MSCDC-2024031401/2024 sample-paths
+#... node_2260114:T27810C node_2328009:T22928C
+echo -e "node_2303629\tnode_2328009" > forceMove.tsv
+
+
+# In turn, JN.1.18.3 is not placed in JN.1.18, force move that too.
+g Singapore/R28MQ109/2024 sample-paths
+#... node_2260114:T27810C node_2303561:T22928G node_2303562:G22599C
+g Canada/BC-BCCDC-695123/2024 sample-paths
+#... node_2260114:T27810C node_2328341:G22599C
+echo -e "node_2303562\tnode_2328341" >> forceMove.tsv
+
+
+# Fede found that Venezuelan LB.1 + A2618G (Orf1a:I785V) are split - unify with force-move.
+g Venezuela/Dtto6042/2024 sample-paths
+#... node_2260114:T27810C node_2322049:G22111T node_2322406:G22599C node_2322407:T22928C node_2322428:C23277T node_2322439:A2618G
+g Venezuela/Dtto3982/2024 sample-paths
+#... node_2260114:T27810C node_2322049:G22111T node_2322406:G22599C node_2322407:T22928C node_2322779:A2618G ...
+echo -e "node_2322439\tnode_2322779" >> forceMove.tsv
+
+
+# Fede found misplaced bit of KP.1.1.3 (late 4999), force-move.
+g Spain/CT-HUVH-E46833/2024 sample-paths
+#... node_2260114:T27810C node_2277208:G17334T node_2277250:G24872T node_2277283:C7113T node_2277284:T22928C node_2279300:A24819G node_2279341:C23277T node_2279377:G22599C node_2279378:C4999T,G12160A,C28087T ...
+g Singapore/R30MQ240/2024 sample-paths
+#... node_2260114:T27810C node_2277208:G17334T node_2277250:G24872T node_2277283:C7113T node_2277284:T22928C node_2279300:A24819G node_2279429:G22599C node_2279454:C4999T
+echo -e "node_2279378\tnode_2279454" >> forceMove.tsv
+
+
+# Here's another misplaced bit of KP.1.1.3, with flip-flop on 1820:
+g USA/NJ-GBW-GKISBBBC26750/2024 sample-paths
+#... node_2260114:T27810C node_2277208:G17334T node_2277250:G24872T node_2277283:C7113T node_2277284:T22928C node_2279300:A24819G node_2279404:G1820A node_2279408:G22599C node_2279415:C24023T node_2279416:A1820G node_2279418:C4999T
+echo -e "node_2279418\tnode_2279454" >> forceMove.tsv
+
+
+# Fede pointed out that JN.1.39.1 is placed in JN.1.18, do a force-move.
+# https://github.com/cov-lineages/pango-designation/issues/2644#issuecomment-2153519755
+# We should go way upstream of JN.1.39.1 -- move the whole branch starting at 2782 to JN.1.39.
+g PuertoRico/S-6307/2023 sample-paths
+#... node_2260114:T27810C node_2328341:G22599C node_2328972:G2782T ...
+g USA/IL-RIPHL_122617_G/2024 sample-paths
+#...node_2260114:T27810C node_2305315:G2782T
+echo -e "node_2328972\tnode_2305315" >> forceMove.tsv
+
+
+# Cornelius designated JN.1 > T22930A > G22599C as JN.1.18.5 -- force-move to
+# JN.1 > G22599C (JN.1.18) > T22930A
+g France/GES-RELAB-IPP04888/2024 sample-paths
+#... node_2260114:T27810C node_2276408:T22930A node_2276415:G22599C
+# Use JN.1.18 node from above.
+echo -e "node_2276415\tnode_2328341" >> forceMove.tsv
+
+
+# No pruning this time! just force-move.
+
+$matUtils mask --move-nodes forceMove.tsv -i gisaidAndPublic.$today.masked.pb \
+    -o test.pb
+#ERROR: new parent node_2328009 has mutation T22928C not found in the current node node_2303629's path.
+# Doh!  The node has G22928C and the dumb string-matching is not working.  I will need to rework
+# that logic in matUtils.  Meanwhile edit forceMove.tsv to remove the first line and run again so
+# at least we fix the others.
+vi forceMove.tsv
+
+$matUtils mask --move-nodes forceMove.tsv -i gisaidAndPublic.$today.masked.pb \
+    -o test.pb
+
+
+# Check paths, then replace today's pb.
+
+$matUtils extract -i test.pb -c BA.2.86 -S sample-paths.moved
+
+# In JN.1.16 with T22928C first? -- nope because I need to fix matUtils
+g Shanghai/SCDC-HG0229-601/2024 sample-paths.moved
+#... node_2260114:T27810C node_2327867:G22599C node_2328594:T22928G node_2328661:G22928C 
+# -- but how did the mutations get to be in a different order??
+
+# In JN.1.18 with G22599C first?
+g Singapore/R28MQ109/2024 sample-paths.moved
+#... node_2260114:T27810C node_2327867:G22599C node_2328594:T22928G
+# Yes
+
+# 2618 before 23277?
+g Venezuela/Dtto6042/2024 sample-paths.moved
+#... node_2260114:T27810C node_2321575:G22111T node_2321932:G22599C node_2321933:T22928C node_2322302:A2618G node_2322320:C23277T
+# Yes
+
+# In KP.1.1.3 now?
+g Spain/CT-HUVH-E46833/2024 sample-paths.moved
+#... node_2260114:T27810C node_2277194:G17334T node_2277236:G24872T node_2277269:C7113T node_2277270:T22928C node_2279286:A24819G node_2279408:G22599C node_2279433:C4999T node_2279574:G12160A,C23277T,C28087T ...
+g USA/NJ-GBW-GKISBBBC26750/2024 sample-paths.moved
+#... node_2260114:T27810C node_2277194:G17334T node_2277236:G24872T node_2277269:C7113T node_2277270:T22928C node_2279286:A24819G node_2279408:G22599C node_2279433:C4999T node_2279576:C24023T 
+# Yes
+
+# In JN.1.39 with 2782 first?
+g PuertoRico/S-6307/2023 sample-paths.moved
+#... node_2260114:T27810C node_2304783:G2782T node_2305700:G22599C ...
+# Yes
+
+# In JN.1.18 with G22599C first?
+g France/GES-RELAB-IPP04888/2024 sample-paths.moved
+#... node_2260114:T27810C node_2327867:G22599C node_2329112:T22930A
+# Yes
+
+# Check annotations
+$matUtils extract -i test.pb -C clade-paths.test
+wc -l clade-paths clade-paths.test
+#   4154 clade-paths
+#   4154 clade-paths.test
+
+# Looks good, replace:
+mv test.pb gisaidAndPublic.$today.masked.pb
+
+# Copy-paste from updateCombinedTree.sh to redo sample-clades and metadata.

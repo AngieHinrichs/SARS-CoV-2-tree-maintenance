@@ -1,0 +1,316 @@
+today=2023-07-18
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# Flip-flop on 12473 on the way to EG.1
+g England/PHEP-YYGJH9P/2023 sample-paths
+#... node_2212765:C28928T node_2213046:C12473T node_2213055:G23401T node_2213056:T12473C
+g node_2213046: sample-paths | g -v node_2213056: | cut -f 1 > pruneForEG.1
+
+
+# Fede points out that a little bit of FY.4.1 is stranded on a rev branch in FY.4.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/302
+g Kenya/AFI-MNB-1087/2023 sample-paths
+#... node_2227866:T22913C node_2227869:A22775G node_2227880:T28600C node_2227883:C6539T,T21976C node_2227884:G22775A,T23042C...
+g node_2227869: sample-paths | g -v node_2227884: | cut -f 1 > pruneForFY.4.1
+wc -l pruneForFY.4.1
+#54 pruneForFY.4.1
+# Spare these too:
+g -vx "Portugal/PT48472/2023|EPI_ISL_17954689|2023-06-09" pruneForFY.4.1 \
+| g -vx "KEN/C122612/2023|OR044961.1|2023-04-18" \
+| g -vx "KEN/C122628/2023|OR044968.1|2023-04-19" \
+    > tmp
+mv tmp pruneForFY.4.1
+wc -l pruneForFY.4.1
+#51 pruneForFY.4.1
+
+
+# Cornelius doubts multiple occurrences of S:344<various> and S:403 in XBB.1.9.2 but I think only
+# S:403 (22770A) needs a little cleanup on a couple different branches.
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/280
+# Branch with a lot of Ns/Rs at 22770, remove all that don't have 22770A and give them another chance
+g Scotland/SCOT-31618/2023 sample-paths
+#... node_2208056:C4686T node_2208057:A16373G node_2208058:C13767T,G22592A node_2208059:G22770A
+g node_2208057: sample-paths | g -v node_2208059: | cut -f 1 \
+| g -vx "OY291806.1|2023-05-10" \
+| g -vx "England/PHEP-YYGISKF/2023|2023-06-01" \
+| g -vx "OY287136.1|2023-06-01" \
+| g -vx "Ireland/G-GUH-N1392/2023|EPI_ISL_17986418|2023-07-05" \
+| g -vx "Scotland/SCOT-31426/2023|2023-06-08" \
+| g -vx "Scotland/SCOT-31427/2023|2023-06-08" \
+    > pruneForLP280
+wc -l pruneForLP280
+#14 pruneForLP280
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/346
+g England/PHEC-YYEA518/2023 sample-paths
+#... node_2210676:T16548G node_2210677:G21255T,G22592A node_2210678:G16416T node_2210679:G22770A ...
+g Denmark/DCGC-647455/2023 sample-paths
+#... node_2210676:T16548G node_2210677:G21255T,G22592A node_2210686:C335T,G22770A,T23042C,C23664T ...
+g node_2210677: sample-paths | g -v node_2210679: | g -v node_2210686: | cut -f 1 > pruneForLP346
+wc -l pruneForLP346
+#7 pruneForLP346
+# Add a couple that currently have reversions:
+echo "Scotland/CLIMB-CM7YMGT1/2023|2023-06-30" >> pruneForLP346
+echo "Austria/AGES-1140218/2023|EPI_ISL_17881173|2023-06-20" >> pruneForLP346
+wc -l pruneForLP346
+#9 pruneForLP346
+
+
+# FedeGueli points out a branch with late 23018 that should be in XBB.1.5:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/418#issuecomment-1637046178 
+g Germany/NI-RKI-I-1132001/2023 sample-paths
+#... node_2236300:T17124C node_2330634:G28079T node_2330665:T12376C node_2330666:T23018C
+g Australia/VIC83435/2023 sample-paths
+#... node_2236300:T17124C node_2330634:G28079T node_2330635:T21880C node_2330657:C23585A node_2330658:C29509T node_2330659:T23018C ...
+g France/HDF-IPP05716/2023 sample-paths
+#... node_2236300:T17124C node_2330634:G28079T node_2330635:T21880C node_2330660:T11191C node_2330661:T23018C
+g Poland/991/2023 sample-paths
+#... node_2236300:T17124C node_2330634:G28079T node_2330635:T21880C node_2330653:C823T,A2066G node_2330654:T23018C ...
+g Chile/AT-21316/2023 sample-paths
+#... node_2236300:T17124C node_2330634:G28079T node_2330635:T21880C node_2330638:C2334T node_2330650:G1006T,T15294C node_2330651:T23018C
+g Chile/RM-14439/2023 sample-paths
+#... node_2236300:T17124C node_2330634:G28079T node_2330635:T21880C node_2330638:C2334T node_2330646:A29763G node_2330647:T23018C
+g USA/FL-CDC-QDX47493001/2023 sample-paths
+#... node_2236300:T17124C node_2330634:G28079T node_2330635:T21880C node_2330638:C2334T node_2330639:C7063T node_2330640:G22340T,T23018C
+g node_2330634: sample-paths | g -v node_2330666: | g -v node_2330659: | g -v node_2330661: \
+| g -v node_2330654: | g -v node_2330651: | g -v node_2330647: | g -v node_2330640: \
+| cut -f 1 > pruneForLP418
+wc -l pruneForLP418
+#52 pruneForLP418
+
+
+
+# Several nearby branches have the same problem.
+
+g Australia/NSW-ICPMR-43398/2023 sample-paths
+#... node_2236300:T17124C node_2330570:G90A,G102C,T104G,A107G,T108A,T112A,A113G,A118G node_2330571:T23018C
+# Ah, a run-of yuck... whack them all.
+g node_2330570: sample-paths | cut -f 1 > pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#182 pruneForXBB.1.5basal
+
+g Slovakia/BA_23_00003495/2023 sample-paths
+#... node_2236300:T17124C node_2330746:A22106C,G26230T node_2330747:T23018C ...
+g node_2330746: sample-paths | g -v node_2330747: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#185 pruneForXBB.1.5basal
+
+# 23018 very flaky here, whack it all and hope for Ns...
+g Belgium/ZNA_26084639/2023 sample-paths
+#... node_2236300:T17124C node_2236326:G14209T
+g node_2236326: sample-paths | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#285 pruneForXBB.1.5basal
+
+g USA/DC-CDC-LC1015778/2023 sample-paths
+#... node_2236300:T17124C node_2330519:C3373T node_2330520:T4948G node_2330522:T23018C 
+g node_2330519: sample-paths | g -v node_2330522: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#288 pruneForXBB.1.5basal
+
+g USA/CA-CDC-LC0962026/2022 sample-paths
+#... node_2236300:T17124C node_2330703:G2282A,G2284C node_2330704:T23018C
+g node_2330703: sample-paths | g -v node_2330704: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#289 pruneForXBB.1.5basal
+
+g Mexico/CMX-INMEGEN-99-34/2023 sample-paths
+#... node_2236300:T17124C node_2330603:A29052T node_2330604:C5784T,C13862T,C25810T node_2330605:T23018C
+g node_2330603: sample-paths | g -v node_2330605: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#312 pruneForXBB.1.5basal
+
+g France/GES-IPP13094/2023 sample-paths
+#... node_2236300:T17124C node_2330591:C19859T node_2330592:T19843C node_2330593:T23018C
+g node_2330591: sample-paths | g -v node_2330593: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#314 pruneForXBB.1.5basal
+
+g USA/MD-CDC-LC1026588/2023 sample-paths
+#... node_2236300:T17124C node_2236305:T24976C node_2236308:T9070C node_2236309:T23018C
+g node_2236305: sample-paths | g -v node_2236309: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#326 pruneForXBB.1.5basal
+
+g Netherlands/NH-AUMC-000998/2023 sample-paths
+#... node_2236300:T17124C node_2330672:C27673A node_2330673:T27672A node_2330674:T23018C
+g node_2330672: sample-paths | g -v node_2330674: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#328 pruneForXBB.1.5basal
+
+g USA/CA-CDC-LC1011285/2023 sample-paths
+#... node_2236300:T17124C node_2330563:G960A node_2330564:T13831C,A22005C node_2330565:T23018C
+g node_2330563: sample-paths | g -v node_2330565: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#332 pruneForXBB.1.5basal
+
+g Italy/ABR-IZSGC-5941/2023 sample-paths
+#... node_2236300:T17124C node_2330906:T4579A,C26082T node_2330907:C20703T node_2330908:T23018C
+g node_2330906: sample-paths | g -v node_2330908: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#334 pruneForXBB.1.5basal
+
+g USA/MA-CDC-QDX45909365/2023 sample-paths
+#... node_2236300:T17124C node_2330688:A20622C,C29409T node_2330689:T7282C node_2330690:T23018C
+g node_2330688: sample-paths | g -v node_2330690: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#338 pruneForXBB.1.5basal
+
+g England/QEUH-326FCE95/2023 sample-paths
+#... node_2236300:T17124C node_2330618:C1911T node_2330619:T23018C
+g node_2330618: sample-paths | g -v node_2330619: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#339 pruneForXBB.1.5basal
+
+g USA/WV-CDC-LC1022564/2023 sample-paths
+#... node_2236300:T17124C node_2330724:C23506T node_2330725:T23018C
+g node_2330724: sample-paths | g -v node_2330725: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#340 pruneForXBB.1.5basal
+
+g USA/CA-CDC-QDX46136755/2023 sample-paths
+#... node_2236300:T17124C node_2330681:T1501C,A21900G node_2330682:T23018C
+g node_2330681: sample-paths | g -v node_2330682: | cut -f 1 >> pruneForXBB.1.5basal
+wc -l pruneForXBB.1.5basal
+#341 pruneForXBB.1.5basal
+
+
+wc -l pruneFor*
+#   46 pruneForEG.1
+#   51 pruneForFY.4.1
+#   14 pruneForLP280
+#    9 pruneForLP346
+#   52 pruneForLP418
+#  341 pruneForXBB.1.5basal
+#  513 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    105m46.677s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 12820378,with radius 1, second from start 248
+#parsimony score after optimizing: 12820359,with radius 2, second from start 341
+#parsimony score after optimizing: 12820346,with radius 4, second from start 771
+#parsimony score after optimizing: 12820341,with radius 8, second from start 2984
+#parsimony score after optimizing: 12820339,with radius 16, second from start 5539
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 12473 on the way to EG.1?
+g England/PHEP-YYGJH9P/2023 sample-paths.pruned
+#... node_2212747:C28928T node_2213031:G23401T
+# Good.
+
+# Fede points out that a little bit of FY.4.1 is stranded on a rev branch in FY.4.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/302
+g Kenya/AFI-MNB-1087/2023 sample-paths.pruned
+#... node_2227850:T22913C node_2227853:T23042C
+# Good.
+
+# Branch with a lot of Ns/Rs at 22770, remove all that don't have 22770A and give them another chance
+# 22770 with 22592A, instead of later?
+g Scotland/SCOT-31618/2023 sample-paths.pruned
+#... node_2208062:A16373G,G22770A node_2208068:C13767T,G22592A
+# Even earlier, fine.
+
+# 22770 with C23593T, not later?
+g England/PHEP-YYGISKF/2023 sample-paths.pruned
+#... node_2208062:A16373G,G22770A node_2208063:C22593T,A29125G ...
+# Good.
+
+# 22770A with 22592A, instead of later?
+g England/PHEC-YYEA518/2023 sample-paths.pruned
+#... node_2216574:G22592A,G22770A ...
+g Denmark/DCGC-647455/2023 sample-paths.pruned
+#... node_2216574:G22592A,G22770A
+# Good, check all these after sequences have been added back.
+
+# In XBB.1.5 proper now?  (23018 right after 17124 instead of later)
+g Germany/NI-RKI-I-1132001/2023 sample-paths.pruned
+#... node_2236269:T17124C node_2236462:T23018C ...
+g Australia/VIC83435/2023 sample-paths.pruned
+#... node_2236269:T17124C node_2236462:T23018C ...
+g France/HDF-IPP05716/2023 sample-paths.pruned
+#... node_2236269:T17124C node_2236462:T23018C ...
+g USA/FL-CDC-QDX47493001/2023 sample-paths.pruned
+#... node_2236269:T17124C node_2236462:T23018C ...
+
+g Slovakia/BA_23_00003495/2023 sample-paths.pruned
+#... node_2236269:T17124C node_2236462:T23018C ...
+g USA/DC-CDC-LC1015778/2023 sample-paths.pruned
+#... node_2236269:T17124C node_2236462:T23018C ...
+g USA/CA-CDC-LC0962026/2022 sample-paths.pruned
+#... node_2236269:T17124C node_2236462:T23018C ...
+g Mexico/CMX-INMEGEN-99-34/2023 sample-paths.pruned
+#... node_2236269:T17124C node_2236462:T23018C
+# Good -- again, see what happens when sequences have been added back.
+
+# Ship it.
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   3195 clade-paths
+#   3190 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# No output, good.
+
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+
+
+

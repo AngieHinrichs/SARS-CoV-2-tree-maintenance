@@ -1,0 +1,58 @@
+today=2024-12-18
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.2024-12-18.masked.pb.gz -c JN.1 -S sample-paths
+
+# Fede reported split LF.7.2.1
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2067#issuecomment-2549012813
+g Sweden/01_SE100_24CS101072/2024 sample-paths
+#... node_2350238:T20799C node_2350275:A4838G,C4893T node_2350276:C22986T
+g node_2350275: sample-paths | g -v node_2350276: | cut -f 1 > pruneForLF.7.2.1
+wc -l pruneForLF.7.2.1
+#2 pruneForLF.7.2.1
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    66m55.660s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 14668498,with radius 1, second from start 248
+#parsimony score after optimizing: 14668487,with radius 2, second from start 337
+#parsimony score after optimizing: 14668482,with radius 4, second from start 758
+#parsimony score after optimizing: 14668482,with radius 8, second from start 3120
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# 22986 before A4838G, C4893T?
+g Sweden/01_SE100_24CS101072/2024 sample-paths.pruned
+#... node_2350243:T20799C node_2350245:C22986T node_2350246:A4838G,C4893T
+# Good, check 2024-12-19 build when samples are added back.

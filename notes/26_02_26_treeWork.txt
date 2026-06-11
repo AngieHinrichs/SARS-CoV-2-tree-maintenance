@@ -1,0 +1,129 @@
+today=2026-02-26
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Xu pointed out that PQ.25.2 is placed in PQ.17 not PQ.25
+# https://github.com/cov-lineages/pango-designation/issues/3183
+g Russia/SPE-RII-MH262685S/2025 sample-paths
+#... node_2541815:T22995C node_2543197:C1594T node_2543198:C875T,T24903C node_2543202:C28651T,C28957T
+# prune back to C1594T
+g node_2543197: sample-paths | g -v node_2543202: | cut -f 1 > pruneForPQ.25.2
+wc -l pruneForPQ.25.2
+#9 pruneForPQ.25.2
+
+
+# Xu noticed late 24289 (XFG.3.4.3) after 25658
+# https://github.com/cov-lineages/pango-designation/issues/3097#issuecomment-3863316468
+g Canada/ON-HSC-202501776-v1/2025 sample-paths
+#... node_2367883:T15762C node_2367886:C25658T node_2367887:T24289A
+g node_2367886: sample-paths | g -v node_2367887: | cut -f 1 > pruneForXFG.3.4.3
+wc -l pruneForXFG.3.4.3
+#9 pruneForXFG.3.4.3
+
+
+# Xu noticed a couple of late G25606A's (QF.7)
+# https://github.com/cov-lineages/pango-designation/issues/3174#issuecomment-3863378394
+g Chile/LI-87777/2025 sample-paths
+#... node_2368505:T23600C node_2370567:G28822T node_2370576:G25606A
+g node_2370567: sample-paths | g -v node_2370576: | cut -f 1 > pruneForQF.7
+wc -l pruneForQF.7
+#25 pruneForQF.7
+
+g USA/CO-CDPHE-45936339/2026 sample-paths
+#... node_2368505:T23600C node_2369233:C29149T node_2369235:C11866T,T16242A,G25606A ...
+g node_2369233: sample-paths | g -v node_2369235: | cut -f 1 >> pruneForQF.7
+wc -l pruneForQF.7
+#27 pruneForQF.7
+
+
+# Xu noticed a late 19851 in XFV and I see another
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3324
+g Brazil/ES-LACENES-321819617/2025 sample-paths
+#... node_2372861:C4214T node_2372901:A16602G node_2372902:G19851A
+g node_2372901: sample-paths | g -v node_2372902: | cut -f 1 > pruneForXFV
+wc -l pruneForXFV
+#1 pruneForXFV
+
+g Chile/CO-ISPC-2080/2026 sample-paths
+#... node_2372861:C4214T node_2373020:T22792C node_2373021:C9286T,G19851A,T23158C,C23673T,C23758T
+g node_2373020: sample-paths | g -v node_2373021: | cut -f 1 >> pruneForXFV
+wc -l pruneForXFV
+#5 pruneForXFV
+
+
+wc -l pruneFor*
+#   9 pruneForPQ.25.2
+#  27 pruneForQF.7
+#   9 pruneForXFG.3.4.3
+#   5 pruneForXFV
+#  50 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    57m27.807s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15296129,with radius 1, second from start 217 
+#parsimony score after optimizing: 15296118,with radius 2, second from start 299 
+#parsimony score after optimizing: 15296111,with radius 4, second from start 675 
+#parsimony score after optimizing: 15296111,with radius 8, second from start 2614 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+
+# Check paths
+
+# In PQ.25 with 28651
+g Russia/SPE-RII-MH262685S/2025 sample-paths.pruned
+#... node_2541803:T22995C node_2542494:C28651T node_2542518:C875T,C1594T,T24903C,C28957T
+
+# 24289 before 25658?
+g Canada/ON-HSC-202501776-v1/2025 sample-paths.pruned
+#... node_2367886:T15762C node_2370247:T24289A node_2370248:C25658T
+
+# 25606 first?
+g Chile/LI-87777/2025 sample-paths.pruned
+#... node_2367953:T23600C node_2370060:G25606A node_2370067:G28822T
+g USA/CO-CDPHE-45936339/2026 sample-paths.pruned
+#... node_2367953:T23600C node_2370060:G25606A node_2370061:T16242A ...
+
+# 19851 first?
+g Brazil/ES-LACENES-321819617/2025 sample-paths.pruned
+#... node_2372852:C4214T node_2373007:G19851A node_2373008:A16602G
+g Chile/CO-ISPC-2080/2026 sample-paths.pruned
+#... node_2372852:C4214T node_2373007:G19851A node_2373022:C9286T,T22792C,T23158C,C23673T,C23758T
+
+# Good, check tomorrow.
+
+
+# 2026-02-27
+
+# PQ.25.2 is back in PQ.17, tied in by the same sequences (recombinant??)
+
+# This is in QF.7 but starts a flip-flop on 28822 (rev/re-mut): Chile/LI-87777/2025
+
+# Others look OK.

@@ -1,0 +1,241 @@
+# Argh, a small number of samples causes BE.1 mutation G16935A to go ahead of parent BA.5.3.1
+# mutations and then BE.1 appears to be the parent and BA.5.3.1 the child when there's a
+# back-mut on 16935.  prune & opt...
+
+today=2022-07-20
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+g Germany/NW-RKI-I-891209/2022 sample-paths
+#... node_1605029:C27889T node_1639677:G16935A
+g England/PHEC-YYFAI88/2022 sample-paths
+#... node_1605029:C27889T node_1639677:G16935A node_1639678:G28681T
+g node_1639677: sample-paths | g -v node_1639678: | cut -f 1 > pruneForBA.5.3.1
+wc -l pruneForBA.5.3.1
+#2301 pruneForBA.5.3.1
+
+# Wait... that's kinda harsh.  Ah, I think the problem is that 1931 should go earlier, but
+# is split... trim the sequences that are missing 1931 but have 16935 on both splits.
+
+g Belgium/12210604201/2022 sample-paths
+#... node_1605029:C27889T node_1639677:G16935A node_1643754:T2954C node_1643755:C11750T node_1643756:G22427A node_1643757:C1931A
+g Botswana/R145B21_BHP_AAC94348/2022 sample-paths
+#... node_1605029:C27889T node_1639677:G16935A node_1639678:G28681T node_1639679:A26529G node_1639680:C1931A
+g node_1639677: sample-paths | g -v node_1643757:  | g -v node_1639680: | cut -f 1 > pruneForBA.5.3.1
+#63 pruneForBA.5.3.1
+# That's more like it.
+
+# Doh, BA.4.3 couldn't be annotated yesterday or today.  Check that out... oh damn, it's because
+# it has 203 in the path, and now I'm masking that out because it's a mess.  Fix path, reannotate.
+
+# I wonder if I can consolidate T22917G in BA.4 too... worth a try.  Actually there's only a
+# little basal cruft for BA.4; trim it in case there are some N's that would resolve better.
+g Spain/PV-HUB-52327074/2022 sample-paths
+#... node_1322429:C2790T node_1601912:T9866C node_1644511:G12160A
+g Belgium/CHUNamur14184718/2022 sample-paths
+#... node_1322429:C2790T node_1601912:T9866C node_1644511:G12160A node_1644512:G23040A node_1644513:T23018G node_1644514:C28724T node_1644515:G27788T node_1644516:T22917G
+g Botswana/R1113B11_BHP_1042053/2022 sample-paths
+#... node_1644514:C28724T node_1644515:G27788T node_1649769:T21570G node_1649981:T22917G
+g node_1644511: sample-paths | g -v node_1644516: | g -v node_1649981: | cut -f 1 > pruneForBA.4base
+wc -l pruneForBA.4base
+#996 pruneForBA.4base
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    28m13.088s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+# Hopefully C27889T > C1931A > G16935A ... now:
+g Belgium/12210604201/2022 sample-paths.opt
+#... node_2000418:C27889T node_2042187:C1931A node_2042188:G16935A node_2042189:G28681T node_2043851:T2954C node_2043862:C11750T node_2045904:T28681G node_2045907:G22427A node_2045915:G28681T 
+# Well, I'm not wild about the G28681T > T28681G > G28681T but at least it starts out good.
+g Botswana/R1113B11_BHP_1042053/2022 sample-paths.opt
+#...node_1635436:C2790T node_1666085:G210T node_1667877:T212C node_1667952:T22917G,G23040A node_1667953:T23018G node_1667954:T9866C node_1667955:G27788T node_1667956:G12160A node_1667957:T210G,C212T node_1667958:C28724T node_1667959:T21570G
+# Doh, the mini-BA.4 on the BA.2 > 210 > 212 where Chenwei's sequence ended up!  I'm tempted to
+# do a one-time branch-specific masking of 210 and 212 on that branch...
+
+wc -l clade-paths*
+#   1881 clade-paths
+#   1876 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.4
+#BA.4.1
+#BA.5.2
+#BA.5.3
+#BE.1
+
+# Re-annotate to fix up anything necessary in BA.5.3 > BA.5.3.1 > BE.* and restore BA.4.3.
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.opt
+wc -l clade-paths clade-paths.opt
+#   1881 clade-paths
+#   1882 clade-paths.opt
+
+# Actually BA.5.3.1 is not great:
+g BA.5.3.1$'\t' clade-paths.opt 
+#BA.5.3.1   ... C27889T > C1931A > G16935A > G28681T > A16935G
+
+# Look at it in taxonium.
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.masked.taxonium.jsonl.gz
+
+# Yep.
+g CostaRica/INC-4912-758557/2022 sample-paths.opt
+#... node_2000418:C27889T node_2042187:C1931A node_2042188:G16935A
+g NewZealand/22CV7358/2022 sample-paths.opt
+#... node_2000418:C27889T node_2042187:C1931A node_2042188:G16935A node_2042189:G28681T
+g node_2042188: sample-paths.opt | g -v node_2042189: | cut -f 1 > pruneForBA.5.3.1.again
+wc -l pruneForBA.5.3.1.again
+#1 pruneForBA.5.3.1.again
+# Yep, just that one is enough to mess it all up.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -p -s pruneForBA.5.3.1.again \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    29m27.415s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+# Hopefully C27889T > C1931A > G16935A ... now:
+g Belgium/12210604201/2022 sample-paths.opt
+#... node_2000414:T22917G node_2043391:C1931A node_2043392:G28681T node_2043418:T22548C node_2043419:G16935A node_2043420:C27889T node_2043421:C22548T node_2045083:T2954C node_2045094:C11750T node_2046981:T28681G node_2046984:G22427A node_2046992:G28681T 
+# Wait... what?!  what is ... all that crap?  Hmm, T2954C > C11750T is BE.1.1  But there only seem
+# to be a few sequences with C22548T... 
+
+# Is there some other better branch for BA.5.3?
+g OX214873.1 sample-paths.opt
+#... node_2000414:T22917G node_2000415:C27889T node_2042178:C1931A
+# OK, that's better... although where is C27889T??
+
+# Check BA.5.3.1 (G28681T but not G16935A, that's BE.1):
+g Germany/SN-RKI-I-868662/2022 sample-paths.opt
+#... node_2000414:T22917G node_2043391:C1931A node_2043392:G28681T node_2043418:T22548C node_2043419:G16935A node_2043420:C27889T node_2043421:C22548T node_2047817:A16935G
+# Yeah, that's a mess.
+
+g Botswana/R1113B11_BHP_1042053/2022 sample-paths.opt
+#...node_1635432:C2790T node_1666081:G210T node_1667873:T212C ... same crap branch, lost cause
+
+wc -l clade-paths*
+#   1881 clade-paths
+#   1876 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.4
+#BA.4.1
+#BA.5.2
+#BA.5.3
+#BE.1
+
+# OK, who's responsible for T22548C > ... > C22548T ?
+g node_2043418: sample-paths.opt | g -v node_2043421: | cut -f 1 >> pruneForBA.5.3.1.again
+wc -l pruneForBA.5.3.1.again
+#22 pruneForBA.5.3.1.again
+# Actually, get rid of all the top fluff.
+g node_2043391: sample-paths.opt | g -v node_2043421: | cut -f 1 >> pruneForBA.5.3.1.again
+sort -u pruneForBA.5.3.1.again | wc -l
+#114
+
+# OK, try again again.
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -p -s pruneForBA.5.3.1.again \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    28m35.103s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+# Hopefully C27889T > C1931A > G16935A ... now:
+g Belgium/12210604201/2022 sample-paths.opt
+#... node_2000414:T22917G node_2000415:C27889T node_2009044:G28681T node_2009045:C1931A node_2009046:G16935A node_2010708:T2954C node_2010719:C11750T node_2012607:T28681G node_2012610:G22427A node_2012618:G28681T
+# OK, G28681T is supposed to go after 1931 but at least C27889T is before those now...
+
+# Better branch for BA.5.3?
+g OX214873.1 sample-paths.opt
+#... node_2000414:T22917G node_2000415:C27889T node_2047690:C1931A 
+# Yes!
+
+# Check BA.5.3.1 (G28681T but not G16935A, that's BE.1):
+g Germany/SN-RKI-I-868662/2022 sample-paths.opt
+#... node_2000414:T22917G node_2000415:C27889T node_2009044:G28681T node_2009045:C1931A
+# Doh, looks like BA.5.3 is split now with half going after BA.5.3.1?  Or is that just an out of
+# place stubby G28681T that needs to be pruned?  I don't have time for another round tonight...
+
+wc -l clade-paths*
+#   1881 clade-paths
+#   1875 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.4
+#BA.4.1
+#BA.5.2
+#BA.5.3
+#BA.5.3.1
+#BE.1
+
+# Look for the split BA.5.3 in taxonium:
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.masked.taxonium.jsonl.gz \
+    >& /data/tmp/angie/usher_to_taxonium.log
+
+# It'll have to do for now; will probably want to prune more tomorrow.
+
+# Re-annotate.
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.opt
+wc -l clade-paths clade-paths.opt
+#???
+
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+mv sample-paths{.opt,}
+mv clade-paths{.opt,}
+
+# Copy-paste remaining steps from updateCombinedTree.sh.

@@ -1,0 +1,16 @@
+today=2024-05-25
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# I forgot to adjust branchSpecificMask.yml on 24-05-24, so need to prune again.
+cp -p ../2024-05-24/pruneFor21627 .
+wc -l pruneFor21627
+#294 pruneFor21627
+
+# Just lop the samples to be added back without 21627 masked in tomorrow's build, no need
+# to re-optimize.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.masked.useMe.pb
+
+# Check paths in 2025-05-26 build

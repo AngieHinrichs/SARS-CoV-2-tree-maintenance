@@ -1,0 +1,101 @@
+today=2025-09-08
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+
+# PQ.1.5 is on a flip-flop on 11767
+g France/ARA-RELAB-HCL725000117301/2025 sample-paths
+#... node_2483879:T16456C node_2484291:C11767T node_2484292:C7299T node_2484293:C25156T node_2484294:T11767C
+g node_2484291: sample-paths | g -v node_2484294: | cut -f 1 > pruneForPQ.1.5
+wc -l pruneForPQ.1.5
+#4 pruneForPQ.1.5
+
+
+# XFG.10.1 has late T979A after C6629T
+g Canada/ON-PHL-202506660/2025 sample-paths
+#... node_2356228:C20178T node_2357387:C6629T node_2357388:T979A
+g node_2357387: sample-paths | g -v node_2357388: | cut -f 1 > pruneForXFG.10.1
+wc -l pruneForXFG.10.1
+#6 pruneForXFG.10.1
+
+
+# Missing-coverage sequences cause multiple nearby T22197C mutations
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2879
+g Canada/AB-ABPHL-132340/2025 sample-paths
+#... node_2458358:T4723C,C20233T node_2458494:A6859G,A12198G node_2458495:C15026T,C17550T node_2458496:T22197C
+# prune back to A6859G,A12198G
+g node_2458494: sample-paths | g -v node_2458496: | cut -f 1 > pruneForLP2879
+wc -l pruneForLP2879
+#8 pruneForLP2879
+
+
+# Prune basal cruft around NB.1.8.1
+# https://github.com/cov-lineages/pango-designation/issues/3074#issuecomment-3268246905
+g CHN/HB-Xianning-7870/2025 sample-paths
+#... node_2480135:C823T node_2480149:G22865T node_2480161:C15960T
+g node_2480149: sample-paths | g -v node_2480161: | cut -f 1 > pruneForNB.1.8.1
+wc -l pruneForNB.1.8.1
+#79 pruneForNB.1.8.1
+
+
+wc -l pruneFor*
+#   8 pruneForLP2879
+#  79 pruneForNB.1.8.1
+#   4 pruneForPQ.1.5
+#   6 pruneForXFG.10.1
+#  97 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m34.988s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 11767?
+g France/ARA-RELAB-HCL725000117301/2025 sample-paths.pruned
+#... node_2483865:T16456C node_2484379:C7299T node_2484380:C25156T
+#Good.
+
+# T979A before C6629T?
+g Canada/ON-PHL-202506660/2025 sample-paths.pruned
+#... node_2356229:C20178T node_2358677:T979A node_2358678:C6629T
+# Good.
+
+# Unified on T22197C?
+g Canada/AB-ABPHL-132340/2025 sample-paths.pruned
+#... node_2458355:T4723C,C20233T node_2458493:A6859G,A12198G,C15026T,C17550T,T22197C
+g Canada/ON-SHL-202503136/2025 sample-paths.pruned
+#... oops, it got pruned
+
+# For the last one, see tomorrow if SouthKorea/KDCA298748/2025 gets placed in NB.1.8.1 in the 2025-09-09 tree
+# (after C15960T -- hoping that's just Ns & can be inferred, not asserted reference)

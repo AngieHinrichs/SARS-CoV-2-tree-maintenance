@@ -1,0 +1,331 @@
+today=2023-09-29
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# These two are designated FL.36 but are placed one node upstream, without S:1070.  Replace in case of Ns:
+cat > pruneForFL.36 <<EOF
+USA/NJ-GBW-H20-328-9435/2023|EPI_ISL_18239057|2023-08-29
+USA/NJ-GBW-H10-016-7669/2023|EPI_ISL_18239070|2023-08-29
+EOF
+
+# For JN.1, this designated sequence seems to be missing T22926C despite having T27810C:
+cat > pruneForJN.1 <<EOF
+Luxembourg/LNS8818436/2023|EPI_ISL_18286580|2023-08-25
+EOF
+
+# The little bit of XBB.1.5 without 17124 is stuck on a tortured multi-rev path that includes
+# XBB.1.22, and off to the side, FY.5 which should be in XBB.1.22.1.
+g Anhui/HBCDC-C59/2023 sample-paths
+#... node_1161182:C11956T node_1161294:T12730A node_1161295:T23018C node_1188075:T28297C node_1188076:A12730T node_1188342:T11956C node_1192185:C28297T
+
+# Spare FY.5:
+g NewZealand/ESR-XA3879/2023 sample-paths
+#... node_1161182:C11956T node_1161294:T12730A node_1161295:T23018C node_1188075:T28297C node_1188076:A12730T node_1188079:A22995G node_1188080:T11956C node_1188087:A22161G
+
+# Spare XBB.1.22:
+g Ireland/D-SVUH-FAX24467-029/2023 sample-paths
+#... node_1161182:C11956T node_1161294:T12730A node_1161295:T23018C node_1188075:T28297C node_1188076:A12730T node_1188342:T11956C
+
+# Spare XBB.1.16:
+g CHN/GDCDC_GZHG_0888/2023 sample-paths
+#... node_1161182:C11956T node_1161294:T12730A node_1161295:T23018C node_1161296:A28447G node_1161297:C11750T node_1161298:A22995G node_1161299:G18703T node_1161300:A14856G node_1161425:A22101T node_1161426:T28297C node_1161664:C29386T
+
+# Spare this weird little branch after a bunch of revs, that might contain some recombinants:
+g NewZealand/ESR-XA3493/2023 sample-paths
+#... node_1161182:C11956T node_1161294:T12730A node_1161295:T23018C node_1161296:A28447G node_1161297:C11750T node_1161298:A22995G node_1161299:G18703T node_1161300:A14856G node_1161301:G28447A node_1161307:A22101T node_1161316:G22995A node_1161317:T28297C node_1161318:A27507C node_1161319:T22101A node_1161320:T18703G node_1161323:C27507A node_1161334:A460G,T3802C node_1161335:A28447G,C29386T node_1161336:A16878T node_1161337:A18492G,G21718T,C22480T,T22930A node_1161338:T9964C 
+g node_1161294: sample-paths | g -v node_1192185: | g -v node_1188087: | g -v node_1188342: \
+| g -v node_1161664: | g -v node_1161338: | cut -f 1 > pruneForXBB.1.5
+wc -l pruneForXBB.1.5
+#1347 pruneForXBB.1.5
+
+
+# EG.2 is stuck in XBB.1.9.1-land (instead of parental XBB.1.9.2) by some strays... I would
+# prune from the rev11956 but XBB.1.9.7 is there and it might need a brute-force move or something.
+g Japan/PG-528097/2023 sample-paths
+#... node_1199167:C11956T node_1199204:T23018C node_1199205:A22995G node_1199209:T11956C node_1199258:A16878T node_1199259:A27507C
+g node_1199258: sample-paths | g -v node_1199259: | cut -f 1 > pruneForEG.2
+wc -l pruneForEG.2
+#24 pruneForEG.2
+
+
+# BA.5.1 with 29614 (52k seqs) got pulled into BA.5_dropout...
+g France/NOR-HMN-22062160229/2022 sample-paths
+#... node_1658715:C27259A node_1658716:A12160G node_1658984:C27889T node_1658989:G26577C node_1658995:G12160A node_1659013:C29666T node_1659014:T25000C node_1659029:T27438C node_1659030:G26529A node_1659039:C29614T node_1659040:C26577G node_1659041:C25000T 
+g node_1658716: sample-paths | g -v node_1659041: | cut -f 1 > pruneForBA.5.1
+wc -l pruneForBA.5.1
+#2277 pruneForBA.5.1
+
+
+# Some branches in BA.5 just missing C27889T clearly belong in sublineages... lop & replace.
+g Germany/BY-RKI-I-816950/2022 sample-paths
+#... node_1672261:G26529A node_2280007:C1931A
+g node_2280007: sample-paths | cut -f 1 > pruneForBA.5
+wc -l pruneForBA.5
+#266 pruneForBA.5
+
+g USA/TX-HMH-M-107148/2022 sample-paths
+#... node_1672261:G26529A node_2279910:C26858T
+g node_2279910: sample-paths | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#519 pruneForBA.5
+
+g Italy/SIC-CQRC-3422073234/2022 sample-paths
+#... node_1672261:G26529A node_1672262:C1627T ...
+g node_1672262: sample-paths | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#917 pruneForBA.5
+
+# Another little wayward sublineage bit:
+g Spain/GA-SCQ_22-283457/2022 sample-paths
+#... node_1672261:G26529A node_1672434:C22450T node_1672641:T27438C node_1672649:C29666T node_1672681:T22450C
+g node_1672641: sample-paths | g -v node_1672681: | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#1109 pruneForBA.5
+
+# And some more that do have 27889:
+g USA/OKPHL0020187/2022 sample-paths
+#... node_1672261:G26529A node_1673605:C27889T node_1854584:A10447G node_1854585:A10449C node_1854586:T27438C node_1854588:C29666T ...
+# Actually, just lop from 10447 in case of Ns, weird.
+g node_1854584: sample-paths | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#1197 pruneForBA.5
+
+g USA/CA-HLX-STM-WBVHTPGDY/2022 sample-paths
+#... node_1672261:G26529A node_1673605:C27889T node_1854646:T18957C node_1854652:C21077T node_1854653:C17402T
+g node_1854646: sample-paths | g -v node_1854653: | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#1227 pruneForBA.5
+
+g USA/CA-CDPH-FS27889686/2022 sample-paths
+#... node_1672261:G26529A node_1673605:C27889T node_1682296:T21570G node_1682301:A11782G node_1682302:C17766T,A22910G node_1682303:A27038G,C27389T,C27625T,A28330G node_1682304:C12651T 
+g node_1682301: sample-paths | g -v node_1682304: | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#1231 pruneForBA.5
+
+g Colombia/TOL-UGRA-VG-24360/2022 sample-paths
+#... node_1672261:G26529A node_1673605:C27889T node_1967843:C17285T node_1967846:T27438C
+g node_1967843: sample-paths | g -v node_1967846: | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#1254 pruneForBA.5
+
+g USA/TX-HMH-MCoV-121704/2022 sample-paths
+#... node_1672261:G26529A node_1673605:C27889T node_2279079:G28681T node_2279092:C28312T node_2279093:G22599C node_2279094:A22893C node_2279095:C1931A node_2279096:C11750T node_2279106:T22942A 
+# I would go further back, but spare XCB...
+g node_2279093: sample-paths | g -v node_2279106: | cut -f 1 >> pruneForBA.5
+wc -l pruneForBA.5
+#1307 pruneForBA.5
+
+
+wc -l pruneFor*
+#  1307 pruneForBA.5
+#  2277 pruneForBA.5.1
+#    24 pruneForEG.2
+#     2 pruneForFL.36
+#     1 pruneForJN.1
+#  1347 pruneForXBB.1.5
+#  4958 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m18.924s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# XBB in the right place?
+g Anhui/HBCDC-C59/2023 sample-paths.pruned
+#... node_1161187:C11956T node_1161429:T23018C node_1161430:T28297C node_1161431:T11956C node_1165505:C28297T 
+# Damn!  We got rid of the flip-flop on 12730 but not the other two.  Will have to try again.
+
+# Is EG.2 out of XBB.1.9.2-land?
+#  4958 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    108m12.985s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13194061,with radius 1, second from start 255
+#parsimony score after optimizing: 13194049,with radius 2, second from start 345
+#parsimony score after optimizing: 13194037,with radius 4, second from start 788
+#parsimony score after optimizing: 13194033,with radius 8, second from start 3242
+#parsimony score after optimizing: 13194021,with radius 16, second from start 5534
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# XBB.1.5 in the right place?
+g Anhui/HBCDC-C59/2023 sample-paths.pruned
+#... node_1161187:C11956T node_1161429:T23018C node_1161430:T28297C node_1161431:T11956C node_1165505:C28297T 
+# Damn!  We got rid of the flip-flop on 12730 but not the other two.  Will have to try again.
+# Spare XBB.1.22
+g Canada/ON-KHS-04788-v1/2023 sample-paths.pruned
+#... node_1161187:C11956T node_1161429:T23018C node_1161430:T28297C node_1161431:T11956C
+# Spare XBB.1.16 and the weird little branches
+g USA/TX-HMH-129434/2023 sample-paths.pruned
+#... node_1161187:C11956T node_1161429:T23018C node_1161430:T28297C node_1169916:A28447G,C29386T ...
+g node_1161429: sample-paths.pruned | g -v node_1165505: | g -v node_1161431: | g -v node_1169916: \
+| cut -f 1 > pruneMoreForXBB.1.5
+wc -l pruneMoreForXBB.1.5
+#9 pruneMoreForXBB.1.5
+
+# Is EG.2 out of XBB.1.9.2-land?
+g Japan/PG-528097/2023 sample-paths.pruned
+#... node_1198693:C11956T node_1198730:T23018C node_1198731:A22995G node_1198735:T11956C node_1198785:A27507C node_1198786:A16878T
+# Damn.  Nope.  Prune more for this one too.
+g node_1198785: sample-paths.pruned | g -v node_1198786: | cut -f 1 > pruneMoreForEG.2
+wc -l pruneMoreForEG.2
+#4 pruneMoreForEG.2
+
+# Is this in regular BA.5.1 now?
+g France/NOR-HMN-22062160229/2022 sample-paths.pruned
+#... node_1659513:C27889T node_1668269:C29614T node_1668270:C29666T node_1668271:T27438C ...
+# Damn!  Still 29614 first.
+g node_1668269: sample-paths.pruned | g -v node_1668271: | cut -f 1 > pruneMoreForBA.5.1
+wc -l pruneMoreForBA.5.1
+#10 pruneMoreForBA.5.1
+
+# Looking at JN.1, there's a flip-flop on 21610.  I think this one needs to go too:
+cat > pruneMoreForJN.1 <<EOF
+Iceland/L-4423/2023|EPI_ISL_18286817|2023-08-29
+EOF
+
+# Prune a bit more for the misplaced bit of BA.5.6:
+g USA/CA-CDC-LC0763521/2022 sample-paths.pruned
+#... node_1659513:C27889T node_1680597:C17402T node_1680598:C21077T node_1680599:T18957C
+g node_1680597: sample-paths.pruned | g -v node_1680599: | cut -f 1 > pruneMoreForBA.5
+
+# And finally, lop this just-shy (missing 27889) mini-BA.5.1.
+g France/un-IHUMI-089385/2022 sample-paths.pruned
+#... node_1658709:G26529A node_2278026:T27438C node_2278027:C29666T
+g node_2278026: sample-paths.pruned | cut -f 1 >> pruneMoreForBA.5
+wc -l pruneMoreForBA.5
+#1692 pruneMoreForBA.5
+
+
+wc -l pruneMoreFor*
+# 1692 pruneMoreForBA.5
+#   10 pruneMoreForBA.5.1
+#    4 pruneMoreForEG.2
+#    1 pruneMoreForJN.1
+#    9 pruneMoreForXBB.1.5
+# 1716 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(sort -u pruneMoreFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#TODO
+
+# Oh damn.  $matUtils... was pasted as "atUtils..." so... nothing happened.
+# And the 2023-09-30 build has started already.  Oh well, see what we get,
+# might just have to force-move some nodes.
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# XBB.1.5, XBB.1.22 and friends in the right place?
+g Anhui/HBCDC-C59/2023 sample-paths.pruned
+#... 
+g Canada/ON-KHS-04788-v1/2023 sample-paths.pruned
+#... 
+g USA/TX-HMH-129434/2023 sample-paths.pruned
+#... 
+
+# Is EG.2 out of XBB.1.9.2-land?
+g Japan/PG-528097/2023 sample-paths.pruned
+#... 
+
+# Is this in regular BA.5.1 now?
+g France/NOR-HMN-22062160229/2022 sample-paths.pruned
+#... 
+
+# In BA.5.6?
+g USA/CA-CDC-LC0763521/2022 sample-paths.pruned
+#... 

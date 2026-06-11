@@ -1,0 +1,110 @@
+# BQ.1.1 has an annoying mut/rev on 15240 at the end of its path that caused the public tree
+# to have BQ.1.1 annotated on the wrong node due to placement with node-splitting (i.e. ignoring
+# extra muts on node).
+
+today=2022-12-12
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Annoyingly placed C15240T:
+g Singapore/14731/2022 sample-paths
+#... node_2037607:T22942A node_2040501:G22599C node_2040568:C15240T ...
+# Good BQ.1.1, no C15240T:
+g Aruba/AW-RIVM-118855/2022 sample-paths
+#... node_2037607:T22942A node_2040501:G22599C node_2040568:C15240T node_2040571:A17039G node_2040574:T15240C
+# Spare this little clump that has T15240C after a rando:
+g Portugal/PT44147/2022 sample-paths
+#... node_2037607:T22942A node_2040501:G22599C node_2040568:C15240T node_2040571:A17039G node_2040572:C3912T node_2040573:T15240C
+g node_2040568: sample-paths | g -v node_2040574 | g -v node_2040573 | cut -f 1 > pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#14 pruneForBQ.1.1
+
+# Let's get rid of the annoying rev/re-mut on 26577 on the way to BA.4.6.2.
+g France/PDL-HMN-22102200409/2022 sample-paths
+#... node_1813221:G22599C node_1813222:C14599T node_1824542:G26577C
+g Belgium/ULG-26892/2022 sample-paths
+#... node_1813221:G22599C node_1813222:C14599T node_1824542:G26577C node_1824559:G7042T node_1824564:C26577G
+g node_1824542: sample-paths | g -v node_1824564: | cut -f 1 > pruneForBA.4.6
+wc -l pruneForBA.4.6
+#206 pruneForBA.4.6
+
+wc -l pruneFor*
+#  206 pruneForBA.4.6
+#   14 pruneForBQ.1.1
+#  220 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Should I be using a bigger radius here or does that create trouble sometimes?
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned &
+
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# Is BQ.1.1 good, no 15240 BS?
+g Aruba/AW-RIVM-118855/2022 sample-paths.pruned
+#... node_2523100:T22942A node_2526632:G22599C node_2526719:A17039G
+# Yes!
+# How about the little cluster?
+g Portugal/PT44147/2022 sample-paths.pruned
+#... node_2523100:T22942A node_2526632:G22599C node_2526719:A17039G node_2526720:C3912T
+# Yay.
+
+# How about that arm of BA.4.6, no 26577 BS?
+g Belgium/ULG-26892/2022 sample-paths.pruned
+#... node_2216597:C28724T node_2241510:A23535G node_2245157:C8140T node_2245162:G22599C node_2245163:C14599T node_2258837:G7042T 
+# Good.  We'll see what happens when sequences get added back.
+
+# Now to reannotate clades & lineages on it.
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.pruned | sort) | less
+#< BQ.1.1
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# No output, good.
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+
+# Check all those paths above after pruned sequences are added back, to see if we need to
+# make any permanent exclusions.

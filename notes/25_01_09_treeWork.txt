@@ -1,0 +1,86 @@
+today=2025-01-09
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Fede pointed out late A19722G in the way to KP.3.1.1 -- turns out it should be before KP.3.1,
+# but some sequences without it (or Ns??) have caused it to appear late on several paths.
+g Australia/SA1356575/2024 sample-paths
+#... node_2344793:C23039G node_2362903:G15372T node_2390786:A19722G
+g USA/2024CV1144/2024 sample-paths
+#... node_2344793:C23039G node_2362903:G15372T node_2362906:A13121T node_2362907:C12616T node_2362914:A897C node_2362915:A19722G
+g USA/CA-PFZ01561/2024 sample-paths
+#... node_2344793:C23039G node_2362903:G15372T node_2362906:A13121T node_2362907:C12616T node_2362941:T15372G node_2362943:T17334G node_2362951:A19722G node_2362952:G15372T
+g Australia/SA2052140/2024 sample-paths
+#... node_2344793:C23039G node_2362903:G15372T node_2362906:A13121T node_2362907:C12616T node_2362975:A19722G
+g node_2362903: sample-paths | g -v node_2390786: | g -v node_2362915: | g -v node_2362952: | g -v node_2362975: | cut -f 1 > pruneForKP.3.1
+wc -l pruneForKP.3.1
+#475 pruneForKP.3.1
+
+
+# Xu proposed a lineage on a flip-flop branch (6541)
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2322
+g Canada/BC-BCCDC-740729/2024 sample-paths
+#... node_2362975:A19722G node_2382187:C6541T node_2382264:C7086T node_2382265:C26028T node_2382268:T6541C node_2382269:G22865T,G28690A 
+g node_2382264: sample-paths | g -v node_2382269: | cut -f 1 > pruneForLP2322
+wc -l pruneForLP2322
+#8 pruneForLP2322
+
+
+wc -l pruneFor*
+#  475 pruneForKP.3.1
+#    8 pruneForLP2322
+#  483 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    66m55.660s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# A19722G early instead of late now?
+g Australia/SA1356575/2024 sample-paths.pruned
+#... node_2344796:C23039G node_2346232:A19722G node_2346233:G15372T
+g USA/2024CV1144/2024 sample-paths.pruned
+#... node_2344796:C23039G node_2346232:A19722G node_2346233:G15372T node_2350809:C12616T node_2350865:A13121T node_2350866:A897C
+g USA/CA-PFZ01561/2024 sample-paths.pruned
+#... node_2344796:C23039G node_2346232:A19722G node_2346233:G15372T node_2350809:C12616T node_2350865:A13121T node_2350876:T17334G
+g Australia/SA2052140/2024 sample-paths.pruned
+#... node_2344796:C23039G node_2346232:A19722G node_2346233:G15372T node_2350809:C12616T node_2350865:A13121T
+# Good.
+
+# No more flip-flop on 6541?
+g Canada/BC-BCCDC-740729/2024 sample-paths.pruned
+#... node_2346232:A19722G node_2346233:G15372T node_2350809:C12616T node_2350865:A13121T node_2356751:C26028T node_2356752:C7086T,G22865T,G28690A
+# Good.

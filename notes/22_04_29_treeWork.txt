@@ -1,0 +1,226 @@
+# Time to prune some dups in the daily build path, and also try out Cheng's new super-fast usher.
+# (dups were identified in 22_04_26_gisaidNamesForChris.txt)
+
+# Also prune the branch with reversions on 28881-28883 but with sequences having mostly Ns
+# there, and let them be added back in hopes that the ones with Ns land somewhere more
+# sensible.  (Especially with Cheng's updates to matOptimize to disfavor reversions.)
+$matUtils extract -i gisaidAndPublic.2022-04-27.masked.pb -S sample-paths
+g NewZealand/22CH0180/2022 sample-paths 
+# ... node_1190925:C8991T node_1190926:C25810T node_1197233:C28883G
+g node_1197233: sample-paths | cut -f 1 > susRevBranch
+wc -l susRevBranch
+#710 susRevBranch
+
+# Find out which of those have Ns at 28881-28883 and add those back first -- i.e. add the others
+# to $ottoDir/badBranchSeed.ids at least for now.
+cut -d\| -f 2 susRevBranch | g EPI_ISL > susRevBranchEpis
+wc -l susRevBranchEpis
+#707 susRevBranchEpis
+cut -d\| -f 2 susRevBranch | g -v EPI_ISL
+#OM890286.1
+#ON103253.1
+#ON145113.1
+# Just 3 of them -- I got fasta from NCBI Virus, genbank.fa.gz is big & slow
+# https://www.ncbi.nlm.nih.gov/labs/virus/vssi/#/virus?SeqType_s=Nucleotide&VirusLineage_ss=SARS-CoV-2,%20taxid:2697049&ids=OM890286%20ON103253%20ON145113%20
+# --> /data/tmp/angie/susRevBranchGb.fa
+g \|O susRevBranch
+#USA/CA-CDC-ASC210821879/2022|OM890286.1|2022-02-19
+#BHR/22020107328/2022|ON103253.1|2022-02-18
+#USA/IL-CDC-ASC210738191/2022|ON145113.1|2022-03-23
+vi /data/tmp/angie/susRevBranchGb.fa
+# Edit the names to match what we have in the tree.
+
+time faSomeRecords <(xzcat $gisaidDir/gisaid_fullNames_2022-04-29.fa.xz) susRevBranch \
+    /data/tmp/angie/susRevBranch.fa
+#real    8m22.408s
+# A good few minutes, even on newdev.
+fastaSeqCount /data/tmp/angie/susRevBranch.fa
+#707
+cat /data/tmp/angie/susRevBranchGb.fa >> /data/tmp/angie/susRevBranch.fa
+bash ~/github/sarscov2phylo/scripts/global_profile_alignment.sh -i /data/tmp/angie/susRevBranch.fa \
+    -t 100 -o /data/tmp/angie/susRevBranch.aligned.fa
+# Get the IDs that are all-Ns:
+faFrag /data/tmp/angie/susRevBranch.aligned.fa 28880 28883 stdout \
+| g -B1 nnn | g -v nnn | sed -re 's/^>//; s/:.*//;' > /data/tmp/angie/susRevBranchAllNs
+# Ummm.... only one sequence, France/NAQ-HCL722002002801/2022|EPI_ISL_12025115|2022-04-04 .
+# Cornelius said most of them were Ns but...
+faFrag /data/tmp/angie/susRevBranch.aligned.fa 28880 28883 stdout \
+| g -B1 ggg | g -v ggg | g -v ^-- | sed -re 's/^>//; s/:.*//;' > /data/tmp/angie/susRevBranchAllGs
+wc -l /data/tmp/angie/susRevBranchAllGs
+#705 /data/tmp/angie/susRevBranchAllGs
+faFrag /data/tmp/angie/susRevBranch.aligned.fa 28880 28883 stdout | g -v ^ggg | less
+# Exceptions to all-Gs or all-Ns:
+#>Indonesia/JB-WJHL-ITB-N054/2022|EPI_ISL_11166773|2022-02:28880-28883
+#ggn
+#>NewZealand/22CH0180/2022|EPI_ISL_8826374|2022-01-09:28880-28883
+#aag
+#>NewZealand/22MV0220/2022|EPI_ISL_8826352|2022-01-05:28880-28883
+#agg
+#>NewZealand/22KV0104/2022|EPI_ISL_9636654|2022-01-19:28880-28883
+#agg
+
+# Cornelius sent fasta, try that too --> /data/tmp/angie/Cornelius_susRevBranch.fa
+bash ~/github/sarscov2phylo/scripts/global_profile_alignment.sh \
+    -i /data/tmp/angie/Cornelius_susRevBranch.fa -t 100 \
+    -o /data/tmp/angie/Cornelius_susRevBranch.aligned.fa
+faFrag /data/tmp/angie/Cornelius_susRevBranch.aligned.fa 28880 28883 stdout | g -v ^ggg | less
+#>hCoV-19/France/NAQ-HCL722002002801/2022|EPI_ISL_12025115|2022-04-04:28880-28883
+#nnn
+# -- and that's it! Cornelius's file has only 319 sequences.
+
+# Well no point in pruning those!  Just go ahead with pruning dups.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat ../2022-04-26/dupsToPrune ../2022-04-26/idToGisaidName.alreadyInTree) \
+    -o gisaidAndPublic.$today.masked.dupsRemoved.pb
+
+# Now make VCF for the 2022-04-29 build, and then try Cheng's new usher-sampled.
+
+prevDate=2022-04-27
+today=2022-04-29
+baseProtobuf=$ottoDir/$prevDate/gisaidAndPublic.$prevDate.masked.dupsRemoved.pb
+cd ../$today
+time $scriptDir/makeNewMaskedVcf.sh $prevDate $today $problematicSitesVcf $baseProtobuf \
+    >& makeNewMaskedVcf.log
+#real    99m16.447s
+
+vcfSamples new.masked.vcf.gz | wc -l
+#102376
+# Ah, a big day, good.
+
+# On newdev, so I can use a lot of threads.  Start the process, watch CPU usage, then
+# adjust --batch_size_per_process if necessary.
+# Cheng's advice:
+# > --batch_size_per_process needs to be tuned to be high enough to saturate the CPUs,
+# > but low enough so that there is not too much retries in the log.
+# > 10 seems to be working on hgwdev with 16 threads. Maybe lower on ku.
+
+time ~/github/usher_branch/build/usher-sampled \
+    -T 150 -A -e 5 \
+    -i prevRenamed.pb \
+    -v new.masked.vcf.gz \
+    -o merged.pb \
+    --optimization_radius 0 --batch_size_per_process 100 \
+    > usher-sampled.log 2>usher-sampled.stderr
+#real    51m28.928s
+# HFS that would have been 20-24 hours on the *cluster*.
+g ^Current usher-sampled.log | wc -l
+#102376
+
+# With --batch_size_per_process 10, %CPU implies 146-152 CPUs --
+# but the log file hasn't been updated in 13 minutes and ends in several lines like this:
+#parent Mismatch  ; from placement: 11566798 ; actual 0 
+# I see a few of those in Cheng's log ~chye/usher/build/2022-04-27.log .
+# Are those the "retries" we're trying to avoid?  Try again with a much larger --batch_size_...
+# oh yes, now we're getting tons of actual placements.
+
+# With --batch_size_per_process 100, %CPU implies 147-149.
+# With --batch_size_per_process 125, %CPU implies 147-149.
+# With --batch_size_per_process 140, %CPU implies 147-149.
+# With --batch_size_per_process 300, %CPU implies 147-149.
+# With --batch_size_per_process 500, %CPU implies 147-149.
+# With --batch_size_per_process 1000, %CPU implies 147-149.
+# With --batch_size_per_process 50, %CPU implies 145-151.
+
+g 'parent Mismatch' ~chye/usher/build/2022-04-27.log | wc -l
+#87
+wc -l ~chye/usher/build/2022-04-27.log
+#161052 /cluster/home/chye/usher/build/2022-04-27.log
+calc 87 / 161052
+#87 / 161052 = 0.000540
+
+# With --batch_size_per_process 100:
+g 'parent Mismatch' usher-sampled.log | wc -l ; wc -l usher-sampled.log 
+#278
+#9412 usher-sampled.log
+calc 278 / 9412
+#278 / 9412 = 0.029537
+# That's higher than Cheng's -- up it some more to 125.
+
+# With --batch_size_per_process 125:
+g 'parent Mismatch' usher-sampled.log | wc -l ; wc -l usher-sampled.log 
+calc 639 / 30688
+#639 / 30688 = 0.020822
+# OK, try 140.
+
+# With --batch_size_per_process 140:
+g 'parent Mismatch' usher-sampled.log | wc -l ; wc -l usher-sampled.log 
+calc 619 / 13003
+#619 / 13003 = 0.047604
+#795 / 22354 = 0.035564
+# Let's try something really big like 300.
+
+# Uh-oh, with 300 I got this after ~40s:
+#*** Error in `/cluster/home/angie/github/usher_branch/build/usher-sampled': munmap_chunk(): invalid pointer: 0x00007f45752f58c0 ***
+#======= Backtrace: =========
+#/lib64/libc.so.6(+0x7f474)[0x7f472f642474]
+#/cluster/home/angie/github/usher_branch/build/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbbmalloc_proxy.so.2(free+0x20)[0x7f4730409160]
+#/cluster/home/angie/github/usher_branch/build/usher-sampled(_ZNSt6vectorISt4pairIl11nuc_one_hotESaIS2_EE17_M_realloc_insertIJS2_EEEvN9__gnu_cxx17__normal_iteratorIPS2_S4_EEDpOT_+0xd9)[0x562aa5f36549]
+#/cluster/home/angie/github/usher_branch/build/usher-sampled(+0x727f3)[0x562aa5f367f3]
+#/cluster/home/angie/github/usher_branch/build/usher-sampled(+0x72d81)[0x562aa5f36d81]
+#/cluster/home/angie/github/usher_branch/build/usher-sampled(+0x78885)[0x562aa5f3c885]
+#/cluster/home/angie/github/usher_branch/build/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x2a40d)[0x7f473035540d]
+#/cluster/home/angie/github/usher_branch/build/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x2a9b8)[0x7f47303559b8]
+#/cluster/home/angie/github/usher_branch/build/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x22a4f)[0x7f473034da4f]
+#/cluster/home/angie/github/usher_branch/build/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x20e71)[0x7f473034be71]
+#/cluster/home/angie/github/usher_branch/build/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x1d66c)[0x7f473034866c]
+#/cluster/home/angie/github/usher_branch/build/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x1d8da)[0x7f47303488da]
+#/lib64/libpthread.so.0(+0x7ea5)[0x7f472fe57ea5]
+#/lib64/libc.so.6(clone+0x6d)[0x7f472f6c1b0d]
+#======= Memory map: ========
+#...
+# Try again and see if it's reproducible:
+
+# With --batch_size_per_process 300 (no mem error this time):
+g 'parent Mismatch' usher-sampled.log | wc -l ; wc -l usher-sampled.log 
+#793 / 19378 = 0.040923
+#992 / 30348 = 0.032687
+# What the heck, keep going and try 500.
+
+# With --batch_size_per_process 500:
+g 'parent Mismatch' usher-sampled.log | wc -l ; wc -l usher-sampled.log 
+#809 / 42762 = 0.018919
+
+# Try a slightly less wonky ratio -- use the number of samples placed instead of the number
+# of log file lines which includes warnings about samples with multiple placements etc.
+# Going back to Cheng's completed 2022-04-27 log:
+g ^Current ~chye/usher/build/2022-04-27.log | wc -l
+#84044
+calc 87 / 84044
+#87 / 84044 = 0.001035
+# Now try again with the current run:
+calc $(g 'parent Mismatch' usher-sampled.log | wc -l) / $(g ^Current usher-sampled.log | wc -l)
+#989 / 34959 = 0.028290
+# OK, so it is definitely higher.  Keep going, try 1000, woohoo!
+
+# With --batch_size_per_process 1000:
+calc $(g 'parent Mismatch' usher-sampled.log | wc -l) / $(g ^Current usher-sampled.log | wc -l)
+#815 / 28858 = 0.028242
+#855 / 33650 = 0.025409
+#952 / 36405 = 0.026150
+
+# Ah, Cheng says "Making batch size per process too high may degrade parsimony score."
+# So I will back off to 100.  Actually, why not try 50.
+
+# Branch-specific masking
+time $scriptDir/maskDelta.sh merged.pb merged.deltaMasked.pb
+
+# Improved matOptimize from branch
+time ~/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i merged.deltaMasked.pb \
+    -o gisaidAndPublic.$today.masked.preTrim.pb \
+    >& matOptimize.usher_branch.log
+#real    47m58.114s
+
+# Last step before continuing with updateCombinedTree.sh
+$matUtils extract -i gisaidAndPublic.$today.masked.preTrim.pb \
+    --max-parsimony 20 \
+    --max-branch-length 45 \
+    --max-path-length 150 \
+    -O -o gisaidAndPublic.$today.masked.pb
+
+problematicSitesVcf=/hive/data/genomes/wuhCor1/bed/problematicSites/21-11-01/problematic_sites_sarsCov2.vcf 
+ln -s usher-sampled.log usher.addNew.log
+time $scriptDir/updateCombinedTree.sh $prevDate $today $problematicSitesVcf \
+    >& updateCombinedTree.continue.log

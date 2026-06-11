@@ -1,0 +1,196 @@
+Several things to do:
+* remove withdrawn sequences
+* update names using latest metadata
+* remove some more junk
+* update masking to use latest problematic sites
+* VCF (with latest masking) --> matOptimize
+
+# Today's build has progressed to annotating lineages, so the set of samples in the tree is final.
+today=$(date +%F)
+cd $ottoDir/$today
+# File idToName has the IDs and full names in the tree.  For each source, look for withdrawn
+# sequences to remove from the tree.  Look for dups while we're at it.
+
+# GenBank:
+egrep '^[A-Z]{2}[0-9]{6}\.[0-9]' idToName \
+    > gbAccToName
+wc -l gbAccToName
+#1975383 gbAccToName
+comm -23 <(cut -f 1 gbAccToName) <(cut -f 1 $ncbiDir/ncbi_dataset.plusBioSample.tsv) \
+    > /data/tmp/angie/gbAccNotFound
+wc -l /data/tmp/angie/gbAccNotFound
+#23368 /data/tmp/angie/gbAccNotFound
+grep -Fwf /data/tmp/angie/gbAccNotFound gbAccToName > gbAccNotFoundOrDupName
+#23441 gbAccNotFoundOrDupName
+# Unfortunately, at least some of those are just missing from metadata, not withdrawn -- they're
+# still on the website.  :(
+# Examples: BS001222, [OK510176.1...OK510210.1], [OK510384.1...OK533680.1],
+# [OU830665.1...OU837002]
+g BS001222 $ottoDir/ncbi.2021-10-*/ncbi_dataset.p*
+#/hive/data/outside/otto/sarscov2phylo/ncbi.2021-10-17/ncbi_dataset.plusBioSample.tsv:BS001222.1         2021-05-02      Japan:Shizuoka, center  Homo sapiens    hCoV-19/Japan/SZ-NIG-21612/2021 complete        29801
+#/hive/data/outside/otto/sarscov2phylo/ncbi.2021-10-18/ncbi_dataset.plusBioSample.tsv:BS001222.1         2021-05-02      Japan:Shizuoka, center  Homo sapiens    hCoV-19/Japan/SZ-NIG-21612/2021 complete        29801
+#-- why would it have been in the downloads only on those two days?!
+# Some are duplicates, e.g.
+#MW626425.1      Neovison_vison/USA/WI-CDC-CY09-2480/2020|MW626425.1|2020-10-13
+#MW626425.1      USA/WI-CDC-CY09-2480/2020|MW626425.1|2020-10-13
+# That should be mink/USA/... must be confusion caused by the recent switch to swapping names
+# into fasta from json, ugh...  actually, it's correct in genbank.fa.xz now.
+
+# Well, edit it a bit...  Ones that are really still there can get added back if necessary.
+# And grep out the gigantic range that don't seem to be retracted or updated, just missing...
+grep -v ^OK5 gbAccNotFoundOrDupName > tmp
+wc -l tmp gbAccNotFoundOrDupName 
+#   2237 tmp
+#  15875 gbAccNotFoundOrDupName
+mv tmp gbAccNotFoundOrDupName
+
+# GISAID:
+g ^EPI_ISL_ idToName > epiToName
+wc -l epiToName
+#2463119 epiToName
+comm -23 <(cut -f 1 epiToName) <(zcat $gisaidDir/metadata_batch_$today.tsv.gz | cut -f 3 | sort) \
+    > /data/tmp/angie/epiNotFound
+#3751 /data/tmp/angie/epiNotFound
+# I know there are still chunks to update, but this will do for now.
+grep -Fwf /data/tmp/angie/epiNotFound epiToName > epiNotFoundName
+wc -l epiNotFoundName
+#3751 epiNotFoundName
+# -- no dups, good.
+
+# COG-UK
+grep -Ev '^[A-Z]{2}[0-9]{6}\.[0-9]' idToName \
+| grep -v ^EPI_ISL_ \
+| grep -E '^(England|Northern|Scotland|Wales)' \
+    > cogToName
+wc -l cogToName
+#338286 cogToName
+comm -23 <(cut -f 1 cogToName) <(cut -d, -f 1 $cogUkDir/cog_metadata.csv | sort) \
+    > cogNotFound
+wc -l cogNotFound
+#628 cogNotFound
+grep -Fwf cogNotFound cogToName > cogNotFoundName
+wc -l cogNotFoundName
+#676 cogNotFoundName
+# Some dups, edited down.
+wc -l cogNotFoundName
+#628 cogNotFoundName
+
+cut -f 2 gbAccNotFoundOrDupName epiNotFoundName cogNotFoundName > withdrawnToRemove
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s withdrawnToRemove \
+    -O -o gisaidAndPublic.$today.masked.pruned.pb
+
+# Look for things to rename based on latest metadata
+
+# GenBank
+grep -Fwf <(cut -f 1 gbAccToName) <(grep COG-UK/ $ncbiDir/ncbi_dataset.plusBioSample.tsv) \
+| tawk '{print $1, $4 "/" $6 "/" $3 "|" $1 "|" $3;}' \
+| sed -re 's@COG-UK/@@g; s/United Kingdom://g;  s/(\/[0-9]{4})(-[0-9]+)*/\1/;
+           s@Northern Ireland/@NorthernIreland/@;' \
+    > gbAccToNewName
+grep -v COG-UK/ $ncbiDir/ncbi_dataset.plusBioSample.tsv \
+| tawk '{ if ($3 == "") { $3 = "?"; }
+          if ($6 != "") { print $1, $6 "|" $1 "|" $3; }
+          else { print $1, $1 "|" $3; } }' \
+| cleanGenbank \
+| sed -re 's/ /_/g;' \
+    >> gbAccToNewName
+sort gbAccToNewName > tmp
+mv tmp gbAccToNewName
+wc -l gbAccToNewName
+#2007720 gbAccToNewName
+join -t$'\t' <(grep -vFwf gbAccNotFoundOrDupName gbAccToName) gbAccToNewName \
+| tawk '$2 != $3 {print $2, $3}' \
+    > gbRename
+wc -l gbRename
+#350 gbRename
+# Hmmm, a few names would lose country prefix, still need to work on that... edit the file a bit.
+
+# GISAID
+zcat $gisaidDir/metadata_batch_$today.tsv.gz \
+| grep -Fwf <(cut -f 1 epiToName) \
+| tawk '{print $3, $1 "|" $3 "|" $5;}' \
+| sort \
+    > epiToNewName
+wc -l epiToNewName
+#2459368 epiToNewName
+join -t$'\t' epiToName epiToNewName \
+| tawk '$2 != $3 {print $2, $3}' \
+    > epiRename
+wc -l epiRename
+#5287 epiRename
+
+# COG-UK
+grep -Fwf <(cut -f 1 cogToName | g -vFwf cogNotFoundName) $cogUkDir/cog_metadata.csv \
+| awk -F, '{print $1 "\t" $1 "|" $5;}' \
+| sort \
+    > cogToNewName
+wc -l cogToNewName
+#337658 cogToNewName
+join -t$'\t' cogToName cogToNewName \
+| tawk '$2 != $3 {print $2, $3}' \
+    > cogRename
+wc -l cogRename
+#15325 cogRename
+
+cat gbRename epiRename cogRename > all.rename
+
+$matUtils mask -i gisaidAndPublic.$today.masked.pruned.pb \
+    -r all.rename \
+    -o gisaidAndPublic.$today.masked.pruned.renamed.pb \
+    >& renameToNewNames.log
+
+wc -l all.rename renameToNewNames.log 
+#  20957 all.rename
+#  20959 renameToNewNames.log
+
+$matUtils summary -i gisaidAndPublic.$today.masked.pruned.renamed.pb
+#Total Nodes in Tree: 5824548
+#Total Samples in Tree: 4770424
+#Total Condensed Nodes in Tree: 0
+#Total Samples in Condensed Nodes: 0
+#Total Tree Parsimony: 4182389
+#Number of Clade Annotations: 2
+#Max Tree Depth: 71
+#Mean Tree Depth: 34.752754
+
+# Right, that wipes out condensed nodes.  :b  Seems to not wipe out clade annotations, hmmm...
+# Just replace the combined tree so it makes it into tomorrow's build, don't bother re-annotating
+# and re-dumping public tree, do more cleanup tomorrow.
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+ln -f gisaidAndPublic.$today.masked.pruned.renamed.pb gisaidAndPublic.$today.masked.pb
+
+# 2021-10-31 - remove some more garbage using a sample-paths that's already there
+cd $ottoDir/2021-10-27
+# Lop B.1.1+C884T from 2021:
+g Turkey/HSGM-FS5180/2021 sample-paths 
+#Turkey/HSGM-FS5180/2021|EPI_ISL_3414610|2021-08-07      node_8149:C14408T node_8265:C241T node_8266:C3037T node_8267:A23403G node_515417:G28881A node_515418:G28883C node_515419:G28882A node_581143:C884T 
+# Keep more diverged cluster from Germany:
+g Germany/BAV-PL-virotum_PCWKP/2021 sample-paths
+#Germany/BAV-PL-virotum_PCWKP/2021|EPI_ISL_1092014|2021-01-07    node_8149:C14408T node_8265:C241T node_8266:C3037T node_8267:A23403G node_515417:G28881A node_515418:G28883C node_515419:G28882A node_581143:C884T node_581145:G28378C node_581146:C2062T,C27735T node_581147:C2325T,C5850A,T15726C node_581148:G19999T,T22020C,G25244T,G28903T,C29803T node_581149:T884C,A5850C 
+# Keep more diverged sequences from Turkey:
+g Turkey/HSGM-8604/2021 sample-paths
+#Turkey/HSGM-8604/2021|EPI_ISL_1583200|2021-03-05        node_8149:C14408T node_8265:C241T node_8266:C3037T node_8267:A23403G node_515417:G28881A node_515418:G28883C node_515419:G28882A node_581143:C884T node_581157:T28282A node_838329:C6593T,C19011T node_838330:C913T,G28280C node_838331:T6954C,G7017T node_838332:T6593C node_838333:A6841G node_838346:C9180T node_838347:G21839A node_838348:A28281T node_838350:C6593T 
+# Also keep:
+g USA/CT-CDC-LC0048077/2021 sample-paths
+#USA/CT-CDC-LC0048077/2021|MZ071998.1|2021-04-13 node_8149:C14408T node_8265:C241T node_8266:C3037T node_8267:A23403G node_515417:G28881A node_515418:G28883C node_515419:G28882A node_581143:C884T node_581157:T28282A node_581158:T884C,G28280C,A28281T node_581239:A28111G node_581253:C27972T node_581254:G28048T node_581255:G24914C node_581256:A23063T node_581257:C5388A node_581258:C5986T,T6954C node_581276:T733C,A24432G,A28877T,G28878C 
+# Keep common ancestor:
+g Italy/ABR-IZSGC-297071/2021 sample-paths
+g England/NORW-13DB211/2021 sample-paths
+# Italy/ABR-IZSGC-297071/2021|EPI_ISL_2921209|2021-07-01  node_8149:C14408T node_8265:C241T node_8266:C3037T node_8267:A23403G node_515417:G28881A node_515418:G28883C node_515419:G28882A node_581143:C884T node_581157:T28282A node_581158:T884C,G28280C,A28281T node_581289:A23063T node_581304:C15279T node_581305:C28977T node_581306:A28111G node_581307:T23063A,G28048T node_581342:C913T node_581343:C27972T node_581344:A23063T node_581417:T24506G,G24914C node_581418:C23604A,C23709T node_581419:T15279C node_581420:C23271A node_581434:T913C node_581470:G28884C node_581471:A28095T node_581472:T415A,T2244G,C3330T,G6454T,A11117G,C12008A,A12666G,C14178T,T16389C,C18981T,G21334T,T22020C,C22088T,G25906T,C27389T,C29149T node_581473:C10252T Italy/ABR-IZSGC-297071/2021|EPI_ISL_2921209|2021-07-01:C206T,C6843T 
+#England/NORW-13DB211/2021|OU805031.1|2021-05-28 node_8149:C14408T node_8265:C241T node_8266:C3037T node_8267:A23403G node_515417:G28881A node_515418:G28883C node_515419:G28882A node_581143:C884T node_581157:T28282A node_581158:T884C,G28280C,A28281T node_581289:A23063T node_581304:C15279T node_581305:C28977T node_581306:A28111G node_581307:T23063A,G28048T node_581342:C913T node_581343:C27972T node_581344:A23063T node_581417:T24506G,G24914C node_581418:C23604A,C23709T node_581419:T15279C node_581420:C23271A node_581434:T913C node_581470:G28884C node_581471:A28095T node_581472:T415A,T2244G,C3330T,G6454T,A11117G,C12008A,A12666G,C14178T,T16389C,C18981T,G21334T,T22020C,C22088T,G25906T,C27389T,C29149T node_581474:G24834A 
+# --> node_581472
+# Don't lose XA:
+g Wales/ALDP-125C4D7/2021 sample-paths
+#Wales/ALDP-125C4D7/2021|OD983653.1|2021-02-06   node_8149:C14408T node_8265:C241T node_8266:C3037T node_8267:A23403G node_515417:G28881A node_515418:G28883C node_515419:G28882A node_581143:C884T node_581157:T28282A node_581158:T884C,G28280C,A28281T node_581289:A23063T node_581304:C15279T node_581305:C28977T node_581306:A28111G node_581307:T23063A,G28048T node_581342:C913T node_581343:C27972T node_581344:A23063T node_581417:T24506G,G24914C node_581418:C23604A,C23709T node_581419:T15279C node_581420:C23271A node_581434:T913C node_581435:T445C,C6286T node_581436:T2019C,C4999T,C9430T,A10323G,C13945T,G20410A,G21255C,C23208T,G25855T,A28095T 
+# B.1.1.7 main branch:
+g England/ALDP-11B2151/2021 sample-paths
+#England/ALDP-11B2151/2021|OD967396.1|2021-01-29 node_8149:C14408T node_8265:C241T node_8266:C3037T node_8267:A23403G node_515417:G28881A node_515418:G28883C node_515419:G28882A node_581143:C884T node_581157:T28282A node_581158:T884C,G28280C,A28281T node_581289:A23063T node_581304:C15279T node_581305:C28977T node_581306:A28111G node_581307:T23063A,G28048T node_581342:C913T node_581597:C5986T,T28048G node_581598:C23709T node_581599:T6954C,A23063T node_581600:C23604A node_581601:C23271A node_581602:G24914C node_581603:T24506G node_581604:T16176C node_581612:C27972T node_581613:C14676T node_581615:C3267T node_581617:C5388A node_582311:G28048T 
+
+mkdir $ottoDir/2021-10-31
+g node_581143: sample-paths | g -v node_581149: | g -v node_838350: | g -v node_581276: \
+| g -v node_581472: | g -v node_581436: | g -v node_582311: \
+| g -v /2020 \
+| cut -f 1 \
+    > $ottoDir/2021-10-31/badSeeds
+

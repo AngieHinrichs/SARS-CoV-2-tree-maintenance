@@ -1,0 +1,262 @@
+today=2023-06-06
+cd $ottoDir/$today
+# Skip the -c B.1.1.529 this time so we can fix up the Delta basal mess
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Russia/SAM-RII-MH122918S/2022|EPI_ISL_16709592|2022-12-09 anchors a branch based on a run of
+# mutations on 19209 - 19217 which I've seen in other Russian sequences before.  It has pulled
+# in some XBB.1.5 -- lop & replace, permanently exclude the Russian seqs anchoring it.
+g Canada/QC-L00579047001/2023 sample-paths
+#... node_2279806:A22320G node_2285104:A19212G,A19214G,C19217A node_2285105:T19209G,A19210G node_2285108:T23948G node_2285109:G22317T,G22320A node_2285110:G27915T node_2285111:G23948T node_2285114:T23018C node_2285115:T17124C 
+g node_2285104: sample-paths | cut -f 1 > pruneFor19s
+wc -l pruneFor19s
+#306 pruneFor19s
+g node_2285104: sample-paths | g -v node_2285115: | cut -f 1 | g Russia > excludeFor19s
+wc -l excludeFor19s
+#26 excludeFor19s
+cut -d\| -f 2 excludeFor19s >> ../badBranchSeed.ids
+
+
+# XBB.1.9.2 and XBB.1.9.7 are placed as children of XBB.1.9.1 with reversions on 11956.  See if we
+# can get rid of the 11956-first and get things with 23018 but not 11956 placed back on XBB.1.9.
+g Belgium/UZA-MI23080285/2023 sample-paths
+#... node_2176901:G5720A node_2177222:C11956T node_2177224:T23018C
+g node_2177222: sample-paths | g -v node_2177224: | cut -f 1 > pruneForXBB.1.9.1
+wc -l pruneForXBB.1.9.1
+#88 pruneForXBB.1.9.1
+
+
+# flip-flop on 28391 on the way to XBB.1.5.72
+g Chile/LL-29468/2023 sample-paths
+#... node_2243498:T10204C node_2261485:C28391T node_2261486:G1598A,T9823C node_2261487:T28391C ...
+g node_2261485: sample-paths | g -v node_2261487: | cut -f 1 > pruneForXBB.1.5.72
+wc -l pruneForXBB.1.5.72
+#9 pruneForXBB.1.5.72
+
+
+# flip-flop on 24706 on XBB.1.5.77
+g Chile/VS-14260/2023 sample-paths
+#... node_2243498:T10204C node_2249888:T24706C node_2249893:T18732C node_2249894:C24706T
+g node_2249888: sample-paths | g -v node_2249894: | cut -f 1 > pruneForXBB.1.5.77
+wc -l pruneForXBB.1.5.77
+#13 pruneForXBB.1.5.77
+
+
+# Now... on to the Delta basal mess left over from a few weeks ago when I left matOptimize running
+# too long... hopefully prune & replace will be sufficient and I won't have to permanently exclude
+# but we'll see.
+g Belgium/Jessa_11-2129-001206ZOL/2021 sample-paths
+#... node_23559:G15451A node_23560:T11418C node_23561:C9891T node_23562:C11514T node_23563:C5184T node_23568:A5584G node_23757:C13019T node_23903:C22227T
+g node_23560: sample-paths | g -v node_23903: | cut -f 1 > pruneForDelta
+wc -l pruneForDelta
+#1188 pruneForDelta
+
+# Even that branch has another multi-pronged mess:
+g Belgium/UGent-5160/2021 sample-paths
+#... node_23903:C22227T node_97254:G5584A node_97986:T11514C node_97987:C11418T node_97988:T9891C node_97989:T22227C node_97990:T13019C node_97991:C1267T node_97992:C1191T node_97994:C9891T node_97995:T11418C node_97996:T12946C node_98035:C27739T node_98036:A20262G node_98050:C18176T
+# Spare this too:
+g Canada/UN-59836/2021 sample-paths
+#... node_23903:C22227T node_97254:G5584A node_97986:T11514C node_97987:C11418T node_97988:T9891C node_97989:T22227C node_97990:T13019C node_97991:C1267T node_97992:C1191T node_118675:T16466C node_118676:A15451G node_118728:A17496G node_118729:T9678C node_118730:C11005A node_118731:G9203A node_118732:A20396G node_118889:A21792C
+# And this:
+g Belgium/ULG-14654/2021 sample-paths
+#... node_23903:C22227T node_97254:G5584A node_97986:T11514C node_97987:C11418T node_97988:T9891C node_97989:T22227C node_97990:T13019C node_97991:C1267T node_97992:C1191T node_97994:C9891T node_97995:T11418C node_97996:T12946C node_98035:C27739T node_98036:A20262G node_112654:C20320T node_112655:C24745T node_112656:G29427A node_112914:C6539T
+g node_97254: sample-paths | g -v node_98050: | g -v node_118889: | g -v node_112914: \
+| cut -f 1 >> pruneForDelta
+wc -l pruneForDelta
+#5637 pruneForDelta
+
+g OX447957 sample-paths
+#... node_23559:G15451A node_123758:C10029T node_124610:C19220T node_124611:G28916T node_124612:G4181T node_124613:C27874T node_124858:C6402T node_124928:C7124T node_124929:G9053T node_124930:C8986T node_124931:T6402C node_124933:T19220C node_125295:A11332G node_125296:C19220T node_125297:A11201G node_125298:C6402T
+g node_123758: sample-paths | g -v node_125298: | cut -f 1 >> pruneForDelta
+wc -l pruneForDelta
+#13582 pruneForDelta
+
+
+# Happened to notice this bad branch with run-ofs, pulling in some COG-UKs at least some by Ns...
+# lop & replace.
+g England/CAMB-AA76B4/2021 sample-paths
+#... node_475194:C21855T node_475223:G21824A,G21827A,G21828A,G21850T,T21883A,C21930A,T21931A,C21933T,G21938A,T21981C node_475224:C21816T,T21835C,G21874A,A21883C,G21893A node_475231:T21878A,G21881C,C21888G,T21889A,T21890A,T21895C,G21898C,A21900C,G21901T,A21902T,C21903T,C21910A,C21911A,T21912C,A21913T,A21917G,A21923T node_475234:G21907T,T21908C,C21914T node_475235:T17040C node_475236:C7851T
+g node_475223: sample-paths | cut -f 1 > pruneFor219s
+wc -l pruneFor219s
+#225 pruneFor219s
+
+
+# Flip-flops on 22893 and 4456 on the way to BQ.1.1.18
+g France/CVL-HCL722004456001/2022 sample-paths
+#... node_2719474:T22942A node_2725031:C4456T node_2725225:A17039G node_2725298:C22893A node_2725320:G22599C node_2725323:T4456C node_2725345:C6541T node_2725346:A22893C
+g node_2725298: sample-paths | g -v node_2725346: | cut -f 1 > pruneForBQ.1.1.18
+wc -l pruneForBQ.1.1.18
+#358 pruneForBQ.1.1.18
+
+
+wc -l pruneFor*
+#   306 pruneFor19s
+#   225 pruneFor219s
+#   358 pruneForBQ.1.1.18
+# 13582 pruneForDelta
+#     9 pruneForXBB.1.5.72
+#    13 pruneForXBB.1.5.77
+#    88 pruneForXBB.1.9.1
+# 14581 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    108m4.978s
+g radius matOptimize.pruned.log 
+#parsimony score after optimizing: 12532825,with radius 1, second from start 246 
+#parsimony score after optimizing: 12532810,with radius 2, second from start 338 
+#parsimony score after optimizing: 12532800,with radius 4, second from start 887 
+#parsimony score after optimizing: 12532796,with radius 8, second from start 3823 
+#parsimony score after optimizing: 12532796,with radius 16, second from start 5519 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# Is 11956 after 23018 instead of before?
+g Belgium/UZA-MI23080285/2023 sample-paths.pruned
+#... node_2170380:G5720A node_2171017:T23018C node_2171018:C11956T
+# Yes!  XBB.1.9.2 has achieved independence.  XBB.1.9.7 is still pulled onto XBB.1.9.1
+# with a reversion on 11956... might be able to free it with a bit more pruning.
+
+# flip-flop on 28391 on the way to XBB.1.5.72?
+g Chile/LL-29468/2023 sample-paths.pruned
+#... node_2236957:T10204C node_2263420:G1598A,T9823C
+# Good
+
+# flip-flop on 24706 on XBB.1.5.77?
+g Chile/VS-14260/2023 sample-paths.pruned
+#... node_2236957:T10204C node_2262983:T18732C
+# Good
+
+# Flip-flops on 22893 and 4456 on the way to BQ.1.1.18?
+g France/CVL-HCL722004456001/2022 sample-paths.pruned
+#... node_2712816:T22942A node_2733777:G22599C node_2735149:A17039G node_2735150:C6541T
+# Nope, good (but check again after samples are added back)
+
+
+# Check Delta in taxonium
+# Hmmm, still enough garbage to misplace a couple big branches.  Try again.  We're going to
+# need a bigger sample-paths.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+
+# Let's whack way back and keep just B.1.617.* & beyond.
+
+# B.1.617.3:
+g India/MH-NCCS-SVNGMCCH634/2021 sample-paths.pruned
+#... node_9931:A23403G node_20034:G29742T node_20244:T22917G node_20245:T27638C node_20246:G28881T node_20247:C21618G node_20248:G210T node_20249:G29402T node_20250:C23604G node_23384:C16293T,G23012C node_23385:C7296T,C8208T node_23386:T27384C,C27970T node_23390:C28472T node_23391:G10634T node_23392:C835T,C11322T
+
+# B.1.617.1:
+g India/WB-1931501061162/2021 sample-paths.pruned
+#... node_9931:A23403G node_20034:G29742T node_20244:T22917G node_20245:T27638C node_20246:G28881T node_20247:C21618G node_20248:G210T node_20249:G29402T node_20250:C23604G node_20251:G21618C node_20567:C25469T node_20597:G23012C node_20653:T21895C node_20654:C4965T node_20655:A24775T node_20656:G17523T node_20657:C26681T,T26767G node_20666:C3457T,A11201G node_20667:A20396G
+
+# stranded branch with AY.48 and AY.35
+g India/KL-GENESCOV03910/2021 sample-paths.pruned
+#... node_9931:A23403G node_20034:G29742T node_20244:T22917G node_20245:T27638C node_20246:G28881T node_20247:C21618G node_20248:G210T node_20249:G29402T node_20250:C23604G node_23542:C25469T node_23544:C22995A node_23545:C27752T node_23546:A28461G node_23547:C16466T node_23558:T26767C node_23559:G15451A node_1025472:C1191T node_1025473:C1267T,C5184T node_1045731:C11005A,T16466C,A17496G,A20396G,A21792C node_1045732:G9203A,T9678C,A15451G
+
+# stranded branch with AY.30 and AY.40
+g Belgium/ULG-14654/2021 sample-paths.pruned
+#... node_9931:A23403G node_20034:G29742T node_20244:T22917G node_20245:T27638C node_20246:G28881T node_20247:C21618G node_20248:G210T node_20249:G29402T node_20250:C23604G node_23542:C25469T node_23544:C22995A node_23545:C27752T node_23546:A28461G node_23547:C16466T node_23558:T26767C node_23559:G15451A node_1025472:C1191T node_1025473:C1267T,C5184T node_1025474:C9891T,T11418C,T12946C,A20262G,C27739T node_1040060:C20320T,G29427A node_1040061:C6539T node_1040062:C24745T
+
+# stranded branch with many little AYs
+g England/HSLL-155A791/2021 sample-paths.pruned
+#... node_9789:C3037T node_9931:A23403G node_20034:G29742T node_20244:T22917G node_20245:T27638C node_20246:G28881T node_20247:C21618G node_20248:G210T node_20249:G29402T node_20250:C23604G node_23542:C25469T node_23544:C22995A node_23545:C27752T node_23546:A28461G node_23547:C16466T node_23558:T26767C node_23559:G15451A node_1025472:C1191T node_1025473:C1267T,C5184T node_1025474:C9891T,T11418C,T12946C,A20262G,C27739T node_1025475:C18176T
+
+# stranded branch with many small-to-medium AYs (21I)
+g India/GJ-INSACOG-GBRC1681/2021 sample-paths.pruned
+#... node_9931:A23403G node_20034:G29742T node_20244:T22917G node_20245:T27638C node_20246:G28881T node_20247:C21618G node_20248:G210T node_20249:G29402T node_20250:C23604G node_23542:C25469T node_23544:C22995A node_23545:C27752T node_23546:A28461G node_23547:C16466T node_23558:T26767C node_23559:G15451A node_23560:C22227T node_23563:C13019T node_23564:C5184T,A5584G,T11418C,C11514T node_23565:C9891T
+
+# B.1.617.2 main (21J)
+g OX447957 sample-paths.pruned
+#... node_9931:A23403G node_20034:G29742T node_20244:T22917G node_20245:T27638C node_20246:G28881T node_20247:C21618G node_20248:G210T node_20249:G29402T node_20250:C23604G node_23542:C25469T node_23544:C22995A node_23545:C27752T node_23546:A28461G node_23547:C16466T node_23558:T26767C node_23559:G15451A node_96949:C6402T node_96950:G4181T node_96951:A11332G node_96952:C7124T,C8986T,G9053T,A11201G,C27874T node_96953:C10029T node_96954:C19220T node_96955:G28916T
+
+# 
+g node_20034: sample-paths.pruned | g -v node_23392: | g -v node_20667: | g -v node_1045732: \
+| g -v node_1040062: | g -v node_1025475: | g -v node_23565: | g -v node_96955: | cut -f 1 \
+    > pruneMoreForDelta
+wc -l pruneMoreForDelta
+#15361 pruneMoreForDelta
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s pruneMoreForDelta \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#TODO
+g radius matOptimize.pruned.log 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# Is 11956 after 23018 instead of before?
+g Belgium/UZA-MI23080285/2023 sample-paths.pruned
+#... node_2166880:G5720A node_2167517:T23018C node_2167518:C11956T
+# Yep, good.
+
+# flip-flop on 28391 on the way to XBB.1.5.72?
+g Chile/LL-29468/2023 sample-paths.pruned
+#... node_2233457:T10204C node_2259920:G1598A,T9823C ...
+# Nope, good.
+
+# flip-flop on 24706 on XBB.1.5.77?
+g Chile/VS-14260/2023 sample-paths.pruned
+#... node_2233457:T10204C node_2259483:T18732C 
+# Nope, good.
+
+# Flip-flops on 22893 and 4456 on the way to BQ.1.1.18?
+g France/CVL-HCL722004456001/2022 sample-paths.pruned
+#... node_2709316:T22942A node_2730277:G22599C node_2731649:A17039G node_2731650:C6541T
+# Nope, good.
+
+# Check Delta in taxonium
+# Wow... interesting branching structure.  Not ladder-like at all.  I guess I'm seeing the real
+# Delta structure for the first time.  :)  I expect it to get messy again when sequences are added
+# back... we'll see.
+
+ln -s gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+# OK, restart 2023-06-07 build with that.

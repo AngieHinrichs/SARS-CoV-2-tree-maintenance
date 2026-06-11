@@ -1,0 +1,42 @@
+# In 22_04_06_updateLineageTreePb.txt, I had to add BA.5 samples to the 2022-04-04 tree, and also
+# to prune BA.2.11 and BA.2.12.1 samples and re-add them because 22917 is a defining
+# mutations for those but I've been masking 22917 in BA.1 and BA.2 -- oops.
+
+# I interrupted the 2022-04-05 build after it finished merging / masking (now without 22917) /
+# trimming, and now it's time to do the same stuff that I did for 2022-04-04 before starting
+# the 2022-04-06 build.
+
+# screen s4 on newdev
+
+today=2022-04-05
+prevDate=2022-04-04
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s ../2022-04-04/pruneFor22917 \
+    -o gisaidAndPublic.$today.masked.22917pruned.pb
+
+# newdev all to myself, woohoo!
+time $usher -u -T 150 -A -e 5 -v ../2022-04-04/newLineageExcludedSamples.vcf \
+    -i gisaidAndPublic.$today.masked.22917pruned.pb \
+    -o gisaidAndPublic.$today.masked.newLineageExcludedSamples.pb \
+    >& usher.newLineageExcludedSamples.log
+#real    15m16.888s
+
+# I did need a little round of optimization to anneal BA.2.11...
+$matOptimize -T 150 -r 8 -M 1 -S move_log.new \
+    -i gisaidAndPublic.$today.masked.newLineageExcludedSamples.pb \
+    -o gisaidAndPublic.$today.masked.newLineageExcludedSamples.opt.pb \
+    >& matOptimize.new.log
+
+# Replace gisaidAndPublic.$today.masked.pb and run updateCombinedTree.sh on hgwdev
+# so it continues with metadata, annotates with the updated pango.clade-mutations.tsv, etc.
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.preNewLin.pb
+ln -f gisaidAndPublic.$today.masked.newLineageExcludedSamples.opt.pb gisaidAndPublic.$today.masked.pb
+
+# screen sa on hgwdev:
+today=2022-04-05
+prevDate=2022-04-04
+cd $ottoDir/$today
+time $scriptDir/updateCombinedTree.sh $prevDate $today $problematicSitesVcf \
+    >& updateCombinedTree.continue.log

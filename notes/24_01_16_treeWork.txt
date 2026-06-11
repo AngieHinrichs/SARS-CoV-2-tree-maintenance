@@ -1,0 +1,248 @@
+today=2024-01-16
+cd $ottoDir/$today
+# This time don't restrict to BA.2 because I'm going to fix some old lineages with issues
+# found by comparing designated sequences to tree assignments (see 24_01_14_pango.txt).
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Fede spotted a misplaced bit of HK.30:
+# https://github.com/cov-lineages/pango-designation/commit/6e3305fb
+g Russia/SPE-RII-MH146852S/2023 sample-paths
+#... node_1129630:C27507T node_1129694:C9319T,A22995G node_1129695:T26609C 
+g node_1129694: sample-paths | g -v node_1129695: | cut -f 1 > pruneForHK.30
+wc -l pruneForHK.30
+#1 pruneForHK.30
+
+
+# lop branch where 487A's are pulling in 487Ns that should go in JQ.1 
+#https://github.com/sars-cov-2-variants/lineage-proposals/issues/1135
+g Denmark/DCGC-661635/2023 sample-paths
+#... node_2234350:T12775C node_2234355:G487A
+g node_2234355: sample-paths | cut -f 1 > pruneForJQ.1
+wc -l pruneForJQ.1
+#18 pruneForJQ.1
+
+
+# restore B.1.162's C9195T > T15354C to main T15354C
+g USA/WI-UW-273/2020 sample-paths
+#... node_154669:C18877T node_158276:C9195T node_158277:T15354C
+g node_158276: sample-paths | g -v node_158277: | cut -f 1 > pruneForB.1.162
+wc -l pruneForB.1.162
+#2 pruneForB.1.162
+
+
+# restore child rev branch misplaced in XBB.1.22.1 to XBB.1.22
+g USA/FL-CDC-QDX82480569/2023 sample-paths
+#... node_1037345:A22161G node_1042211:A28615G node_1042212:T26597C,T28888A node_1042213:G22161A
+g node_1042211: sample-paths | g -v node_1042213: | cut -f 1 > pruneForXBB.1.22
+wc -l pruneForXBB.1.22
+#2 pruneForXBB.1.22
+
+
+# restore split rev670 branch of EG.5.1.13
+g PuertoRico/PR-PRPHL-MB0749/2023 sample-paths
+#... node_1122064:G21718T node_1181085:G670T node_1181086:C12439T
+g node_1181085: sample-paths | g -v node_1181086: | cut -f 1 > pruneForEG.5.1.13
+wc -l pruneForEG.5.1.13
+#2 pruneForEG.5.1.13
+
+
+# restore split branch of JK.1: 
+g USA/CA-CDC-LC1022717/2023 sample-paths
+#... node_1218591:T28665G node_1218592:G20055A,A27747T node_1218593:A11304G node_1218594:A22472C
+g node_1218592: sample-paths | g -v node_1218594: | cut -f 1 > pruneForJK.1
+wc -l pruneForJK.1
+#14 pruneForJK.1
+
+
+# unsplit B.1.545: late C2189T
+g NZL/20VR2481/2020 sample-paths
+#... node_4022:C3037T node_11766:C829T node_11767:C2189T
+g node_11766: sample-paths | g -v node_11767: | cut -f 1 > pruneForB.1.545
+wc -l pruneForB.1.545
+#16 pruneForB.1.545
+
+
+# late 28681 keeps branch from BA.5.3.1
+g Germany/BY-RKI-I-941259/2022 sample-paths
+#... node_1598085:C1931A node_1764121:A21137G node_1764122:G24047A node_1764252:G28681T node_1764253:C12053T node_1764319:G28300T
+# Lop branch with Israel/ICH-741181923/2022.  Lots of designated BA.5.3.1's but at least as
+# currently placed they're missing 28681 (N?).
+#... node_1598085:C1931A node_1764121:A21137G node_1764122:G24047A node_1764123:C21762T,C27944T
+g node_1764121: sample-paths | g -v node_1764319: | g -v node_1764123: | cut -f 1 > pruneForBA.5.3.1
+wc -l pruneForBA.5.3.1
+#271 pruneForBA.5.3.1
+
+
+# B.56 is split, late C14636T
+g Indonesia/PA-EIJK09/2020 sample-paths
+#node_375:C186T node_376:C14636T
+g node_375: sample-paths | g -v node_376: | cut -f 1 > pruneForB.56
+wc -l pruneForB.56
+#5 pruneForB.56
+
+
+# XBB.1.3: late G23012A: 
+g Germany/SN-RKI-I-1088241/2023 sample-paths
+#... node_1034200:G22317T node_1035446:C7124T node_1035447:G23012A
+g node_1035446: sample-paths | g -v node_1035447: | cut -f 1 > pruneForXBB.1.3
+wc -l pruneForXBB.1.3
+#6 pruneForXBB.1.3
+
+
+# B.1.586: late C14407T
+g USA/CA-CZB-3645/2020 sample-paths
+#... node_3545013:G25563T node_3576755:C7945T node_3576756:C14407T
+g node_3576755: sample-paths | g -v node_3576756: | cut -f 1 > pruneForB.1.586
+wc -l pruneForB.1.586
+#6 pruneForB.1.586
+
+
+# B.1.314: late A2018G: 
+g USA/CA-QDX-1170/2020 sample-paths
+#... node_3545013:G25563T node_3599630:C18029T node_3599631:A2018G
+g node_3599630: sample-paths | g -v node_3599631: | cut -f 1 > pruneForB.1.314
+wc -l pruneForB.1.314
+#32 pruneForB.1.314
+
+
+# BF.7.1: late G22344T: 
+g France/GES-HMN-22102280326/2022 sample-paths
+#... node_1829293:C7528T node_1856964:G3250T,A5032G node_1856965:G22344T
+g node_1856964: sample-paths | g -v node_1856965: | cut -f 1 > pruneForBF.7.1
+wc -l pruneForBF.7.1
+#3 pruneForBF.7.1
+
+
+# BE.4: late 10188, prune back to 23608
+g Australia/NSW-ICPMR-28311/2022 sample-paths
+#... node_1748538:C13342T node_1749981:G23608T node_1749982:C27800T node_1749985:C6740T node_1749986:C10188A
+g node_1749981: sample-paths | g -v node_1749986: | cut -f 1 > pruneForBE.4
+wc -l pruneForBE.4
+#43 pruneForBE.4
+
+
+wc -l pruneFor*
+#    2 pruneForB.1.162
+#   32 pruneForB.1.314
+#   16 pruneForB.1.545
+#    6 pruneForB.1.586
+#    5 pruneForB.56
+#  271 pruneForBA.5.3.1
+#   43 pruneForBE.4
+#    3 pruneForBF.7.1
+#    2 pruneForEG.5.1.13
+#    1 pruneForHK.30
+#   14 pruneForJK.1
+#   18 pruneForJQ.1
+#    2 pruneForXBB.1.22
+#    6 pruneForXBB.1.3
+#  421 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m36.019s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13743518,with radius 1, second from start 240
+#parsimony score after optimizing: 13743496,with radius 2, second from start 330
+#parsimony score after optimizing: 13743488,with radius 4, second from start 775
+#parsimony score after optimizing: 13743481,with radius 8, second from start 3107
+#parsimony score after optimizing: 13743481,with radius 16, second from start 5556
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# In HK.30 with 26609 before C9319T,A22995G and C27507T?
+g Russia/SPE-RII-MH146852S/2023 sample-paths.pruned
+#... node_1129288:C27507T node_1129352:A22995G,T26609C node_1129353:C9319T
+# Nope, still 27507 first, dang.
+
+# T15354C before C9195T?
+g USA/WI-UW-273/2020 sample-paths.pruned
+#... node_154644:C18877T node_165326:T15354C node_165327:C9195T
+# Yep.
+
+# No more flip-flop on G22161A?
+g USA/FL-CDC-QDX82480569/2023 sample-paths.pruned
+#... node_1036887:T28297C node_1036888:T11956C node_1042448:T26597C,A28615G,T28888A
+# Yep.
+
+# C12439T before G670T?
+g PuertoRico/PR-PRPHL-MB0749/2023 sample-paths.pruned
+#... node_1122007:G21718T node_1180743:C12439T node_1180744:G670T
+# Yep.
+
+# A22472C before G20055A,A27747T and A11304G?
+g USA/CA-CDC-LC1022717/2023 sample-paths.pruned
+#... node_1218533:T28665G node_1218534:A22472C node_1218535:A11304G,G20055A,A27747T
+# Yep.
+
+# C2189T before C829T?
+g NZL/20VR2481/2020 sample-paths.pruned
+#... node_4008:C3037T node_3654314:C2189T node_3654315:C829T
+# Yep.
+
+# 28681 right after C1931A?
+g Germany/BY-RKI-I-941259/2022 sample-paths.pruned
+#... node_1598052:C1931A node_1764207:A21137G,G24047A node_1764337:C12053T,G28300T,G28681T
+# Damn, not quite.  Might be worth label if large number...?
+
+# C14636T before C186T?
+g Indonesia/PA-EIJK09/2020 sample-paths.pruned
+#... node_3661375:C14636T node_3661376:C186T
+# Yep.
+
+# G23012A before C7124T?
+g Germany/SN-RKI-I-1088241/2023 sample-paths.pruned
+#... node_1034177:G22317T node_1323104:G23012A node_1323105:C7124T
+# Yep.
+
+# C14407T before C7945T?
+g USA/CA-CZB-3645/2020 sample-paths.pruned
+#... node_3544896:G25563T node_3617125:C7945T,C14407T
+# Wait, wasn't there a C14407T already??  Check in taxonium.
+
+# A2018G before C18029T?
+g USA/CA-QDX-1170/2020 sample-paths.pruned
+#... node_3544896:G25563T node_3617131:A2018G node_3617132:C18029T
+# Yep.
+
+# G22344T before G3250T,A5032G?
+g France/GES-HMN-22102280326/2022 sample-paths.pruned
+#... node_1829184:C7528T node_1860136:G22344T node_1860137:G3250T node_1860138:A5032G
+# Yep.
+
+# C10188A right after C13342T?
+g Australia/NSW-ICPMR-28311/2022 sample-paths.pruned
+#... node_1748505:C13342T node_1749169:C10188A node_1749180:C27800T node_1749255:G23608T node_1749256:C6740T
+# Yep.
+

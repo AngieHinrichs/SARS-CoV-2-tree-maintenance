@@ -1,0 +1,166 @@
+today=2022-10-31
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# BQ.1.1 > A17039G has a ton of rando > 22599 that should probably be 22599 > rando,
+# I'm guessing due to dropout & lack of imputation of 22599 until sequences without dropout
+# become available.  Try prune & reopt...
+
+# Singletons missing 22599, noticed by searching for 22599 mutations in taxonium:
+cat > pruneForBQ.1.1 <<EOF
+France/IDF-IPP52716/2022|EPI_ISL_15476518|2022-10-10
+France/NOR-CHURouen-77035031/2022|EPI_ISL_15369385|2022-09-26
+Luxembourg/LNS9407789/2022|EPI_ISL_15333923|2022-09-27
+France/GES-IPP52459/2022|EPI_ISL_15389204|2022-10-03
+Canada/QC-L00527082001/2022|EPI_ISL_15162418|2022-09-12
+Canada/QC-L00541125001/2022|EPI_ISL_15510369|2022-10-17
+Luxembourg/LNS1904792/2022|EPI_ISL_15333490|2022-09-30
+Luxembourg/LNS9787199/2022|EPI_ISL_15354739|2022-09-28
+Luxembourg/LNS9238319/2022|EPI_ISL_15333497|2022-09-30
+Nigeria/NCDC-NR-GL-006109/2022|EPI_ISL_15031386|2022-08-26
+Luxembourg/LNS4952483/2022|EPI_ISL_15286053|2022-09-19
+Luxembourg/LNS8858251/2022|EPI_ISL_15286051|2022-09-19
+USA/VA-CDC-LC0899126/2022|OP659839.1|2022-09-26
+USA/VA-CDC-QDX42511558/2022|OP722297.1|2022-10-14
+USA/NJ-CDC-QDX42046794/2022|OP653351.1|2022-10-02
+USA/NY-CDC-LC0910647/2022|OP706794.1|2022-10-04
+France/IDF-HMN-22092280523/2022|EPI_ISL_15295743|2022-09-28
+CzechRepublic/NRL_s6093/2022|EPI_ISL_15432775|2022-10-04
+Portugal/PT42545/2022|EPI_ISL_15213173|2022-09-18
+Portugal/PT43005/2022|EPI_ISL_15305337|2022-09-22
+France/ARA-CFD220048495001/2022|EPI_ISL_15003483|2022-09-09
+Germany/BW-RKI-I-1013473/2022|EPI_ISL_15523443|2022-09-19
+Luxembourg/LNS4797903/2022|EPI_ISL_15422286|2022-10-04
+Germany/NW-RKI-I-985238/2022|EPI_ISL_15148693|2022-09-19
+England/PHEC-YY8GP3P/2022|2022-10-12
+USA/NJ-CDC-QDX41754048/2022|OP608831.1|2022-09-21
+USA/JW8150/2022|OP601686.1|2022-09-24
+USA/NC-CORVASEQ-UNC-8150/2022|EPI_ISL_15299114|2022-09-24
+Spain/CT-HUB06776/2022|EPI_ISL_15495014|2022-10-07
+France/IDF-APHPSU_PSL-662209071611/2022|EPI_ISL_15508095|2022-09-26
+Luxembourg/LNS0811004/2022|EPI_ISL_15285763|2022-09-21
+Luxembourg/LNS1620863/2022|EPI_ISL_15422613|2022-10-08
+Luxembourg/LNS7879289/2022|EPI_ISL_15422669|2022-10-03
+Luxembourg/LNS8842285/2022|EPI_ISL_15422946|2022-10-05
+Luxembourg/LNS0747201/2022|EPI_ISL_15355010|2022-09-26
+Luxembourg/LNS9766192/2022|EPI_ISL_15333924|2022-09-28
+Luxembourg/LNS4831963/2022|EPI_ISL_15418030|2022-10-07
+Luxembourg/LNS5871407/2022|EPI_ISL_15418121|2022-10-08
+Nigeria/NCDC-NR-GL-006119/2022|EPI_ISL_15031392|2022-08-30
+Nigeria/NCDC-NR-GL-006151/2022|EPI_ISL_15031400|2022-09-01
+Nigeria/NCDC-NR-GL-006188/2022|EPI_ISL_15031419|2022-09-08
+Nigeria/NCDC-NR-GL-005902/2022|EPI_ISL_14922274|2022-08-24
+Nigeria/NCDC-NR-GL-006190/2022|EPI_ISL_15031420|2022-09-09
+Nigeria/NCDC-NR-GL-006180/2022|EPI_ISL_15031417|2022-09-06
+Nigeria/NCDC-NR-GL-006220/2022|EPI_ISL_15157324|2022-09-04
+Luxembourg/LNS0374377/2022|EPI_ISL_15078515|2022-09-08
+Canada/QC-L00535072001/2022|EPI_ISL_15415744|2022-10-02
+USA/NJ-CDC-QDX41426151/2022|OP567787.1|2022-09-12
+Belgium/UGent-6441/2022|EPI_ISL_15480622|2022-09-21
+USA/NV-CDC-QDX41496940/2022|OP568710.1|2022-09-15
+Sweden/2394728763/2022|EPI_ISL_15208918|2022-09-19
+EOF
+# Hmmm, BQ.1.18 kinda falls in that category but I'll leave it.
+wc -l pruneForBQ.1.1 
+#51 pruneForBQ.1.1
+
+# Node with T87C that got placed ahead of BQ.1.1
+grep France/ARA-HMN-22102060362/2022 sample-paths
+#... node_2016464:A17039G node_2016931:T87C
+grep Belgium/Jessa_11-2241-000895LKO/2022 sample-paths
+#... node_2016464:A17039G node_2016931:T87C node_2016932:G22599C node_2016942:C87T
+grep node_2016931: sample-paths | g -v node_2016942: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#141 pruneForBQ.1.1
+
+# BQ.1.1.11 is placed under BE.1.1.1 not BQ.1.1, see if we can prune for fix...
+cat > pruneForBQ.1.1.11 <<EOF
+Canada/UN-NML-480157/2022|EPI_ISL_14660897|2022-07-26
+Italy/LOM_Policlinico_Milano_18194163/2022|EPI_ISL_15306905|2022-10-04
+Italy/LOM_Policlinico_Milano_18194155/2022|EPI_ISL_15306908|2022-10-04
+EOF
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.masked.pruned.pb
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Now look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# See if any of these have been moved to BQ.1.1
+g Sweden/SUS0016546/2022 sample-paths.pruned
+#... node_2498492:A17039G node_2499134:A10323G node_2499135:G22599C
+# Hmmm, still A10323G first, maybe I missed one... ugh, using a day older tree in taxonium!
+
+g Australia/NSW-ICPMR-35078/2022 sample-paths.pruned
+#... node_2498492:A17039G node_2499186:G28028T node_2499187:G22599C
+# Doh
+
+g Canada/ON-PHL-22-43416/2022 sample-paths.pruned
+#... node_2498492:A17039G node_2499267:G22599C node_2501162:C3045T
+# OK good.
+
+g France/ARA-GENBIO-14292851773/2022 sample-paths.pruned
+#... node_2498492:A17039G node_2499267:G22599C node_2501179:C593T
+# Good.
+
+# See if BQ.1.1 path doesn't have the annoying T87C
+g Belgium/MBLG-CTMAPF98443115/2022 sample-paths.pruned
+#... node_2498492:A17039G node_2499267:G22599C
+# Yep, good.
+
+# See if BQ.1.1.11 is in BQ.1.1
+g Germany/BW-RKI-I-1001563/2022 sample-paths.pruned
+#... node_2498492:A17039G node_2499267:G22599C node_2500465:T23042C node_2500466:C7875A,C26313T node_2500467:A21913G
+# Good.
+
+# Try to remember to revisit and look for stray BQ.1 > A17039G > rando > G22599C after
+# sequences get replaced (when 2022-11-01 is done).
+
+# Now to reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# No diff, good.
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

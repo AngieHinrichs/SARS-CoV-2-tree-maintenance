@@ -1,0 +1,112 @@
+today=2026-02-04
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+
+# Fede found a flip-flop on 17674; I fixed it in 26_01_26_treeWork but it's back.
+# https://github.com/cov-lineages/pango-designation/issues/3173
+g France/ARA-RELAB-HCL725000094901/2025 sample-paths
+#... node_2541819:C23896T node_2541949:A17674G node_2541950:C9510T,G11335T node_2541951:T28672C node_2541952:G17674A
+g node_2541949: sample-paths | g -v node_2541952: | cut -f 1 > pruneForPD3173
+wc -l pruneForPD3173
+#9 pruneForPD3173
+
+# Permanently exclude the first branch in hopes that's enough to keep this from coming back.
+g node_2541949: sample-paths | g -v node_2541950: | cut -d\| -f 2 >> ../badBranchSeed.ids
+
+
+# Walde1nsamkeit noticed a chunk of PQ.12 misplaced on a rev 21627 branch
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3264#issuecomment-3810390943
+g Germany/BY-MVP-000026412/2025 sample-paths
+#... node_2530722:G22865T node_2538486:A21627C node_2538495:C13968T node_2538498:G5504A node_2538499:G2648T node_2538500:C21627A 
+g node_2538486: sample-paths | g -v node_2538499: | cut -f 1 > pruneForLP3264
+wc -l pruneForLP3264
+#351 pruneForLP3264
+# More than necessary but what the heck, give them a second chance in case of Ns
+
+
+# Xu pointed out that PQ.25.2 is misplaced in a flip-flop branch in PQ.2.1
+# https://github.com/cov-lineages/pango-designation/issues/3183
+g Japan/BRL25-0258/2025 sample-paths
+#... node_2530722:G22865T node_2538662:T25969C node_2541075:T22995C node_2541229:C1594T node_2541230:C28957T node_2541231:C875T,T24903C,C25969T,C28651T node_2541232:C18175T 
+g node_2541229: sample-paths | g -v node_2541232: | cut -f 1 > pruneForPD3183
+wc -l pruneForPD3183
+#22 pruneForPD3183
+
+
+# Fede spotted a flip-flop on 21952
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3267
+g Japan/FR021-0376/2025 sample-paths
+#... node_2539705:G26828T node_2539876:C21952T node_2539879:C5784T node_2539886:T15597C,T21952C
+# Dunno, looks to me like it could be pulled back in by legit C5784T in RC.3, but ... give it a try I guess?
+g node_2539879: sample-paths | g -v node_2539886: | cut -f 1 > pruneForLP3267
+wc -l pruneForLP3267
+#21 pruneForLP3267
+
+
+wc -l pruneFor*
+#  351 pruneForLP3264
+#   21 pruneForLP3267
+#    9 pruneForPD3173
+#   22 pruneForPD3183
+#  403 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    57m27.807s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15276615,with radius 1, second from start 222 
+#parsimony score after optimizing: 15276600,with radius 2, second from start 310 
+#parsimony score after optimizing: 15276594,with radius 4, second from start 695 
+#parsimony score after optimizing: 15276594,with radius 8, second from start 2645 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+
+# Check paths
+
+# No more flip-flop on 17674?
+g France/ARA-RELAB-HCL725000094901/2025 sample-paths.pruned
+#... node_2541501:C23896T node_2541664:C9510T,T28672C node_2541665:G11335T
+
+# No more flip-flop on 21627?
+g Germany/BY-MVP-000026412/2025 sample-paths.pruned
+#... node_2530726:G22865T node_2543592:C13968T node_2543593:G2648T,G5504A
+
+# No more flip-flop on 25969?
+g Japan/BRL25-0258/2025 sample-paths.pruned
+#... node_2530726:G22865T node_2536941:T24903C node_2536950:C28957T node_2536951:C875T,C1594T,C18175T,T22995C node_2536952:C28651T
+
+# No more flip-flop on 21952?
+g Japan/FR021-0376/2025 sample-paths.pruned
+#... node_2530726:G22865T node_2538382:T25969C node_2539417:C8344T node_2539424:A22896C node_2539425:G26828T node_2539616:C5784T,T15597C
+
+
+# of course, check all of those again when tomorrow's build is done.
+
+# 2025-02-05: all flip-flops gone.  PQ.25.2 is in PQ.17 instead of PQ.25 but whatever, it's annotated and not on a flip-flop.  :)

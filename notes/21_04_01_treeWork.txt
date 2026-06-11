@@ -1,0 +1,347 @@
+# Make use of matUtils' new -a [ --max-parsimony ] and -b [ --max-branch-length ] options
+# to trim highly diverged samples from our tree.  Make "blacklists" to keep us from trying to
+# place them again every night. -- Or not!  Russ pointed out that for some sequences that are
+# kinda on the edge, the appearances of new sequences might make them fit in more reasonably.
+# So... I'm thinking we could blacklist the crazy long branches like to the bat sequences
+# and ones with ~100 mutations total (at this point, before that becomes normal....).
+# However, that introduces complexity, and it's a small number of sequences so it wouldn't
+# save us tons of time...
+
+# For starters, just --max-branch-length.  Russ recommends 50.
+
+usherDir=~/github/usher/build
+matUtils=$usherDir/matUtils
+
+# Today's run isn't done yet; work with yesterday's combined GISAID + public tree.
+today=2021-03-31
+cd /hive/data/outside/otto/sarscov2phylo/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -u samples.before
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -b 50 \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+#real    1m26.482s
+time $matUtils extract -i gisaidAndPublic.$today.masked.pruned.pb -u samples.after
+#real    1m10.752s
+wc -l samples.{before,after}
+# 1006224 samples.before
+# 1006029 samples.after
+comm -23 <(sort samples.before) <(sort samples.after) > longBranchSamples
+wc -l longBranchSamples
+#195 longBranchSamples
+#with 40: 239 longBranchSamples
+# Many of the names look familiar, that's good.
+grep -F \|EPI_ISL_ longBranchSamples | cut -d\| -f 2 | sort \
+    > longBranchEpi
+grep -Ew '[A-Z][A-Z][0-9]{6}\.[0-9]' longBranchSamples \
+| awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' | sort \
+    > longBranchGenBank
+# No need to remember the CNCB pruned sequences since we won't be updating CNCB seqs,
+# but for the record:
+grep -vF \|EPI_ISL_ longBranchSamples | grep -vEw '[A-Z][A-Z][0-9]{6}\.[0-9]'
+#MP789|GWHABKW00000001|19-03-01
+#TG13|GWHABKP00000001|13-07-24
+#bat/Yunnan/RmYN02/2019|NMDC60013004-01|19-06-25
+
+# Was there any damage to clade assignments?
+$matUtils summary -i gisaidAndPublic.$today.masked.pb -c clades.before
+$matUtils summary -i gisaidAndPublic.$today.masked.pruned.pb -c clades.after
+wc -l clades.{before,after}
+# 1122 clades.before
+# 1122 clades.after
+sdiff clades.{before,after} | less
+# Just some changes in counts...
+diff <(cut -f 1 clades.before | sort) <(cut -f 1 clades.after | sort)
+# No clades/lineages lost, great.
+# I'm just going to replace it then!
+mv gisaidAndPublic.$today.masked.pruned.pb gisaidAndPublic.$today.masked.pb
+
+# Now see how many we lose if we apply --max-parsimony 10 as Russ suggests.
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -a 10 \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.pb -u samples.afterA
+wc -l samples.after samples.afterA
+# 1006029 samples.after
+# 1003242 samples.afterA
+comm -23 <(sort samples.after) <(sort samples.afterA) > longTerminalSamples
+wc -l longTerminalSamples
+#2787 longTerminalSamples
+# Ha, 11 of the closest1000 for the SC investigation are lopped:
+#grep -Fwf longTerminalSamples /hive/users/angie/SC_run4/closest1000.fa  | sort
+#>USA/CA-CSMC144/2020|EPI_ISL_475623|2020-04-08
+#>USA/CA-RD-RA03980/2021|EPI_ISL_1027033|2021-02-04
+#>USA/FL-BPHL-0741/2021|MW715450.1|21-02-05
+#>USA/ME-HETL-J1767/2021|EPI_ISL_1163630|2021-02-23
+#>USA/NY-CDC-LC0023955/2021|MW781260.1|21-03-05
+#>USA/NY-PRL-2021_03_05_00D21/2021|EPI_ISL_1173069|2021-03-03
+#>USA/NY-Wadsworth-21008882-01/2021|EPI_ISL_883493|2021-01-11
+#>USA/NY-Wadsworth-292264-01/2020|EPI_ISL_767596|2020-12-02
+#>USA/TX-HMH-MCoV-13723/2020|EPI_ISL_788816|2020-08-18
+#>USA/TX-HMH-MCoV-20810/2021|EPI_ISL_1075252|2021-01-06
+#>USA/TX-HMH-MCoV-21192/2021|EPI_ISL_1075636|2021-01-01
+
+
+# Instead of removing GISAID samples from the tree when they have been mapped to public samples,
+# and adding the public samples, rename them in place.
+prevProtobufMasked=../2021-03-30/gisaidAndPublic.2021-03-30.masked.pb
+epiToPublic=$gisaidDir/epiToPublicAndDate.latest
+
+$matUtils extract -i $prevProtobufMasked -u prevNames
+# For all samples in the previous tree with EPI_ISL_ IDs, map the IDs to full names.
+grep -F \|EPI_ISL_ prevNames \
+| awk -F\| '{print $2 "\t" $0;}' \
+| sort \
+    > epiToPrevName
+# For all of those samples that now appear in the latest epiToPublic mapping, map the EPI IDs
+# to full public names.
+cut -f 1 epiToPrevName \
+| grep -Fwf - $epiToPublic \
+| sed -re 's/NorthernIreland/Northern_Ireland/' \
+| tawk '{ if ($4 == "") { $4 = "?"; }
+          if ($2 == $3) { print $1, $2 "|" $4; } else { print $1, $3 "|" $2 "|" $4; } }' \
+| sort \
+    > prevEpiToPublicName
+wc -l prevEpiToPublicName
+#2768 prevEpiToPublicName
+# Join those on EPI ID to map old tree names with EPI IDs to new names with public IDs.
+join -t$'\t' prevEpiToPublicName epiToPrevName \
+| tawk '{print $3, $2;}' \
+    > prevEpiToPublic.renaming
+#***TODO: add those to prevCogUk, prevGb or whatever they're called
+
+# Do the renaming and use the resulting protobuf as the base for today's build.
+$matUtils mask -r prevEpiToPublic.renaming -i $prevProtobufMasked -o prevRenamed.pb
+$matUtils extract -i prevRenamed.pb -u prevNamesRenamed
+wc -l prevNames prevNamesRenamed
+#  988811 prevNames
+#  988811 prevNamesRenamed
+diff <(sort prevNames) <(sort prevNamesRenamed) | less
+
+# Try Jakob's mask -S
+
+time $matUtils mask -S -i gisaidAndPublic.$today.masked.pb -o lineageTree.pb
+#real    1m21.300s
+
+
+
+# Also, Yatish needs a VCF *not* from protobuf, to identify N bases that could be re-evaluated.
+# /hive/users/angie/publicMsa already has 400k-odd aligned sequences; figure out which sequences
+# in combined tree are not already in there, align those, concat & do a big faToVcf & mask.
+fastaNames /hive/users/angie/publicMsa/publicMsa.2021-03-18.unmasked.fa.xz | sort > publicMsa.ids
+wc -l publicMsa.ids
+#434063 publicMsa.ids
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' samples.after \
+| sort > tree.ids
+wc -l tree.ids
+#1006029 tree.ids
+comm -23 tree.ids publicMsa.ids > idsToAlign
+wc -l idsToAlign
+#572164 idsToAlign
+grep ^EPI_ISL idsToAlign > idsToAlign.epi
+grep -E '^(England|Northern|Scotland|Wales)' idsToAlign > idsToAlign.cogUk
+grep -E '^[A-Z][A-Z][0-9]{6}\.[0-9]$' idsToAlign > idsToAlign.genbank
+grep -E '^(CNA|GWH|NMDC)' idsToAlign > idsToAlign.cncb
+wc -l idsToAlign.*
+#    254 idsToAlign.cncb
+#  43651 idsToAlign.cogUk
+# 510213 idsToAlign.epi
+#  18046 idsToAlign.genbank
+# 572164 total
+
+# Oh boy, I forgot CNCB fasta has name first, then ID
+#*** NOTE FOR NEXT TIME: strip initial (BetaCoV|SARS-CoV-2|hCoV-19) from names!!
+fastaNames $cncbDir/cncb.nonGenBank.fasta \
+| awk -F'|' '{print $2 "\t" $1;}' \
+| sed -re 's/ //g;' \
+| sort \
+    > cncbIdToName
+join -t$'\t' idsToAlign.cncb cncbIdToName \
+| cut -f 2 \
+    > idsToAlign.cncb.names
+faSomeRecords $cncbDir/cncb.nonGenBank.fasta idsToAlign.cncb.names cncbToAlign.fa
+faSize cncbToAlign.fa
+#7580731 bases (26119 N's 7554612 real 7554610 upper 2 lower) in 254 sequences in 1 files
+#Total size: mean 29845.4 sd 72.2 min 29375 (SARS-CoV-2/Wuhan_C113/human/2020/CHN) max 29941 (Guangzhou/GZ8H0005/2020) median 29861
+
+faSomeRecords <(xzcat ../cogUk.$today/cog_all.fasta.xz) idsToAlign.cogUk cogUkToAlign.fa
+fastaNames cogUkToAlign.fa | wc -l
+#36512
+# Oh my, that's a lot fewer than the 43651 in the tree.
+fastaNames cogUkToAlign.fa | sort > cogFound
+comm -23 idsToAlign.cogUk cogFound > cogNotFound
+# Some of the COG-UK sequences seem to blink in and out.  See how many we can find looking at
+# other recent dates.
+faSomeRecords <(xzcat ../cogUk.2021-04-01/cog_all.fasta.xz) cogNotFound stdout >> cogUkToAlign.fa
+fastaNames cogUkToAlign.fa | sort > cogFound
+comm -23 idsToAlign.cogUk cogFound > cogNotFound
+wc -l cogFound cogNotFound
+#  43596 cogFound
+#     55 cogNotFound
+# Oh wow, better than I expected!  Weird.
+
+fastaNames $gisaidDir/gisaid_fullNames_$today.fa.xz | grep -Fwf idsToAlign.epi > idsToAlign.epi.names
+wc -l idsToAlign.epi.names
+#508797 idsToAlign.epi.names
+# Fewer than the 510213 that we're looking for... we should probably prune those if the EPIs have
+# been withdrawn...  Or we could try to dig them up from older files...
+faSomeRecords <(xzcat $gisaidDir/gisaid_fullNames_$today.fa.xz) idsToAlign.epi.names \
+    gisaidToAlign.fa
+fastaNames gisaidToAlign.fa | wc -l
+#508797
+fastaNames gisaidToAlign.fa | cut -d\| -f 2 | sort > epiFound
+comm -23 idsToAlign.epi epiFound > epiNotFound
+# Looking through those... most withdrawn, although I found some that were added back &
+# updated with those.
+
+faSomeRecords <(xzcat ../ncbi.$today/genbank.fa.xz) idsToAlign.genbank genbankToAlign.fa
+fastaNames genbankToAlign.fa | wc -l
+#17905
+# Again, fewer than the 18046 in the tree.
+fastaNames genbankToAlign.fa | awk '{print $1;}' | sort > genbankFound
+comm -23 idsToAlign.genbank genbankFound > genbankNotFound
+# OK, some are .1 vs .2 that I guess we kept around because of epiToPublic mappings?
+cut -d. -f1 genbankNotFound | grep -Fwf - <(fastaNames ../ncbi.$today/genbank.fa.xz)
+#LC528232.2 |Hu/DP/Kng/19-020/2020
+#LC528233.2 |Hu/DP/Kng/19-027/2020
+#LC534419.2 |Japan/Hu/Kng/19-437/2020
+#LC573289.2 |Japan/Hu/KngFJ/23RD5/2020
+#MW423684.2 |ITA/CH360/2020
+#MW423685.2 |ITA/CB543/2020
+#MW423686.2 |ITA/CL106/2020
+#MW491232.2 |ITA/PA_PC2021_2274/2021
+#MW559533.2 |IND/ILS01/2020
+# Ah, but most were removed from GenBank, like LR877330..LR877431, LR897808..LR897819,
+# LR897856..LR897867, LR897890..LR898359, MW474321, MW483535, MW493964, MW494088..MW494102,
+# MW523039..MW523045.
+# So, really, we should prune those from the tree.
+grep -Fwf genbankNotFound tree.ids > genbankWithdrawn
+
+# Continuing 2021-04-04 after redoing above fasta steps in 2021-04-04/ ...
+cat {cncb,cogUk,gisaid,genbank}ToAlign.fa \
+    > allToAlign.fa
+time bash ~/github/sarscov2phylo/scripts/global_profile_alignment.sh \
+    -i allToAlign.fa \
+    -o allToAlign.aligned.fa \
+    -t 50
+real    119m54.822s
+
+# Make a renaming file from all those IDs (and publicMsa IDs) to tree names.
+renaming=idToFullName
+grep -Fwf genbankFound samples.after \
+| awk -F\| '{ if ($3 == "") { print $1 "\t" $0; } else { print $2 "\t" $0; } }' \
+    > $renaming
+# Recall that CNCB fasta has names not IDs... and doh, names that sometimes start with things
+# stripped out before adding to tree like (BetaCoV|SARS-CoV-2|hCoV-19).  Join back up...
+grep -Fwf idsToAlign.cncb samples.after \
+| awk -F\| '{print $2 "\t" $0;}' \
+| sort \
+    > cncbIdToTree
+join -t$'\t' cncbIdToName cncbIdToTree \
+| cut -f 2,3 \
+    >> $renaming
+# I used gisaid_fullNames.fa in order to use# EPI IDs (sequence_batch.fa has only names, not IDs).
+# And there have been enough name changes between the time that we added sequences to the tree and
+# now that we really need to go back to EPI IDs and join up tree names vs. latest gisaid_fullNames.
+grep -Fwf epiFound samples.after \
+| awk -F\| '{print $2 "\t" $0;}' \
+| sort \
+    > epiFoundToTreeName
+wc -l epiFoundToTreeName
+#542252 epiFoundToTreeName
+fastaNames gisaidToAlign.fa \
+| awk -F\| '{print $2 "\t" $0;}' \
+| sort > epiFoundToAlignedName
+wc -l epiFoundToAlignedName
+#542252 epiFoundToAlignedName
+join -t$'\t' epiFoundToAlignedName epiFoundToTreeName \
+| cut -f 2,3 \
+    >> $renaming
+grep -Fwf publicMsa.ids samples.after \
+| awk -F\| '{ if ($3 == "") { print $1 "\t" $0; } else { print $2 "\t" $0; } }' \
+    >> $renaming
+# COG-UK fasta uses only sequence names; join those back up with tree names.
+grep -Fwf cogFound samples.after \
+| grep -v EPI_ISL_ \
+| awk -F\| '{print $1 "\t" $0;}' \
+    >> $renaming
+wc -l $renaming
+#1064283 idToFullName
+wc -l samples.after 
+#1062285 samples.after
+# We might run into trouble with dups but let's try.
+
+# Remove bat and pangolin sequences from renaming --- long branch troubles.
+egrep -v 'bat/|pangolin/' $renaming > tmp
+mv tmp $renaming
+
+# Then prune tree to get matching VCF & tree.
+tawk '{ if ($1 ~ /^#/) { print; } else if ($7 == "mask") { $1 = "NC_045512v2"; print; } }' \
+    $problematicSitesVcf > mask.vcf
+# Add masked VCF to previous protobuf
+cat <(twoBitToFa $ref2bit stdout) \
+         <(xzcat /hive/users/angie/publicMsa/publicMsa.2021-03-18.unmasked.fa.xz) \
+         allToAlign.aligned.fa \
+| faToVcf stdin stdout \
+| xz > allAligned.vcf.xz
+xzcat allAligned.vcf.xz \
+| vcfRenameAndPrune stdin $renaming stdout \
+| vcfFilter -excludeVcf=mask.vcf stdin \
+| gzip -c \
+    > all.vcf.gz
+#TODO: rename to combined.2021-04-04.masked.vcf.gz
+mv all.vcf.gz combined.2021-04-04.masked.vcf.gz
+vcfSamples combined.2021-04-04.masked.vcf.gz | sort > /data/tmp/angie/allVcf
+wc -l /data/tmp/angie/allVcf
+
+#*** TODO: sanity check that; prune samples from the latest protobuf that aren't in there;
+#*** hand off to Yatish.
+sort samples.after > /data/tmp/angie/allTree
+comm -23 /data/tmp/angie/allVcf /data/tmp/angie/allTree | wc -l
+#0
+# Yay.
+comm -13 /data/tmp/angie/allVcf /data/tmp/angie/allTree > samplesToRemove
+wc -l samplesToRemove
+#1611 samplesToRemove
+# Oh well, they can be added back (or not, if they're withdrawn).
+$matUtils extract -i gisaidAndPublic.2021-04-04.masked.pb -p -s samplesToRemove \
+    -o combined.2021-04-04.masked.pb
+# Double-check that the samples match.
+$matUtils extract -i combined.2021-04-04.masked.pb -u omgAbsPathsNotSupportedFixMe
+cmp /data/tmp/angie/allVcf <(sort omgAbsPathsNotSupportedFixMe)
+# YES!  finally.
+curl -sSI https://hgwdev.gi.ucsc.edu/~angie/combined.2021-04-04.masked.vcf.gz
+curl -sSI https://hgwdev.gi.ucsc.edu/~angie/combined.2021-04-04.masked.pb
+nice xz *.fa &
+
+
+# This would be a good opportunity to de-dup, especially if it breaks something above.
+# This catches duplicate isolate names:
+grep -Fwf publicMsa.ids samples.after \
+| sort \
+| cut -d\| -f 1 \
+| uniq -c \
+| awk '$1 > 1 {print $2;}' \
+    > /data/tmp/angie/dupNames
+grep -Fwf /data/tmp/angie/dupNames samples.after | sort | less
+# Lots of duplicate GB submissions like this:
+#AUS/NT42/2020|MT612188.1|20-05-01
+#AUS/NT42/2020|MT641765.1|20-05-01
+#B114|LR898045.1|?
+#B114|LR963044.1|?
+# And lots of why-didn't-I remove these from COG-UK like this:
+#England/ALDP-106912D/2021|21-01-16
+#England/ALDP-106912D/2021|EPI_ISL_879362|2021-01-16
+# What are the actual duplicate final names in $renaming?
+cut -f 2 $renaming | sort | uniq -c | awk '$1 > 1' | less
+#      2 England/ALDP-106912D/2021|EPI_ISL_879362|2021-01-16
+#      2 England/ALDP-115BECC/2021|EPI_ISL_991877|2021-01-24
+# Looks like all COG-UK.
+g England/ALDP-106912D/2021 $renaming
+#England/ALDP-106912D/2021|EPI_ISL_879362|2021-01-16     England/ALDP-106912D/2021|EPI_ISL_879362|2021-01-16
+#England/ALDP-106912D/2021|EPI_ISL_879362|2021-01-16     England/ALDP-106912D/2021|EPI_ISL_879362|2021-01-16
+#England/ALDP-106912D/2021|21-01-16      England/ALDP-106912D/2021|21-01-16
+vcfSamples all.vcf.gz | g England/ALDP-106912D/2021
+# England/ALDP-106912D/2021|EPI_ISL_879362|2021-01-16
+# Well, for that one at least, despite the duplication in $renaming, there is only one VCF sample
+# that will map to something.
+
+

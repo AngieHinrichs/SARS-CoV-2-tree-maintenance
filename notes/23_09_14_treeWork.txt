@@ -1,0 +1,189 @@
+today=2023-09-14
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# DF.1 and DF.1.1 are on different late-22599 branches -- unify with BA.5.10.1
+g Austria/AGES-6049434/2022 sample-paths
+#... node_3400115:A12030G node_3400117:T13794C node_3400118:A3858G node_3400119:G22599C
+
+g USA/AZ-ASU96386/2022 sample-paths
+#... node_3400115:A12030G node_3400117:T13794C node_3400118:A3858G node_3400375:C15738T,C28045T node_3400376:T22896C node_3400377:T25999C node_3400378:G22599C node_3400380:C25999T
+
+g node_3400117: sample-paths | g -v node_3400119:  | g -v node_3400380: | cut -f 1 > pruneForDF.1
+#wc -l pruneForDF.1
+86 pruneForDF.1
+
+
+# Cornelius pointed out a rev branch tied in by one sample with dropout:
+# https://github.com/cov-lineages/pango-designation/commit/18177cf7f1f1e97b634e0ece171e7b96e483fa66
+g USA/CA-HLX-STM-EACBZ9V2R/2023 sample-paths
+#... node_2500940:A22910G node_2500941:A22995G node_2500957:G3719T,T28297C,T29068C node_2500958:G22910A
+g node_2500957: sample-paths | g -v node_2500958: | cut -f 1 > pruneForGJ.1.2.2
+wc -l pruneForGJ.1.2.2
+#1 pruneForGJ.1.2.2
+
+
+# Fede pointed out by email that the branch with SouthKorea/KDCA247980/2023 has two occurrences
+# of A21717G, try to fix.
+g Canada/AB-ABPHL-100644/2023 sample-paths
+#... node_2500942:C14805T,C25521T,C26885T node_2500951:T24927C node_2500952:A21717G ...
+g node_2500951: sample-paths | g -v node_2500952: | cut -f 1 > pruneForFede
+wc -l pruneForFede
+#2 pruneForFede
+
+
+# chunk of XBB.1.15 has C27911T first (before 1884)
+g Guatemala/106093-LNS/2022 sample-paths
+#... node_2300777:G27915T node_2333089:C27911T node_2333096:C1884T
+g node_2333089: sample-paths | g -v node_2333096: | cut -f 1 > pruneForXBB.1.15
+wc -l pruneForXBB.1.15
+#23 pruneForXBB.1.15
+
+
+# XBB.1.5.75 has a big chunk with reversion on defining mut tied in by one seq
+g Norway/1543/2023 sample-paths
+#... node_2437244:C3695T node_2437384:C12020T,C25413A node_2437385:T3695C
+g node_2437384: sample-paths | g -v node_2437385: | cut -f 1 > pruneForXBB.1.5.75
+wc -l pruneForXBB.1.5.75
+#1 pruneForXBB.1.5.75
+
+
+# XBB.1.5.79 has a big chunk with reversion on defining mut tied in by a few seqs
+g Germany/BW-RKI-I-1125130/2023 sample-paths
+#... node_2456034:A29052T node_2456146:A4572C node_2456147:T29052A
+g node_2456146: sample-paths | g -v node_2456147: | cut -f 1 > pruneForXBB.1.5.79
+wc -l pruneForXBB.1.5.79
+#5 pruneForXBB.1.5.79
+
+
+# Some question about how these are tied in, getting a reversion on 22264
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/537#issuecomment-1711549617
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/763#issuecomment-1711645428
+# https://github.com/cov-lineages/pango-designation/issues/2194#issuecomment-1702973887
+g USA/TX-HMH-M-131839/2023 sample-paths
+#... node_2347695:C22264T node_2347698:G22927T node_2347703:T14988C,C25546A node_2347704:T22264C
+g node_2347703: sample-paths | g -v node_2347704: | cut -f 1 > pruneForHK.3
+wc -l pruneForHK.3
+#3 pruneForHK.3
+
+
+# Nkrmnzr pointed out a sequence ith 21602N, give it another chance
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/730#issuecomment-1716447114
+echo 'Canada/ON-KHS-05850-v1/2023|EPI_ISL_18222018|2023-08-30' > pruneFor21602
+
+
+# Yikes, FL.2.3 has both T22928C > G28839T and a much larger G28839T > with T16977C > T22928C.
+# Try trimming both tie-ins and see where they all land.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/526#issuecomment-1712765726
+g CHN/GDCDC_SZHG_1857/2023 sample-paths
+#... node_2375222:A17615G node_2375410:T22928C node_2375411:G28839T ...
+g node_2375410: sample-paths | g -v node_2375411: | cut -f 1 > pruneForLP526
+wc -l pruneForLP526
+#2 pruneForLP526
+g CHN/SH-HG20230501-450/2023 sample-paths
+#... node_2375222:A17615G node_2375484:G28839T node_2375495:T16977C node_2375496:T22928C ...
+g node_2375495: sample-paths | g -v node_2375496: | cut -f 1 >> pruneForLP526
+wc -l pruneForLP526
+#3 pruneForLP526
+
+
+wc -l pruneFor*
+#  86 pruneForDF.1
+#   2 pruneForFede
+#   1 pruneForGJ.1.2.2
+#   3 pruneForHK.3
+#   3 pruneForLP526
+#  23 pruneForXBB.1.15
+#   1 pruneForXBB.1.5.75
+#   5 pruneForXBB.1.5.79
+# 124 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m30.695s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13113648,with radius 1, second from start 256
+#parsimony score after optimizing: 13113638,with radius 2, second from start 344
+#parsimony score after optimizing: 13113627,with radius 4, second from start 795
+#parsimony score after optimizing: 13113623,with radius 8, second from start 3102
+#parsimony score after optimizing: 13113613,with radius 16, second from start 5566
+
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# That's going to run overnight so I might not be able to check before tomorrow's build needs
+# today's tree.  So, optimistically, use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# On BA.5.10.1 proper?
+g Austria/AGES-6049434/2022 sample-paths.pruned
+#... node_3400104:A12030G node_3400535:G22599C node_3400536:A3858G,T13794C
+g USA/AZ-ASU96386/2022 sample-paths.pruned
+#... node_3400104:A12030G node_3400535:G22599C node_3400536:A3858G,T13794C node_3400537:C15738T,T22896C,C28045T
+# Yep.
+
+# No more rev22910?
+g USA/CA-HLX-STM-EACBZ9V2R/2023 sample-paths.pruned
+#... node_2500931:A22910G node_2500932:A22995G node_2500947:G3719T,G22910A,T28297C,T29068C
+# Doh, got pulled in by something else, check in taxonium.
+
+# 21717 before 24927?
+g Canada/AB-ABPHL-100644/2023 sample-paths.pruned
+#... node_2500933:C14805T,C25521T,C26885T node_2500942:A21717G node_2500943:T24927C ...
+# Yep.
+
+# 1884 before 27911?
+g Guatemala/106093-LNS/2022 sample-paths.pruned
+#... node_2300782:G27915T node_2490590:C1884T node_2490591:C27911T
+# Yep.
+
+# No more rev3695?
+g Norway/1543/2023 sample-paths.pruned
+#... node_2389932:T23018C node_2490108:C12020T,C25413A
+# Yep.
+
+# No more rev29052?
+g Germany/BW-RKI-I-1125130/2023 sample-paths.pruned
+#... node_2389932:T23018C node_2490323:A4572C
+# Yep.
+
+# No more rev22264?
+g USA/TX-HMH-M-131839/2023 sample-paths.pruned
+#... node_2347754:C22264T node_2347757:G22927T node_2347765:T22264C node_2347766:T14988C,C25546A
+# Doh, check in taxonium.
+# --> There is a big rev22264 branch... go another round.
+
+# Unified?
+g CHN/GDCDC_SZHG_1857/2023 sample-paths.pruned
+#... node_2373244:T4579A node_2375280:A17615G node_2375536:G28839T node_2375681:T22928C
+g CHN/SH-HG20230501-450/2023 sample-paths.pruned
+#... node_2373244:T4579A node_2375280:A17615G node_2375536:G28839T node_2375681:T22928C node_2375682:T16977C node_2375683:G7987A
+# Yep, see what happens when 2023-09-15 build adds seqs back.
+

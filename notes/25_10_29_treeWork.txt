@@ -1,0 +1,21 @@
+today=2025-10-29
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Lop off XFJ.3.1 so it can be added back tomorrow with the new exclusion from branch-specific masking
+# https://github.com/cov-lineages/pango-designation/commit/02d2cb6aa1155e4d0473fcb1ff345f472725be27
+g England/CLIMB-CM7YJM45/2025 sample-paths
+#... node_2370669:G25352T node_2370686:C4893T
+g node_2370686: sample-paths | cut -f 1 > pruneForXFJ.3.1
+
+
+wc -l pruneFor*
+#206 pruneForXFJ.3.1
+
+
+# It's only a lop this time, so there's no need to optimize etc.  Just make a .useMe.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Then tomorrow, see if it's possible to annotate XFJ.3.1.1 on the now unmasked reversion at 23599.

@@ -1,0 +1,110 @@
+# BQ.1_17039 is in a weird place with a mut/rev on 23042(S:494).  Can we move it to BQ.1
+# or at least its previous bogus but understandable location?
+
+# BQ.1.2 is expected to be T14257C > T22942A > A23558G but is
+# T14257C > T22942A > T23042C > A23558G > C10702T > C23042T > T19896C > T10702C > C19896T
+# -- maybe we just need to make it tolerate T23042C?  But there's still an ugly rev.
+
+# Both of those will require lopping the few sequences with 23042 -- which are of interest to
+# the lineage-hunters.  So don't replace the 2023-01-22 tree with the prune-opt, just feed it
+# into the 2023-01-23 daily build.
+
+today=2023-01-22
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# BQ.1_17039
+g Canada/BC-BCCDC-553092/2022 sample-paths
+#... node_1990658:T22942A node_1990700:T23042C node_1992700:A17039G node_1992765:C23042T
+# BQ.1.2
+g USA/WI-ASC-210833548/2022 sample-paths
+#... node_1990658:T22942A node_1990700:T23042C node_1990724:A23558G node_1990757:C10702T node_1990759:C23042T
+g node_1990700: sample-paths | g -v node_1992765: | g -v node_1990759: | cut -f 1 > pruneForBQ.1
+wc -l pruneForBQ.1
+#498 pruneForBQ.1
+# Also the little oddballs just upstream of the annotated BQ.1.2:
+g Australia/TAS004111/2022 sample-paths
+#... node_1990658:T22942A node_1990700:T23042C node_1990724:A23558G node_1990757:C10702T node_1990759:C23042T node_1990760:T19896C node_1990825:T10702C node_1990826:C19896T 
+g node_1990825: sample-paths | g -v node_1990826: | cut -f 1 >> pruneForBQ.1
+wc -l pruneForBQ.1
+#503 pruneForBQ.1
+
+# mini-BA.5.3.1 stranded in BA.2... lop & let them all be readded instead of big-radius matOptimize.
+g Denmark/DCGC-441438/2022 sample-paths
+#... node_1701538:C2790T node_1793419:C27689T
+g node_1793419: sample-paths | cut -f 1 > pruneForBA.5.3.1
+wc -l pruneForBA.5.3.1
+#1845 pruneForBA.5.3.1
+# Sequences to check after they are added back:
+# France/IDF-HMN-22072130074/2022
+# Brazil/AM-FIOCRUZ-ILMD2206359/2022
+
+# Nip these little misc-land weirdos too and see if they get added back in BA.5/BQ-land:
+g Germany/NW-HHU-30428/2022 sample-paths
+#... node_1707734:G23040A node_1707841:C27259A 
+g node_1707841: sample-paths | cut -f 1 > pruneForMisc
+wc -l pruneForMisc
+#374 pruneForMisc
+# Check after seqs are added back:
+# USA/TX-HMH-MCoV-122380/2023
+# Austria/AGES-1108646/2022
+# Romania/216609/2023
+
+wc -l pruneFor*
+#  1845 pruneForBA.5.3.1
+#   503 pruneForBQ.1
+#   374 pruneForMisc
+#  2722 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Don't need an especially big radius this time.
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    59m24.263s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Is BQ.1_17039 in a less ridiculous place?
+g Canada/BC-BCCDC-553092/2022 sample-paths.pruned
+#... node_2467722:T14257C node_2467735:T22942A node_2530208:A17039G
+# Yes!!!  Check in taxonium.  Also, where is BQ.1.1 now?
+g France/BRE-IPP53650/2022 sample-paths.pruned
+#... node_2467722:T14257C node_2467735:T22942A node_2481480:G22599C node_2481994:A17039G
+# Hasn't moved but oh well.
+
+# How about BQ.1.2?
+g USA/WI-ASC-210833548/2022 sample-paths.pruned
+#... node_2467722:T14257C node_2467735:T22942A node_2538932:A23558G node_2538933:C10702T
+# Looks promising, check in taxonium.  Yep.
+
+# When it's OK, stop the daily build & restart with .pruned.opt.
+# It was running usher-sampled -- I killed the job.
+
+prevDate=2023-01-22
+today=2023-01-23
+cd $ottoDir/$today
+mv new.masked.vcf.gz{,.bak}
+time $scriptDir/updateCombinedTree.sh $prevDate $today $problematicSitesVcf \
+    $ottoDir/$prevDate/gisaidAndPublic.$prevDate.pruned.opt.pb \
+    >& updateCombinedTree.redo.log
+#TODO
+# Do other stuff at the end of updatePublic.sh and dailyUpdatePublic

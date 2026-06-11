@@ -1,0 +1,29 @@
+Yesterday Cornelius alerted me to a BA.1 sample, Scotland/QEUH-36FA5ED/2022, that in the 2022-03-08 build (not the previous build 2022-03-06) was suddenly placed in BA.1.1.15 (but with back-mutations on mutations leading to BA.1.1 and BA.1.1.5, plus some extras I think -- *six pairs* of scrambled mutations and back-mutations:
+
+... G23048A > G22599A > C2470T > C26522T > C14117T,T26522C > G13570A > A5538G > G5538A,A13570G,T14117C > T2470C,A22599G > C29632T
+
+-- when really it should be (and had been) just this:
+
+... G23048A > C29632T
+
+So not only were 78.5k samples placed on a ridiculous path a couple Pango levels too deep -- BA.1.16 was placed on that branch too, making it appear as a sublineage of BA.1.1.15!  Yikes.
+
+I pointed that path out to Cheng, Yatish and Russ and said I needed a matUtils function that could move a node to a new parent.  Russ suggested I ask Jakob, and indeed he whipped one up the same evening.  I sent him the node & destination for the 2022-03-08 tree, and he sent back a modified tree where indeed that was the only difference -- sample-paths and clade-paths looked good, with the node cleanly moved and BA.1.16's path what it should be.
+
+So -- time to fix the daily build.  (Then I need an automated way to find these horror shows so it's not up to Cornelius.)
+
+today=2022-03-10
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths.preMove
+# Find out the node numbers for messed-up node C29632T and destination parent G23048A.
+# Crap, actually all children of the source parent should be moved... maybe I will ask for that
+# change... yeah, better see what other children that crap node has.
+
+g Scotland/QEUH-36FA5ED/2022 sample-paths.preMove
+#... node_1133892:G23048A node_1300821:C29632T node_1300826:C23444G node_1300846:G22344T 
+
+# Ha!  OK, I guess matOptimize stochastically moved the node back to where I want it!
+# Oh wow, in 2022-03-09 too.  Maybe I should fix up 2022-03-08 public for posterity, or nah.
+# Really I should update includeRecombinants.tsv like I pledged to, kick off today's daily
+# build and then look at the 2022-03-08 protobuf to see if I can find what Cornelius found,
+# and look for other pathological cases.

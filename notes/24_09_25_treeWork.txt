@@ -1,0 +1,72 @@
+today=2024-09-25
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# Try, try again to get JN.1.16.1 out of rev-land.
+g Denmark/DCGC-670929/2024 sample-paths
+#... node_2264763:T27810C node_2283018:G17334T node_2320183:T22928C node_2320185:G22599C node_2320186:T17334G 
+g node_2320183: sample-paths | g -v node_2320186: | cut -f 1 > pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#41 pruneForJN.1.16.1
+
+# Also prune sequences that have caused trouble in the past.
+sort -u ../2024-09-{11,16,17,18}/pruneForJN.1.16.1 \
+    >> pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#1074 pruneForJN.1.16.1
+
+
+# flip-flop on 21738 on the path to KP.3.1.1
+g Belgium/Sciensano-LS-S5594/2024 sample-paths
+#... node_2284257:G15372T node_2284261:T21738C node_2284264:C12616T node_2284266:A13121T node_2284270:C21738T node_2284280:A19722G
+g node_2284261: sample-paths | g -v node_2284270: | cut -f 1 > pruneForKP.3.1.1
+wc -l pruneForKP.3.1.1
+#21 pruneForKP.3.1.1
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# Free of the awful flip-flops?
+g Denmark/DCGC-670929/2024 sample-paths.pruned
+#... node_2264768:T27810C node_2374159:G22599C node_2374160:T22928C
+# OMG yay finally.  Will be interesting to see what happens when samples are added back tomorrow.
+
+# No more flip-flop on 21738?
+g Belgium/Sciensano-LS-S5594/2024 sample-paths.pruned
+#... node_2338322:G15372T node_2338325:A13121T node_2338326:C12616T node_2338336:A19722G
+# Good, see what happens tomorrow.

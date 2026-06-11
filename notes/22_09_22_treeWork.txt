@@ -1,0 +1,318 @@
+# Clean up before sharing.
+
+today=2022-09-22
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# BL.4 is split, see if we can join up on 27527.
+g India/WB-INSACOG-1932000426484/2022 sample-paths
+#... node_1845411:C11224T node_1845436:A22720G
+g India/WB-INSACOG-1932000426889/2022 sample-paths
+#... node_1845411:C11224T node_1845436:A22720G node_1845440:T28251G,A28254C node_1845441:C27527T
+g India/MH-ICMR-NIV-INSACOG-G-12291/2022 sample-paths
+#... node_1845411:C11224T node_1845436:A22720G node_1845446:C27527T 
+g node_1845436: sample-paths | g -v node_1845441: | g -v node_1845446: | cut -f 1 > pruneForBL.4
+wc -l pruneForBL.4 
+#44 pruneForBL.4
+
+# BA.5.2.21 has 5284 > 27012 based on very few sequences.  I think it should be the other way
+# around and hopefully this would join it back up on the big unnamed branch that ends in 27012.
+g USA/UT-UPHL-220725701520/2022 sample-paths
+#... node_1655492:C27513T node_1682097:C5284T
+g Australia/VIC63141/2022 sample-paths
+#...node_1655492:C27513T node_1682097:C5284T node_1682106:C27012T
+g node_1682097: sample-paths | g -v node_1682106: | cut -f 1 > pruneForBA.5.2.21
+wc -l pruneForBA.5.2.21
+#83 pruneForBA.5.2.21
+
+# This neighboring little branch of >1k sequences too:
+g England/PHEC-YYFOCA7/2022 sample-paths
+#... node_1655492:C27513T node_1681060:G22104T
+g USA/IL-CDC-LC0803030/2022 sample-paths
+#... node_1655492:C27513T node_1681060:G22104T node_1681061:C2509A node_1681062:G9424A node_1681063:C2306T node_1681085:C27012T
+g node_1681060: sample-paths | g -v node_1681085: | cut -f 1 > pruneFor27012Lump
+wc -l pruneFor27012Lump
+#90 pruneFor27012Lump
+
+# Growing basal mini-BA.2 reversion swamp; permanently exclude at least some of these...
+g Belgium/rega-26931/2022 sample-paths
+#... node_1333797:C22673T
+g Peru/LOR-ABP-2521/2022 sample-paths
+#... node_1972682:G5515T
+g USA/OKPHL0018572/2022 sample-paths
+#... node_1972676:A26530G
+g USA/UT-UPHL-220901620823/2022 sample-paths
+#... node_1335071:G26709A
+g Spain/PV-HUD-64205534/2022 sample-paths
+#... node_1335014:G22775A
+g USA/UT-UPHL-220912931995/2022 sample-paths
+#... node_1334866:G26529A
+g France/BFC-HMN-22092090464/2022 sample-paths
+#... node_1337988:C26270T
+g India/KA-SLS-41057/2022 sample-paths
+#... node_1338278:T22882G
+g USA/GA-CDC-QDX41028848/2022 sample-paths
+#... node_1335825:C241T
+g SouthAfrica/NICD-N36022/2021 sample-paths
+#... node_1972335:T10198C,G22898A
+g India/KA-ICMR-INSACOG-VRDL-MYS-H1/2022 sample-paths
+#... node_1339599:C10198T
+g node_1333797: sample-paths | g -v node_1972682: | g -v node_1972676: \
+| g -v node_1335071: | g -v node_1335014: | g -v node_1334866: | g -v node_1337988: \
+| g -v node_1338278: | g -v node_1335825: | g -v node_1972335: | g -v node_1339599: \
+| cut -f 1 > pruneForBA.2
+#10492 pruneForBA.2
+
+# Try to move BJ.1 under BA.2.10.1
+g India/TG-RFCH06309_CID1031/2022 sample-paths
+#... node_1927520:T16342C node_1934937:C15738T
+g Japan/IC-10066/2022 sample-paths
+#... node_1927520:T16342C node_1934937:C15738T node_1934939:G23955A
+g node_1934937: sample-paths | g -v node_1934939: | cut -f 1 > pruneForBJ.1
+wc -l pruneForBJ.1
+#10 pruneForBJ.1
+
+# Get rid of little 29311 garbage/reversion in BF.5
+g Sweden/SUS0013971/2022 sample-paths
+#... node_1712495:C27532T node_1712777:C29311T
+g Australia/ACT7607/2022 sample-paths
+#... node_1712495:C27532T node_1712777:C29311T node_1712778:A28402G node_1712779:T29311C
+g node_1712777: sample-paths | g -v node_1712779: | cut -f 1 > pruneForBF.5
+wc -l pruneForBF.5
+#9 pruneForBF.5
+
+# Little tweaky 106 garbage/reversion too
+g OX289626.1 sample-paths 
+#... node_1713205:C106T
+g Austria/LB-R00082-S049/2022 sample-paths
+#... node_1713205:C106T node_1713206:G26529A node_1713213:T106C
+g node_1713205: sample-paths | g -v node_1713213: | cut -f 1 >> pruneForBF.5
+wc -l pruneForBF.5
+#52 pruneForBF.5
+
+# BA.5 badly needs reversion masking.  Set BA5Node a little upstream of usual to clean up
+# anything retrievable in basal branches.
+BA5Node=$(grep Australia/QLD0x01081A/2022 sample-paths \
+          | awk '{print $NF;}' | sed -re 's/:.*//;')
+maskFile=maskForBA.5
+# BA.5 reversions causing big yuck branches
+for backMut in T2790C A4184G T4321C G9424A T10198C A12160G T15714C T17410C G18163A T19955C G20055A \
+    T21618C G22200T A22578G T22674C C22679T T22686C G22688A A22775G T22813G G22917T A22992G A22995C \
+    C23013A G23018T G23055A T23063A C23075T G23403A T23525C G23599T A23604C T25000C A26529G G26577C \
+    A26709G T27807C T27889C T28271A C29510A ; do
+    echo -e "$backMut\t$BA5Node"
+done > $maskFile
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m $maskFile \
+    -o gisaidAndPublic.$today.BA.5masked.pb
+#real    2m7.459s
+
+$matUtils extract -i gisaidAndPublic.$today.BA.5masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.BA.5masked.pruned.pb
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.5masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Now look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+# BL.4 good (will need reannotating)
+# BA.5.2.21 brought onto main undesignated branch, good (despite 5284 still being sketchy overall)
+# BA.2 basal is much cleaner -- don't forget to permanently exclude those
+# BJ.1 moved into BA.2.10.1
+# BA.5 reversion situation looks improved but I missed a few: 670, 9534
+# and it seems like maybe some more crept in with optimization.  So go another round.
+
+BA5Node=$(grep Australia/QLD0x01081A/2022 sample-paths.pruned \
+          | awk '{print $NF;}' | sed -re 's/:.*//;')
+for backMut in G670T T2790C T3037C A4184G T4321C G9424A T9534C T10198C A12160G T15714C T17410C \
+    G18163A T19955C G20055A T21618C G22200T A22578G T22674C C22679T T22686C G22688A A22775G T22813G \
+    G22882T G22917T A22992G A22995C C23013A G23018T G23055A T23063A C23075T G23403A T23525C G23599T \
+    A23604C T25000C A26529G G26577C A26709G T27807C T27889C T28271A C29510A ; do
+    echo -e "$backMut\t$BA5Node"
+done > $maskFile
+
+# Also, a big chunk of BA.5.2 got moved under BA.5.2.1... some flakiness with 6979 (and 9534)...
+# prune for that.
+g Germany/NW-RKI-I-891276/2022 sample-paths.pruned
+#... node_2649931:T9534C node_2649932:G6979T
+g Germany/BW-RKI-I-874308/2022 sample-paths.pruned
+#... node_2649931:T9534C node_2649932:G6979T node_2649933:G27038A node_2649937:G12310A
+g node_2649932: sample-paths.pruned | g -v node_2649937: | cut -f 1 > pruneForBA.5.2
+wc -l pruneForBA.5.2
+#19 pruneForBA.5.2
+
+$matUtils mask -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -m $maskFile \
+    -o gisaidAndPublic.$today.BA.5masked.pb
+
+$matUtils extract -i gisaidAndPublic.$today.BA.5masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.BA.5masked.pruned.pb
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.5masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Meanwhile permanently exclude samples (both GISAID and public) from pruneForBA.2
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' pruneForBA.2 | g ^EPI_ISL \
+    > badBranchSeeds.BA.2.epis
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' pruneForBA.2 | g -v ^EPI_ISL \
+    > badBranchSeeds.BA.2.pub
+g -Fwf badBranchSeeds.BA.2.epis $epiToPublic | wc -l
+#0
+g -Fwf badBranchSeeds.BA.2.pub $epiToPublic | cut -f 1 >> badBranchSeeds.BA.2.epis 
+cat badBranchSeeds.BA.2.epis badBranchSeeds.BA.2.pub >> ../badBranchSeed.ids
+
+# Killed the 2022-09-23 build so we can start over with updated big tree when done, and updated
+# badBranchSeed.ids.
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Now look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# Damn, BA.5.1 is split, prune a little more.
+g Germany/HH-hpi-p15275/2022 sample-paths.pruned
+#... node_2545271:T27438C node_2546104:C29614T
+g -F OX219539.1 sample-paths.pruned
+#... node_2545271:T27438C node_2546104:C29614T node_2546106:C29666T
+g node_2546104: sample-paths.pruned | g -v node_2546106: | cut -f 1 > pruneForBA.5.1
+wc -l pruneForBA.5.1
+#16 pruneForBA.5.1
+
+# OK, one more round.  Remask just for the heck of it, some things have been pulled in.
+BA5Node=$(grep Australia/QLD0x01081A/2022 sample-paths.pruned \
+          | awk '{print $NF;}' | sed -re 's/:.*//;')
+for backMut in G670T T2790C T3037C A4184G T4321C G9424A T9534C T10198C A12160G T15714C T17410C \
+    G18163A T19955C G20055A T21618C G22200T A22578G T22674C C22679T T22686C G22688A A22775G T22813G \
+    G22882T G22917T A22992G A22995C C23013A G23018T G23055A T23063A C23075T G23403A T23525C G23599T \
+    A23604C T25000C A26529G G26577C A26709G T27807C T27889C T28271A C29510A ; do
+    echo -e "$backMut\t$BA5Node"
+done > $maskFile
+
+$matUtils mask -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -m $maskFile \
+    -o gisaidAndPublic.$today.BA.5masked.pb
+
+$matUtils extract -i gisaidAndPublic.$today.BA.5masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.BA.5masked.pruned.pb
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.5masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Now look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# Cornelius pointed out that the 28362-28370 deletion with uncertain placement & edge effects
+# is causing 28361 and 28371 to be problematic and BF.7 is currently 3-way split.  Also, some
+# new sequences that have been moved in from the BA.2 basal swamp need all the BA.2 deletions
+# masked, so use the full maskDelta.sh not just BA.5 back-muts from above.
+# I didn't see anything that totally urgently needed pruning.
+
+time $scriptDir/maskDelta.sh gisaidAndPublic.$today.masked.pruned.opt.pb \
+    gisaidAndPublic.$today.BA.5masked.pruned.pb
+#real    10m13.843s
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.5masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    65m51.150s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Now look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# I think it's OK... now to reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#< BA.5.1.13
+#< BF.3.1_revs
+#< XAW
+# Oops, BA.5.1.13 was retracted, guess I forgot to remove it.  Done now!  Need to fix XAW though.
+
+# I don't see why it's not working -- ended up donking it with matUtils -C.
+tail -n+2 clade-paths.treeWork | cut -f 1,2 | g -vE '^[0-9]' > cladeNodes.reassign
+cat >> cladeNodes.reassign<<EOF
+XAW     node_2321807
+EOF
+
+$matUtils annotate -T50 -i gisaidAndPublic.$today.treeWork.nextclade.pb -C cladeNodes.reassign \
+    -o test.pb
+$matUtils extract -i test.pb -C clade-paths.test
+diff clade-paths.treeWork clade-paths.test
+#> XAW   node_2321807  > ...
+mv test.pb gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+mv clade-paths.test clade-paths.treeWork
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

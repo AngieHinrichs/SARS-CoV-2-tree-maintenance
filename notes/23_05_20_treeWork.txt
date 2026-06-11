@@ -1,0 +1,474 @@
+# More work required before updating lineageTree.pb.
+today=2023-05-20
+cd $ottoDir/$today
+# This time the mess is so bad I really need the whole thing not just omicron:
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# The worst I've seen yet: a big chunk of B.1 pulled onto a B.1.1.7 crap branch.
+# Permanently exclude to make sure this can't happen again.  At least, not on the
+# same crap branch.
+g Argentina/PAIS-A0013/2020 sample-paths
+#... node_1378550:A28282T node_1380650:T23063A node_1380678:A23271C node_1380680:C16176T node_1380681:T23709C node_1380698:G24506T,G28111A node_1380699:T14676C,T15279C node_1380700:C23709T node_1380701:T28048G node_1380702:T913C node_1380703:T28977C node_1380704:A28881G,A28882G,C28883G node_1380705:T27972C node_1380706:T3267C node_1380707:T23709C node_1380708:C6954T node_1380709:T5986C node_1380710:C24914G node_1380711:A5388C node_1380712:A23604C node_1380724:A20268G 
+g node_1380650: sample-paths | g -v node_1380724: | cut -f 1 > pruneForB.1
+wc -l pruneForB.1
+#286 pruneForB.1
+# Permanently exclude the worst (the bridging stuff in the middle)
+g node_1380681: sample-paths | g -v node_1380711: | cut -f 1 > excludeForB.1
+wc -l excludeForB.1
+#189 excludeForB.1
+cut -d\| -f 2 excludeForB.1 >> ../badBranchSeed.ids
+cut -d\| -f 2 excludeForB.1 | g -v EPI_ISL_ | g -Fwf - $epiToPublic | cut -f 1 \
+    >> ../badBranchSeed.ids
+
+
+# Next worst: big chunk of BA.1.1 out on a pre-BA.1-main crap branch
+g England/PHEC-YYN7OAN/2022 sample-paths
+#... node_1678153:T5386G node_1966730:G23055A node_1966731:T23063A node_1969922:G22599A node_1969923:C2470T node_1969934:C23075T node_1969935:C21595T node_1971015:G23048A node_1971174:T23075C node_1971176:G26530A node_1971178:A23063T node_1971179:A23055G node_1971187:A26530G
+g node_1966730: sample-paths | g -v node_1971187: | cut -f 1 > pruneForBA.1.1
+wc -l pruneForBA.1.1
+#24720 pruneForBA.1.1
+# That's a lot but they all look like reversion crap to me and are stuck in a reversion crap branch,
+# exclude them all.
+cp pruneForBA.1.1 excludeForBA.1.1
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' excludeForBA.1.1 \
+    >> ../badBranchSeed.ids
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' excludeForBA.1.1 \
+| g -v EPI_ISL_ | g -Fwf - $epiToPublic | cut -f 1 \
+    >> ../badBranchSeed.ids
+
+
+# Annoying that BA.5(_dropout) is on miscBA2BA1PostSpike.
+g CzechRepublic/CSQ8942/2022 sample-paths
+#... node_2045350:C27259A node_2045351:A29510C node_2045352:G23040A node_2045353:T23018G node_2045354:T22917G
+g node_2045351: sample-paths | g -v node_2045354: | cut -f 1 > pruneForBA.5
+wc -l pruneForBA.5
+#204 pruneForBA.5
+# Exclude the bridgers there just to be safe.
+g node_2045351: sample-paths | g -v node_2045353: | cut -f 1 > excludeForBA.5
+wc -l excludeForBA.5
+#181 excludeForBA.5
+cut -d\| -f 2 excludeForBA.5 >> ../badBranchSeed.ids
+cut -d\| -f 2 excludeForBA.5 | g -v EPI_ISL_ | g -Fwf - $epiToPublic | cut -f 1 \
+    >> ../badBranchSeed.ids
+
+
+# Antsy branch (69k with T6979G and A3859G that has been hopping all over the tree) still has
+# a flip-flop on 29510.
+g Algeria/631/2022 sample-paths
+#... node_2313783:A27038G node_2314916:A22910G node_2314929:T6979G node_2314930:A3859G node_2314931:G22910A
+g node_2314916: sample-paths | g -v node_2314931: | cut -f 1 > pruneForBA.5.2.1
+wc -l pruneForBA.5.2.1
+#46 pruneForBA.5.2.1
+
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/28  FL.10 has 4234 flip-flop branch
+# I got rid of the 4234 flip-flop but there is also a big branch with reversion on FL.10-defining
+# 2235.  Just lop that and see if there's a better place for it... I suspect something is up with
+# BHR sequences there.
+g BHR/690401469/2023 sample-paths
+#... node_2715953:T23018C node_2719024:G2235A node_2719227:T7995G node_2719228:A2235G
+g node_2719228: sample-paths | cut -f 1 > pruneForFL.10
+wc -l pruneForFL.10
+#298 pruneForFL.10
+
+
+# Sequences from Brazil with dubious 5260 (some with 5261) causing flip-flop on the way to FE.1.
+g Brazil/SP-IB_CEVC_2206275/2023 sample-paths
+#... node_2731202:A8001G node_2731280:T5260A node_2731293:A3662G,T26012G node_2731295:A5260T
+# Spare this bit too:
+g Brazil/ES-LACENES-321341251/2022 sample-paths
+#... node_2731202:A8001G node_2731280:T5260A node_2731281:T5261G node_2731282:G510A,T511G,T519C,G520T,G521C,T522A node_2731283:A5260T,G5261T
+g node_2731280: sample-paths | g -v node_2731295: | g -v node_2731283: | cut -f 1 > pruneForFE.1
+wc -l pruneForFE.1
+#9 pruneForFE.1
+
+
+# Hundreds of XBB.1.5 seqs not on XBB.1.5 due to late 23018.
+g USA/MD-IGS-122305800910A/2023 sample-paths
+#... node_2736018:T17124C node_2736364:G17259T node_2736369:T23018C
+g node_2736364: sample-paths | g -v node_2736369: | cut -f 1 > pruneForXBB.1.5
+wc -l pruneForXBB.1.5
+#43 pruneForXBB.1.5
+
+
+# A.27 on dubious B.1 branch
+g CotedIvoire/IPCI-cv413/2021 sample-paths
+#... node_1283262:G29742A node_1283263:A18366G,A23063T,G23948T,C27247T node_1283266:T3037C,T25541C node_1283267:G18366A,T22917G,G28878A node_1283268:C241T,C1122T,C23520T,C23525T node_1283269:C2509T,A9204G,T14408C,G22468T,T23948G node_1283270:C16293T node_1283271:A18366G,G23403A node_1283272:A20262G node_1283273:C8782T,C21614T,T28144C
+g node_1283263: sample-paths | g -v node_1283273: | cut -f 1 > pruneForA.27
+wc -l pruneForA.27
+#13 pruneForA.27
+
+
+# B.1.1.291 pulled into B.1 crap
+g USA/WA-S1361/2020 sample-paths
+#... node_17750:C29784T node_17751:T19839C node_17752:C15933T,G16968T node_17753:G28881A node_17754:G28882A,G28883C
+g node_17751: sample-paths  | g -v node_17754: | cut -f 1 > pruneForB.1.1.291
+wc -l pruneForB.1.1.291
+#10 pruneForB.1.1.291
+
+
+# AY.85 on a crap branch:
+g LAO/LOMWRU-0723/2021 sample-paths
+#... node_812805:C27739T node_812808:G29427A node_812810:A20262G,C20320T node_812822:C5184T,T7124C node_812825:C9891T node_812826:T10029C node_812827:C1825T,T17748A node_812828:G16914T,G19072T,C26873T node_812833:T9891C,C10029T,C25810T node_812834:G26428T node_812835:C7124T node_812836:G28916T node_812837:A708G node_812838:C27874T node_812840:T5184C node_812864:A29427G node_812865:G20262A,T20320C node_812867:T27739C 
+g node_812822: sample-paths | g -v node_812867: | cut -f 1 > pruneForAY.85
+wc -l pruneForAY.85
+#84 pruneForAY.85
+
+
+wc -l pruneFor*
+#     13 pruneForA.27
+#     84 pruneForAY.85
+#    286 pruneForB.1
+#     10 pruneForB.1.1.291
+#  24720 pruneForBA.1.1
+#    204 pruneForBA.5
+#     46 pruneForBA.5.2.1
+#      9 pruneForFE.1
+#    298 pruneForFL.10
+#     43 pruneForXBB.1.5
+#  25713 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Run overnight.  Hope for no more disasters.
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 8 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    472m1.836s
+g radius matOptimize.pruned.log 
+#Will double radius after each iteration
+#parsimony score after optimizing: 12514774,with radius 1, second from start 264 
+#parsimony score after optimizing: 12514752,with radius 2, second from start 374 
+#parsimony score after optimizing: 12514734,with radius 4, second from start 973 
+#parsimony score after optimizing: 12514716,with radius 8, second from start 4106 
+#parsimony score after optimizing: 12514694,with radius 16, second from start 13043 
+#parsimony score after optimizing: 12514638,with radius 32, second from start 27168 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+# Skip the -c B.1.1.529 until we get the Alpha disaster cleaned up
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# NFW part of B.1 is still stranded mid-alpha.  Maybe I need to nuke all alpha garbage branches?
+g Argentina/PAIS-A0013/2020 sample-paths.pruned
+#... node_1364680:G28048T node_1378481:C28280G node_1378482:T28281A node_1378495:A28282T node_1378921:A28881G node_1378925:A28882G,C28883G node_1379362:A5388C node_1379374:T5986C node_1379375:T3267C node_1379379:T15279C node_1379380:A23271C,T28048G node_1379381:T27972C,G28111A node_1379382:C15279T node_1379383:C6954T node_1379392:G24506T node_1379393:A23604C node_1379394:C3267T,C5388A,C24914G node_1379396:T23063A node_1379397:T14676C node_1379398:A5388C,T15279C node_1379403:T913C,C16176T,A20268G,T23709C node_1379404:T3267C,T28977C
+# Spare node_1378860:A6319G,C12778T,C28512G (P.1) Brazil/SP-IB_120388/2021 back one
+g Brazil/SP-IB_120388/2021 sample-paths.pruned
+#... node_1364680:G28048T node_1378481:C28280G node_1378482:T28281A node_1378495:A28282T node_1378503:C24914G node_1378537:T913C node_1378538:G28111A node_1378539:T14676C node_1378600:A5388C node_1378603:T3267C node_1378605:C16176T node_1378606:T28048G node_1378607:T27972C node_1378608:A23271C node_1378609:C913T,G24506T node_1378711:G24914C node_1378712:T5986C node_1378713:C14676T node_1378718:A23604C node_1378719:T23709C node_1378853:T913C node_1378854:T28977C node_1378855:G17259T,G23012A,A28877T,G28878C node_1378856:C2749T,C3828T,T14676C,C24642T,G28167A node_1378857:T733C,A5648C,A6613G,C6954T,T15279C,C21614T,C21638T,C24914G,G25088T node_1378858:C21621A,G22132T,C23525T,T26149C node_1378859:G21974T,A22812C node_1378860:A6319G,C12778T,C28512G ...
+# Spare node_1415007:C1059T,T28977C,T29706G (B.1.351) Germany/un-RKI-I-125849/2021 back one
+g Germany/un-RKI-I-125849/2021 sample-paths.pruned
+#... node_1364680:G28048T node_1378481:C28280G node_1378482:T28281A node_1378495:A28282T node_1378921:A28881G node_1378925:A28882G,C28883G node_1414983:C15720T node_1414984:C24914G node_1414985:C6954T,G28111A node_1414986:T15720C,A23604C node_1414987:A23271C node_1414988:T5986C node_1414989:C23604A,G24914C node_1414990:T14676C,T15096C node_1414995:G174T,A28254C,C28887T node_1414996:A21801C,C25904T node_1414997:G23012A,G24506T node_1414998:C15096T node_1414999:T3267C node_1415000:C1404T,G10870T,G28209T node_1415001:G29706T node_1415002:T15096C,C23664T node_1415006:C19803T node_1415007:C1059T,T28977C,T29706G ...
+g node_1378481: sample-paths.pruned | g -v node_1379404: | g -v node_1378860: | g -v node_1415007: \
+| cut -f 1 > repruneForB.1
+wc -l repruneForB.1
+#4195 repruneForB.1
+# Exclude most of them.
+g node_1378495: sample-paths.pruned | g -v node_1379404: | g -v node_1378860: | g -v node_1415007: \
+| cut -f 1 > excludeMoreForB.1
+wc -l excludeMoreForB.1
+#4103 excludeMoreForB.1
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' excludeMoreForB.1 \
+    >> ../badBranchSeed.ids
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' excludeMoreForB.1 \
+| g -v EPI_ISL_ | g -Fwf - $epiToPublic | cut -f 1 \
+    >> ../badBranchSeed.ids
+
+
+# I can just see the next juicy garbage branches waiting to eat B.1.  Whack in hopes B.1+ can
+# find its way home, let them be replaced later in hopes that keeping a sane matOptimize radius
+# won't let it just happen again later.
+g Germany/BY-MVP-000003839/2021 sample-paths.pruned
+#... node_1421281:T28048G node_1421282:T27972C ...
+g node_1421282: sample-paths.pruned | cut -f 1 >> repruneForB.1
+wc -l repruneForB.1
+#5249 repruneForB.1
+
+g Belgium/UZA-UA-31107386/2021 sample-paths.pruned
+#... node_1363203:C5388A node_1364526:T15279C ...
+g node_1364526: sample-paths.pruned | cut -f 1 >> repruneForB.1
+wc -l repruneForB.1
+#5491 repruneForB.1
+
+g USA/FL-CDC-FG-014236/2021 sample-paths.pruned
+#... node_1363203:C5388A node_1363204:T27972C
+g node_1363204: sample-paths.pruned | cut -f 1 >> repruneForB.1
+wc -l repruneForB.1
+#8260 repruneForB.1
+
+
+# BA.1.1 all together?
+g England/PHEC-YYN7OAN/2022 sample-paths.pruned
+#... node_1678198:G23048A node_1820132:G22599A node_1853172:C2470T node_1853173:C21595T
+# Whew, OK, at least that one made it home.
+
+
+# BA.5 is still on miscBA2BA1PostSpike.  Whack some mini-BA.2s and hope for the best.
+g CzechRepublic/CSQ8942/2022 sample-paths.pruned
+#... node_2037723:C27382G node_2038368:T9866C node_2038376:A29510C node_2038378:G26530A node_2038391:C26858T node_2038392:G23040A node_2038393:T22917G node_2038396:C27259A node_2038398:T26858C node_2038399:T23018G
+g node_2038376: sample-paths.pruned | g -v node_2038399: | cut -f 1 > repruneForBA.5
+wc -l repruneForBA.5
+#1524 repruneForBA.5
+
+# Permanently exclude some reversion-ridden mini-BA.2's.
+g -F OW229245.1 sample-paths.pruned
+#... node_2038376:A29510C node_2038378:G26530A node_2038391:C26858T node_2576679:G22688A
+g node_2576679: sample-paths.pruned | cut -f 1 > excludeForBA.5
+wc -l excludeForBA.5
+#552 excludeForBA.5
+
+g Germany/SN-RKI-I-901677/2022 sample-paths.pruned
+#... node_2037723:C27382G node_2037726:C22792T node_2037727:G26530A
+# This hasn't been pruned yet, prune it.
+g node_2037727: sample-paths.pruned | cut -f 1 >> repruneForBA.5
+wc -l repruneForBA.5
+#2459 repruneForBA.5
+g node_2037727: sample-paths.pruned | cut -f 1 >> excludeForBA.5
+wc -l excludeForBA.5
+#1487 excludeForBA.5
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' excludeForBA.5 \
+    >> ../badBranchSeed.ids
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' excludeForBA.5 \
+| g -v EPI_ISL_ | g -Fwf - $epiToPublic | cut -f 1 \
+    >> ../badBranchSeed.ids
+
+
+# Antsy branch on BA.5.2.1 main?
+g Algeria/631/2022 sample-paths.pruned
+#... node_2306825:A27038G node_2386191:T6979G node_2386192:A3859G
+# Whew, finally home.
+
+
+# FE.1 - no more flip-flops (taxonium)
+
+
+# XBB.1.5?
+g USA/MD-IGS-122305800910A/2023 sample-paths.pruned
+#... node_2728845:T17124C node_2729514:T23018C node_2729515:G17259T 
+# Yep, nice.
+
+
+# A.27 found new garbage anchors in B.
+g CotedIvoire/IPCI-cv413/2021 sample-paths.pruned
+#... node_208:C23525T node_213:T25541C,A28273T node_214:C16293T,C21614T,C23520T node_215:C241T,C1122T,C2509T,C8782T,A20262G,G22468T,A23063T,C27247T,T28144C node_216:C16466T,T22917G,G23948T,G28878A,G29742A
+g node_213: sample-paths.pruned | g -v node_216: | cut -f 1 > repruneForA.27
+wc -l repruneForA.27
+#3 repruneForA.27
+cut -d\| -f 2 repruneForA.27 >> ../badBranchSeed.ids
+
+
+# B.1.1.291 in B.1.1?
+g USA/WA-S1361/2020 sample-paths.pruned
+#... node_1285152:G28882A node_1285153:C29784T node_1285154:T19839C node_1285155:C15933T node_1285156:G16968T
+# Yep, good.
+
+
+wc -l repruneFor*
+#     3 repruneForA.27
+#  8260 repruneForB.1
+#  2459 repruneForBA.5
+# 10722 total
+
+# Prune again.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(cat repruneFor*) \
+    -O -o gisaidAndPublic.$today.repruned.pb
+
+# I still need a big radius to get B.1 moved back into place.  The clock is ticking on the daily
+# build but oh well, absolutely have to fix B.1.  I hope radius 32 is enough...  if not, go back
+# to the daily build before the catastrophe and build back up from there.
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 8 -S move_log.repruned \
+    -i gisaidAndPublic.$today.repruned.pb \
+    -o gisaidAndPublic.$today.repruned.opt.pb \
+    >& matOptimize.repruned.log
+#real    471m4.162s
+
+g radius matOptimize.repruned.log
+#Will double radius after each iteration
+#parsimony score after optimizing: 12483574,with radius 1, second from start 271 
+#parsimony score after optimizing: 12483568,with radius 2, second from start 373 
+#parsimony score after optimizing: 12483565,with radius 4, second from start 961 
+#parsimony score after optimizing: 12483557,with radius 8, second from start 4064 
+#parsimony score after optimizing: 12483545,with radius 16, second from start 12873 
+#parsimony score after optimizing: 12483512,with radius 32, second from start 27168 
+
+# Comment from earlier when I was looking at the wrong log file thinking it stopped at r16 :b
+# Oh my, it didn't make it to 32.  And it's 7:20pm.  Will we be skipping a day?
+# Or going back in time to before the catastrophe?
+# 2023-05-17 still had B.1.243 & friends in the right place.  That's not too many days of
+# new sequences.
+# I think it was the radius 64 in the 2023-05-18 treeWork first pruning run that did it.
+
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.pb \
+    -O -o gisaidAndPublic.$today.repruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.repruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.O.pb -C clade-paths.pruned &
+# Skip the -c B.1.1.529 because B.1...
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.O.pb -S sample-paths.pruned
+
+# Check paths
+
+# Drum roll for B.1 please...
+g Argentina/PAIS-A0013/2020 sample-paths.pruned
+#... node_9853:A23403G node_1285149:G28881A node_1285150:C23604A node_1285151:A28881G node_1285162:A20268G node_1285163:A23604C
+# Wait what?!  OMG I already started the daily build with 2023-05-17... and it only did r16...
+# but maybe 1+2+4+8+16 was enough to fix it this time?  Should I restart?  Should I use this
+# for lineageTree??
+
+
+# BA.1.1 still intact?
+g England/PHEC-YYN7OAN/2022 sample-paths.pruned
+#... node_1673949:G23048A node_1815884:G22599A node_1848924:C2470T node_1848925:C21595T
+# Yep.
+
+
+# BA.5 out of misc-land?
+g CzechRepublic/CSQ8942/2022 sample-paths.pruned
+#... node_2606284:G27788T node_2606285:C28724T node_2606286:T21570G node_2611179:C958T node_2611640:T27383A,C27384T node_2611642:T958C node_2611644:C27382G node_2611673:T28724C node_2611675:T27788G node_2611676:C27259A node_2611677:T26858C node_2611678:A12160G,G21570T 
+# Out of misc-land but... it's in BA.4 -> rev-land.  :(  Not good for lineageTree.
+
+
+# BA.5.2.1 still good?
+g Algeria/631/2022 sample-paths.pruned
+#... node_2880104:A27038G node_2959470:T6979G node_2959471:A3859G
+# Yep.
+
+# A.27 in A?
+g CotedIvoire/IPCI-cv413/2021 sample-paths.pruned
+#... node_4341:T28144C node_4350:C8782T node_6782:G28878A node_6783:G22468T node_6799:G29742A node_8200:C241T node_8211:C2509T,C16466T,C21614T,T22917G,A23063T,G23948T,A28273T node_8212:C16293T,A20262G,C23520T,C23525T,T25541C,C27247T ...
+
+
+# Well, maybe leave the daily build running, while going one more round on this to fix BA.5,
+# and then compare them tomorrow morning to see which one would be better for lineageTree.pb.
+# I wonder if any super-old lineages have been lost since 2023-05-17 too, with all the shuffling.
+
+g node_2611642: sample-paths.pruned | g -v node_2611678: | cut -f 1 > rerepruneForBA.5
+wc -l rerepruneForBA.5
+#157 rerepruneForBA.5
+
+# One more time.
+$matUtils extract -i gisaidAndPublic.$today.repruned.opt.O.pb \
+    -p -s <(cat rerepruneFor*) \
+    -O -o gisaidAndPublic.$today.rerepruned.pb
+
+# 2 hours / r8 should get BA.5 back on par with BA.4 instead of buried in it.
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.rerepruned \
+    -i gisaidAndPublic.$today.rerepruned.pb \
+    -o gisaidAndPublic.$today.rerepruned.opt.pb \
+    >& matOptimize.rerepruned.log
+#real    110m39.158s
+
+g radius matOptimize.rerepruned.log
+#Will double radius after each iteration
+#parsimony score after optimizing: 12483149,with radius 1, second from start 277 
+#parsimony score after optimizing: 12483148,with radius 2, second from start 384 
+#parsimony score after optimizing: 12483146,with radius 4, second from start 1029 
+#parsimony score after optimizing: 12483141,with radius 8, second from start 4472 
+#parsimony score after optimizing: 12483141,with radius 16, second from start 5524 
+# Hmmm, it went to 16... well, we'll see what happens...
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.rerepruned.opt.pb \
+    -O -o gisaidAndPublic.$today.rerepruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.rerepruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.rerepruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.rerepruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+
+# Check paths
+
+# BA.5 out of misc-land?
+g CzechRepublic/CSQ8942/2022 sample-paths.pruned
+#... node_2027898:C2790T node_2601750:T9866C node_2606281:T22917G node_2606282:G23040A node_2606283:T23018G node_2606284:G12160A node_2652199:C27382G node_2652200:T26858C,T27383A,C27384T node_2652201:C27259A node_2652202:A12160G
+# Flip-flop on 12160 but yes, looks like it's with BA.4 now.
+
+
+# Check annotations
+wc -l clade-paths clade-paths.pruned
+#   2960 clade-paths
+#   2954 clade-paths.pruned
+
+# Reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.rerepruned.opt.O.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+#> XC
+# Good (XC path needed a tweak for the past few days).
+
+# 2023-05-22
+
+# Ship it (next ship sailed, but at least replace the old abomination with the fixed-up tree).
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+
+# Now compare the 2023-05-21 tree with this one... ah, it has the big chunk of BA.1.1
+# out of place.  And BA.2.9 in misc-land.
+
+# Restart the 2023-05-22 build with this as base.

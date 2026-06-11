@@ -1,0 +1,85 @@
+today=2023-09-28
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+
+# Finally today I added matUtils fix to the build... that put XBB.1.9.2 and some others in the right
+# place, but there are still some prune & replace (or not) things to fix.
+
+# Much of EG.10.1 is stuck on two late-S:701 (23664) branches.  Permanently exclude a few samples.
+g Scotland/CLIMB-CM7YEXRQ/2023 sample-paths
+#... node_2336511:C335T,T23042C node_2336512:C28399T node_2336513:T8482C,T16251C node_2336514:C23664T
+g node_2336512: sample-paths | g -v node_2336514: | cut -f 1 > pruneForEG.10.1
+wc -l pruneForEG.10.1
+#2 pruneForEG.10.1
+g USA/WA-GBW-H10-016-9954/2023 sample-paths
+#... node_2336511:C335T,T23042C node_2336550:G8372T,C18175T node_2336551:C23664T ...
+g node_2336550: sample-paths | g -v node_2336551: | cut -f 1 >> pruneForEG.10.1
+wc -l pruneForEG.10.1
+#3 pruneForEG.10.1
+
+# Permanently exclude all three of those...
+cat pruneForEG.10.1
+#Ireland/D-SVUH-FAX24467-016/2023|EPI_ISL_18290897|2023-09-14
+#USA/MA-CDC-QDX84542319/2023|OR564311.1|2023-08-28
+#env/Germany/BY-LGL-5971879/2023|EPI_ISL_18147314|2023-08-09
+g OR564311.1 $epiToPublic
+#EPI_ISL_18275723        OR564311.1      USA/MA-CDC-QDX84542319/2023     2023-08-28
+cat > excludeForEG.10.1 <<EOF
+EPI_ISL_18290897
+OR564311.1
+EPI_ISL_18275723
+EPI_ISL_18147314
+EOF
+cat excludeForEG.10.1 >> ../badBranchSeed.ids
+
+
+wc -l pruneFor*
+#3 pruneForEG.10.1
+
+# Wow, that's it.  Well, proceed...
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m18.924s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# Hopefully 23664 along with C335T,T23042C now:
+g Scotland/CLIMB-CM7YEXRQ/2023 sample-paths.pruned
+#... node_1249653:C335T,T23042C,C23664T node_1249777:T8482C,T16251C,C28399T
+g USA/WA-GBW-H10-016-9954/2023 sample-paths.pruned
+#... node_1249653:C335T,T23042C,C23664T node_1249654:G8372T,C18175T
+# Yep.
+
+# As always, the real question is what happens in tomorrow's build.

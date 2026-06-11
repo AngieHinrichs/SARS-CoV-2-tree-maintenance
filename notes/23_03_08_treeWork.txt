@@ -1,0 +1,238 @@
+today=2023-03-08
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths.full
+omicron=$(grep ^B.1.1.529$'\t' clade-paths | cut -f 2)
+g $omicron: sample-paths.full > sample-paths
+
+# XBB has a late G510A reversion: Malaysia/UNIMAS-GHML1867/2022
+# Actually, several branches off of that unreverted-A510G branch have various XBB.1.* mutations...
+# maybe just lop those and see if they're placed differently with Ns.
+g India/TN-CDFD-O-180/2022 sample-paths
+#... node_2421847:C22664A node_2422438:G3431T
+g Malaysia/HPUPM_NGS0688/2022 sample-paths
+#... node_2421847:C22664A node_2423109:A22200G ...
+g India/TN-ICMR-SPHL-2400/2022 sample-paths
+#... node_2421847:C22664A node_2455962:C23075T ...
+# It would be nice to also avoid the G510A > ... > A510G in the path... maybe try trimming
+# some basal cruft too.
+g Singapore/12958/2022 sample-paths
+#... node_2421841:G22577C,T23019C node_2421842:G510A node_2421843:A19326G node_2421844:G22599C node_2421845:T23031C node_2421846:G22895C,T22896C node_2421847:C22664A
+g node_2422438: sample-paths | cut -f 1 > pruneForXBB
+g node_2423109: sample-paths | cut -f 1 >> pruneForXBB
+g node_2455962: sample-paths | cut -f 1 >> pruneForXBB
+wc -l pruneForXBB
+#435 pruneForXBB
+g node_2421842: sample-paths | g -v node_2421847: | cut -f 1 >> pruneForXBB
+wc -l pruneForXBB
+#812 pruneForXBB
+
+
+# USA/NC-CORVASEQ-CLT-014136/2023 seems to be pulling in the branch of interest from #1643
+# with a run-of 27038-27040.  Note flip-flops on 24730, 27810.
+g USA/NJ-CDC-LC0988764/2023 sample-paths
+#... node_2437566:T10204C node_2439493:A24730T node_2439581:T27810C node_2439624:A27038T,T27039A,C27040A node_2439625:T24730A,C27810T ...
+g node_2439624: sample-paths | g -v node_2439625: | cut -f 1 > pruneForPD1643
+wc -l pruneForPD1643
+#1 pruneForPD1643
+
+
+# XBC.1.5 should probably all have C22329T but it's really spotty... might be Ns, could try removing the seqs that seem not to have it.
+g Philippines/PH-SPMC-4-74/2022 sample-paths
+#... node_2770259:A10042C node_2770260:C12513T node_2770261:C1878T Philippines/PH-SPMC-4-74/2022|EPI_ISL_16302081|2022-10-03:C22329T
+g Philippines/PH-RITM-3103/2022 sample-paths
+#... node_2770259:A10042C node_2770262:C2388T node_2770276:C22329T
+g Japan/PG-427441/2022 sample-paths
+#... node_2770259:A10042C node_2770262:C2388T node_2770263:T17363C,G22073A node_2770275:C22329T
+g Japan/PG-431627/2023 sample-paths
+#... node_2770259:A10042C node_2770262:C2388T node_2770263:T17363C,G22073A node_2770264:C13584T node_2770272:C22329T
+g Japan/PG-421445/2022 sample-paths
+#... node_2770259:A10042C node_2770262:C2388T node_2770263:T17363C,G22073A node_2770264:C13584T node_2770265:T2169C node_2770266:C22329T
+g Japan/PG-445089/2023 sample-paths
+#... node_2770259:A10042C node_2770262:C2388T node_2770263:T17363C,G22073A node_2770264:C13584T node_2770265:T2169C node_2770269:C27595T,G27632T node_2770270:C22329T
+g node_2770259: sample-paths | g -v Philippines/PH-SPMC-4-74/2022 | g -v node_2770276: \
+| g -v node_2770275: | g -v node_2770272: | g -v node_2770266 | g -v node_2770270: \
+| cut -f 1 > pruneForXBC.1.5
+wc -l pruneForXBC.1.5
+#21 pruneForXBC.1.5
+
+
+# Checking on BA.1.8, I have to wonder does Ireland/D-NVRL-S22IRL00087614/2022 really not have
+# its final defining mut, or does it have an N or something?  give it another chance:
+echo "Ireland/D-NVRL-S22IRL00087614/2022|EPI_ISL_10887401|2022-01-25" > pruneForBA.1.8
+
+
+# BA.5.2.6 has a flip-flop on 28675
+g England/LSPA-3261C3CD/2022 sample-paths
+#... node_2214433:C16616A node_2243530:A28675G node_2243538:G22599C node_2243539:G28675A
+g node_2243530: sample-paths | g -v node_2243539: | cut -f 1 > pruneForBA.5.2.6
+wc -l pruneForBA.5.2.6
+#38 pruneForBA.5.2.6
+
+
+# XBB.1.9.2 parent branch is misplaced on XBB.1.9.1 after reversions on T11956C and T29358C.
+g Pakistan/NIH-B119-S6/2023 sample-paths
+#... node_2446281:G5720A node_2446468:C11956T node_2446470:T23018C node_2446732:C29358T node_2446776:T11956C node_2446780:T29358C node_2446786:A27507C
+g node_2446776: sample-paths | g -v node_2446786: | cut -f 1 > pruneForXBB.1.9.2
+wc -l pruneForXBB.1.9.2
+#39 pruneForXBB.1.9.2
+
+
+wc -l pruneFor*
+#   38 pruneForBA.5.2.6
+#    1 pruneForPD1643
+#  812 pruneForXBB
+#   39 pruneForXBB.1.9.2
+#   21 pruneForXBC.1.5
+#  911 total
+
+# Prune
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should do it
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    62m31.488s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# What's XBB's path now, is G510A after C22664A?
+g Singapore/12958/2022 sample-paths.pruned
+#... node_2983002:A19326G,T22896C,T23031C node_2983003:G510A,G22577C,G22599C,C22664A,G22895C
+# Oh well.  Let's see where it is after tomorrow's build.
+
+# No more flip-flops on 24730, 27810 on the path to #1643 cluster?
+g USA/NJ-CDC-LC0988764/2023 sample-paths.pruned
+#... node_2985539:T10204C node_2993517:A27038T,T27039A,C27040A
+# Yep.
+
+# Hopefully C22329T before other muts on these:
+g Philippines/PH-SPMC-4-74/2022 sample-paths.pruned
+#... node_3408058:C22916A node_3408077:C22329T node_3408078:A10042C Philippines/PH-SPMC-4-74/2022|EPI_ISL_16302081|2022-10-03:C1878T,C12513
+g Philippines/PH-RITM-3103/2022 sample-paths.pruned
+#... node_3408058:C22916A node_3408077:C22329T node_3408078:A10042C node_3408079:C2388T
+g Japan/PG-427441/2022 sample-paths.pruned
+#... node_3408058:C22916A node_3408077:C22329T node_3408078:A10042C node_3408079:C2388T node_3408080:T17363C,G22073A
+g Japan/PG-445089/2023 sample-paths.pruned
+#... node_3408058:C22916A node_3408077:C22329T node_3408078:A10042C node_3408079:C2388T node_3408080:T17363C,G22073A node_3408081:C13584T node_3408082:T2169C node_3408084:C27595T,G27632T
+# Yep.  Better add C22329N to XBC.1.5 path so it doesn't have an annotation problem -- will
+# be interesting to see what happens tomorrow when pruneForXBC.1.5 sequences are added back.
+
+# No more flip-flop on 28675?
+g England/LSPA-3261C3CD/2022 sample-paths.pruned
+#... node_2734847:C16616A node_2843643:G22599C
+# Good.
+
+# XBB.1.9.2: No more flip-flops on 11956, 29358?
+g Pakistan/NIH-B119-S6/2023 sample-paths.pruned
+#... node_3011558:G5720A node_3011768:C11956T node_3011770:T23018C node_3012596:T11956C,A27507C
+# Dang, still hung up on 11956.  Another round of opt required?  Prune more harshly and opt again.
+
+g Australia/NSW-SAVID-15930/2022 sample-paths
+#... node_2446281:G5720A node_2446468:C11956T node_2446470:T23018C node_2446732:C29358T node_2446776:T11956C node_2446780:T29358C node_2446786:A27507C node_2446787:A16878T
+g node_2446776: sample-paths | g -v node_2446787: | cut -f 1 > pruneForXBB.1.9.2
+wc -l pruneForXBB.1.9.2
+#75 pruneForXBB.1.9.2
+
+# Prune
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# radius 8 should do it
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    60m11.894s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# What's XBB's path now, is G510A after C22664A?
+g Singapore/12958/2022 sample-paths.pruned
+#... node_2983002:A19326G,T22896C,T23031C node_2983003:G510A,G22577C,G22599C,C22664A,G22895C
+# Oh well
+
+# No more flip-flops on 24730, 27810 on the path to #1643 cluster?
+g USA/NJ-CDC-LC0988764/2023 sample-paths.pruned
+#... node_3001238:T10204C node_3008906:A27038T,T27039A,C27040A ...
+# Yep.
+
+# Hopefully C22329T before other muts on these:
+g Philippines/PH-SPMC-4-74/2022 sample-paths.pruned
+#... node_3408044:C22916A node_3408063:C22329T node_3408064:A10042C Philippines/PH-SPMC-4-74/2022|EPI_ISL_16302081|2022-10-03:C1878T,C12513T
+g Philippines/PH-RITM-3103/2022 sample-paths.pruned
+#... node_3408044:C22916A node_3408063:C22329T node_3408064:A10042C node_3408065:C2388T
+g Japan/PG-427441/2022 sample-paths.pruned
+#... node_3408044:C22916A node_3408063:C22329T node_3408064:A10042C node_3408065:C2388T node_3408066:T17363C,G22073A
+g Japan/PG-445089/2023 sample-paths.pruned
+#... node_3408044:C22916A node_3408063:C22329T node_3408064:A10042C node_3408065:C2388T node_3408066:T17363C,G22073A node_3408067:C13584T node_3408068:T2169C node_3408070:C27595T,G27632T 
+# Yep.
+
+# No more flip-flop on 28675?
+g England/LSPA-3261C3CD/2022 sample-paths.pruned
+#... node_2734847:C16616A node_2843643:G22599C 
+# Yep.
+
+# XBB.1.9.2: No more flip-flops on 11956, 29358?
+g Australia/NSW-SAVID-15930/2022 sample-paths.pruned
+#... node_3011558:G5720A node_3011768:C11956T node_3011770:T23018C node_3012596:T11956C,A16878T,A27507C
+# Seriously?  Let's try optimizing again.
+
+time $matOptimize \
+    -T 50 -r 8 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.opt.pb \
+    -o gisaidAndPublic.$today.pruned.reopt.pb \
+    >& matOptimize.pruned.log
+#real    60m20.224s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.reopt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.reopt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# XBB.1.9.2: No more flip-flops on 11956, 29358?
+g Australia/NSW-SAVID-15930/2022 sample-paths.pruned
+#... node_3011794:G5720A node_3012004:C11956T node_3012006:T23018C node_3012812:T11956C,A16878T node_3012813:A27507C
+# Geez!  Maybe some other sequences are sneaking in and preventing the move?
+
+# Anyway, out of time, use this for the next build to at least get the other fixes.
+ln -s gisaidAndPublic.$today.pruned.reopt.pb gisaidAndPublic.$today.masked.useMe.pb

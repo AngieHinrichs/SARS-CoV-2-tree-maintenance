@@ -1,0 +1,256 @@
+# Cornelius thinks that the Canadian B.2.12 sequences with S:452 (T22917A) should be placed in
+# BA.2.12.1 but aren't because of sequencing or treebuilding errors.  See if strategic pruning
+# might nudge some of them in.
+
+# BA.2.12.1 is BA.2.12 plus 4 mutations: C11674T > T15009C > C21721T > T22917A
+# How much evidence is there for C11674T > T15009C > C21721T happening before T22917A?
+
+today=2022-05-04
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+samplePaths=$ottoDir/$today/sample-paths
+
+# Canadian (etc) sequences that are just BA.2.12 + C11674T > T22917A:
+g Canada/AB-ABPHL-51578/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1200673:T22917A
+g node_1200673: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T22917A
+wc -l /data/tmp/angie/can+C11674T+T22917A
+#36 /data/tmp/angie/can+C11674T+T22917A
+# Most of those have C17678T.  BA.2.12.1 has a little US cluster with C17678T and others:
+# USA/JW5713/2022: BA.2.12.1 + A6597G > C17678T,G29527T
+
+# Next cluster with T22917A:
+g Canada/SK-NML-387318/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199074:A6107G node_1199075:G6109A,C19264T node_1199076:T22917A
+# Hmmm, 6107 and 6109 are very close to each other, kinda sus.  How many real vs. imputed?
+g node_1199076: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+6107+6109+C19264T+T22917A
+wc -l /data/tmp/angie/can+C11674T+6107+6109+C19264T+T22917A
+#32 /data/tmp/angie/can+C11674T+6107+6109+C19264T+T22917A
+
+# Next:
+g Canada/BC-BCCDC-353514/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199074:A6107G node_1199084:T22917A
+# 6107 without 6109, and lots of them, OK...
+g node_1199084: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+A6107G+T22917A
+wc -l /data/tmp/angie/can+C11674T+A6107G+T22917A
+#408 /data/tmp/angie/can+C11674T+A6107G+T22917A
+
+# Next, a little stub with just two US seqs:
+g USA/NH-CDC-LC0579343/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1200721:C27654T node_1200722:T22917A
+g node_1200722: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+C27654T+T22917A
+wc -l /data/tmp/angie/can+C11674T+C27654T+T22917A
+#2 /data/tmp/angie/can+C11674T+C27654T+T22917A
+
+# Then there are just 3 sequences that have C27654T+C16726T but not T22917A, then this big one:
+g Canada/BC-BCCDC-391929/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1200721:C27654T node_1200723:C16726T node_1200724:T22917A
+g node_1200724: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+C27654T+C16726T+T22917A
+#490 /data/tmp/angie/can+C11674T+C27654T+C16726T+T22917A
+
+# Next, all-but-C21721T:
+g USA/MA-CDC-STM-QN6Q9BURH/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1200665:T22917A
+g node_1200665: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+T22917A
+#51 /data/tmp/angie/can+C11674T+T15009C+T22917A
+
+# And several little C11674T > T15009C > C21721T > other crap > T22917A that should definitely
+# be BA.2.12.1, and a little pruning would definitely make them so:
+
+g USA/NY-CDC-ASC210848599/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1200556:C5239T node_1200557:A21137G node_1200558:T22917A
+g node_1200558: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+C21721T+C5239T+A21137G+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+C21721T+C5239T+A21137G+T22917A
+#2 /data/tmp/angie/can+C11674T+T15009C+C21721T+C5239T+A21137G+T22917A
+
+g USA/NJ-CDC-LC0565108/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1200549:A2871G,A23604G node_1200550:T22917A
+g node_1200550: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+C21721T+A2871G+A23604G+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+C21721T+A2871G+A23604G+T22917A
+#5 /data/tmp/angie/can+C11674T+T15009C+C21721T+A2871G+A23604G+T22917A
+
+g BHR/22020187293/2022 $samplePaths 
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1200559:C22388T node_1200560:A28967G node_1200561:C29250T node_1200562:T22917A
+g node_1200562: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+C21721T+C22388T+A28967G+C29250T+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+C21721T+C22388T+A28967G+C29250T+T22917A
+#8 /data/tmp/angie/can+C11674T+T15009C+C21721T+C22388T+A28967G+C29250T+T22917A
+
+g USA/NY-CDC-QDX35092890/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1200609:C2189T,C27247T node_1200610:T22917A
+g node_1200610: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+C21721T+C2189T+C27247T+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+C21721T+C2189T+C27247T+T22917A
+#22 /data/tmp/angie/can+C11674T+T15009C+C21721T+C2189T+C27247T+T22917A
+
+# Branch-specific masking some reversions would prevent several of these I think.
+
+g USA/NJ-CDC-ASC210722185/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1200618:T23063A node_1200619:C23075T node_1200635:T22917A
+g node_1200635: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+C21721T+T23063A+C23075T+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+C21721T+T23063A+C23075T+T22917A
+6 /data/tmp/angie/can+C11674T+T15009C+C21721T+T23063A+C23075T+T22917A
+
+g USA/VT-CDC-ASC210851666/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1200618:T23063A node_1200619:C23075T node_1200620:G23055A node_1200622:T22917A
+g node_1200622: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+C21721T+T23063A+C23075T+G23055A+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+C21721T+T23063A+C23075T+G23055A+T22917A
+#38 /data/tmp/angie/can+C11674T+T15009C+C21721T+T23063A+C23075T+G23055A+T22917A
+
+g USA/CA-Curative-272951/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1200568:G22688A node_1200570:T22686C node_1200571:T22674C,C22679T node_1200573:T22917A
+g node_1200573: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+C21721T+G22688A+T22686C+T22674C+C22679T+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+C21721T+G22688A+T22686C+T22674C+C22679T+T22917A
+#26 /data/tmp/angie/can+C11674T+T15009C+C21721T+G22688A+T22686C+T22674C+C22679T+T22917A
+
+g USA/CA-CDC-STM-8GP9UNWZM/2022 $samplePaths
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1200568:G22688A node_1200570:T22686C node_1200580:T22917A
+g node_1200580: $samplePaths | cut -f 1 > /data/tmp/angie/can+C11674T+T15009C+C21721T+G22688A+T22686C+T22917A
+wc -l /data/tmp/angie/can+C11674T+T15009C+C21721T+G22688A+T22686C+T22917A
+#52 /data/tmp/angie/can+C11674T+T15009C+C21721T+G22688A+T22686C+T22917A
+
+# Really we need to prune everything on node_1199140:C21721T excluding all of the above and
+# main BA.2.12.1:
+g Australia/SA236121/2022 $samplePaths
+#node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T node_1199141:T22917A
+
+# Prune all the fluff that separates out those T22917A's:
+g node_1199140: $samplePaths \
+| g -v node_1200558: | g -v node_1200550: | g -v node_1200562: | g -v node_1200610: \
+| g -v node_1200635: | g -v node_1200622: | g -v node_1200573: | g -v node_1200580: \
+| g -v node_1199141: | cut -f 1 > pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#544 pruneForBA.2.12.1
+
+# There really aren't that many sequences with C21721T and without T22917A... prune those too,
+# maybe T22917A can get pulled to before C21721T.
+
+# There is a very convincing Australia branch with C11674T and not T22917A.  But not really
+# much to argue for T15009C and C21721T preceding T22917A.  For now, just prune those -- will
+# have to see what happens when they get added back.
+
+# Whack from A6107G, excluding the two T22917A nodes:
+#... node_1198991:C23673T node_1199068:C11674T node_1199074:A6107G node_1199075:G6109A,C19264T node_1199076:T22917A
+#... node_1198991:C23673T node_1199068:C11674T node_1199074:A6107G node_1199084:T22917A
+g node_1199074: $samplePaths | g -v node_1199076: | g -v node_1199084: \
+| cut -f 1 >> pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#561 pruneForBA.2.12.1
+
+# Whack from C27654T, excluding T22917As:
+#... node_1198991:C23673T node_1199068:C11674T node_1200721:C27654T node_1200722:T22917A
+#... node_1198991:C23673T node_1199068:C11674T node_1200721:C27654T node_1200723:C16726T node_1200724:T22917A
+g node_1200721: $samplePaths | g -v node_1200722: | g -v node_1200724: \
+| cut -f 1 >> pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#565 pruneForBA.2.12.1
+
+# Whack from T15009C, excluding T22917A and C21721T:
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1200665:T22917A
+#... node_1198991:C23673T node_1199068:C11674T node_1199139:T15009C node_1199140:C21721T
+g node_1199139: $samplePaths | g -v node_1200665: | g -v node_1199140: \
+| cut -f 1 >> pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#586 pruneForBA.2.12.1
+
+# I hope that's enough to move T22917A back to just after C11674T.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s pruneForBA.2.12.1 \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+# Optimize and hope for the best.
+~/github/usher_branch/build/matOptimize -T 100 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Make taxonium (with yesterday's metadata, today's isn't ready yet) & check it out...
+prevDate=2022-05-03
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata ../$prevDate/gisaidAndPublic.$prevDate.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --output gisaidAndPublic.$today.masked.pruned.opt.taxonium.jsonl.gz
+
+# Looks good, the tree now has C11674T > T22917A.
+
+# However, it has no clade annotations.  See how many can be brought over from the daily build's
+# annotated pb that has since replaced the pre-annotation gisaidAndPublic.$today.masked.pb used
+# above.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths
+tail -n+2 clade-paths | g -E '^[12]' | cut -f 1,3 > nextcladePaths
+wc -l nextcladePaths
+#25 nextcladePaths
+tail -n+2 clade-paths | g -E '^[A-Za-z]' | cut -f 1,3 > lineagePaths
+wc -l lineagePaths
+#1710 lineagePaths
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -P nextcladePaths \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+# Aw crud, no perfect match for 21M.  Remove it and try again.  21K either.  Why didn't I collect
+# all errors before exiting, ugh...  Now way is this going to work on 1710 lineages without at
+# least a little work on matUtils annotate.  Surprise surprise, 21L also failed.
+vi nextcladePaths
+# I modified matUtils to continue on error.
+# What I really need to do is set it up to fall back on -M if there are -P failures...
+
+# OK, now it finishes, but I'll need to use -M for the failed ones (21K,L,M).
+# Actually, for Nextstrain clades, there are few enough that -M doesn't take all that long,
+# just do -M.
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+
+# Now, it will be interesting to see how many of those 1710 make it.
+time $matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineagePaths \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangoPaths.pb \
+    >& annotate.lineagePaths.log
+#real    2m11.073s
+# Well, at least it didn't take long, let's see how it did.  :)
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangoPaths.pb \
+    -C clade-paths.pangoPaths
+tail -n+2 clade-paths.pangoPaths | g -E '[A-Za-z]' | cut -f 1 | sort > pangoPaths.found
+comm -23 <(cut -f 1 lineagePaths | sort) pangoPaths.found > pangoPaths.notFound
+wc -l pangoPaths.found pangoPaths.notFound
+# 1598 pangoPaths.found
+#  137 pangoPaths.notFound
+# 1735 total
+# OK, why don't they add up to 1710?
+comm -13 <(cut -f 1 lineagePaths | sort) pangoPaths.found
+# Oh yeah, the 25 Nextstrain clade annotations.  OK good, 137 to assign using mutations
+# and/or lineageToName.  Ah yeah, pretty much all the Omicrons and their recombinants.
+# Are they all in pango.clade-mutations.tsv please?
+comm -23 pangoPaths.notFound <(cut -f 1 $scriptDir/pango.clade-mutations.tsv | sort) | wc -l
+#0
+# Great, no need to bring in -c lineageToName, just excerpt & -M.
+g -Fwf pangoPaths.notFound $scriptDir/pango.clade-mutations.tsv > pangoPaths.notFound.muts.tsv
+wc -l pangoPaths.notFound.muts.tsv
+#137 pangoPaths.notFound.muts.tsv
+time $matUtils annotate -T 100 -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -M pangoPaths.notFound.muts.tsv -o tmp.pb >& annotate.pangoPaths.notFound.log
+#real    26m30.732s
+# Well, better than waiting 6-7 hours.
+
+# We'll need to merge the annotations from paths and annotations from mutations...
+$matUtils extract -i tmp.pb -C clade-paths.pangoPaths.notFound
+tail -n+2 clade-paths.pangoPaths | g -E '^[A-Za-z]' | cut -f 1,2 \
+    > cladeNodes.pruned.opt.reassign
+tail -n+2 clade-paths.pangoPaths.notFound | g -E '^[A-Za-z]' | cut -f 1,2 \
+    >> cladeNodes.pruned.opt.reassign
+wc -l !$
+#1710 cladeNodes.pruned.opt.reassign
+
+# OK, now assign them all in one go
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -C cladeNodes.pruned.opt.reassign \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.pruned.opt
+wc -l !$
+#1736 clade-paths.pruned.opt
+# header line + 1710 + 25, yay.
+
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+# Oh joy, past in the steps from updateCombinedTree.sh

@@ -1,0 +1,65 @@
+today=2024-09-18
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# Yesterday's pruning didn't get rid of all the flip-flops on the way to JN.1.16.1
+# so prune more today.
+g Denmark/DCGC-670929/2024 sample-paths
+#... node_2264691:T27810C node_2282856:G17334T node_2282896:G24872T node_2282941:C7113T node_2282942:T22928C node_2307799:G22599C node_2310944:C6070T node_2311116:T7113C node_2311117:T21738C node_2311118:T6070C node_2311119:T17334G node_2311124:C21738T node_2311125:T24872G 
+g node_2311116: sample-paths | g -v node_2311125: | cut -f 1 > pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#766 pruneForJN.1.16.1
+
+# Include all the ones we've pruned in the past week+:
+cat ../2024-09-11/pruneForJN.1.16.1 ../2024-09-16/pruneForJN.1.16.1 ../2024-09-17/pruneForJN.1.16.1 \
+    >> pruneForJN.1.16.1
+wc -l pruneForJN.1.16.1
+#1422 pruneForJN.1.16.1
+
+# How much overlap?
+sort -u pruneForJN.1.16.1 > tmp
+wc -l tmp
+#1033 tmp
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# JN.1.16.1 free of its flip-flops?
+g Denmark/DCGC-670929/2024 sample-paths.pruned
+#... node_2264695:T27810C node_2282859:G17334T node_2316689:T22928C node_2316691:G22599C node_2316692:T17334G
+# Damn!  But... closer.  Try, try again.  It might be good enough for pangolin-data now though...

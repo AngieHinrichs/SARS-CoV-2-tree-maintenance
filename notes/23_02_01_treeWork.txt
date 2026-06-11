@@ -1,0 +1,188 @@
+# Noticed a few things in taxonium...
+
+today=2023-02-01
+cd $ottoDir/$today
+
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+#real    7m18.713s
+
+
+# A little chunk of BA.4.6 seems to have been moved to BA.4.1 due to probably bogus mutations
+# at 65 and 69.
+g Argentina/PAIS-A1620/2022 sample-paths
+#... node_2431774:T21570G node_2447135:T65A,A69C node_2447136:G21570T node_2447137:A23535G node_2447138:C14599T node_2447139:C8140T node_2447140:G22599C
+g node_2447135: sample-paths | g -v node_2447140: | cut -f 1 > pruneForBA.4.6
+wc -l pruneForBA.4.6
+#61 pruneForBA.4.6
+
+# BQ.1_17039 is now past mut/revs at 27758 and 20024  :(
+g Belgium/Jessa_11-2242-003597/2022 sample-paths
+#... node_2006357:G22599C node_2006911:A17039G node_2035706:G27758A node_2035707:C22599G node_2035708:G20024A node_2035709:A27758G node_2035720:A20024G 
+g node_2035706: sample-paths | g -v node_2035720: | cut -f 1 > pruneForBQ.1_17039
+wc -l pruneForBQ.1_17039
+#115 pruneForBQ.1_17039
+
+# BQ.1_17039 has a lot of 22599 remuts.  :(
+g England/QEUH-3262482D/2022 sample-paths
+#... node_2035720:A20024G node_2038407:T4579A node_2038473:G22599C
+g node_2038407: sample-paths | g -v node_2038473: | cut -f 1 > pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#201 pruneForBQ.1.1
+
+g France/GES-LBZCentre-CR2212050845/2022 sample-paths
+#... node_2035720:A20024G node_2037505:C28603T node_2037613:G22599C
+g node_2037505: sample-paths | g -v node_2037613: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#591 pruneForBQ.1.1
+
+g Canada/ON-PHL-22-48891/2022 sample-paths
+#... node_2035720:A20024G node_2038343:C1722T node_2038355:G22599C
+g node_2038343: sample-paths | g -v node_2038355: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#635 pruneForBQ.1.1
+
+g Canada/QC-L00540109001/2022 sample-paths
+#... node_2035720:A20024G node_2037505:C28603T node_2037613:G22599C
+g node_2037505: sample-paths | g -v node_2037613: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#1025 pruneForBQ.1.1
+
+g Denmark/DCGC-614537/2022 sample-paths
+#... node_2035720:A20024G node_2040679:G27798T node_2040680:A21137G node_2040681:C20199T node_2040682:G22599C
+g node_2040679: sample-paths | g -v node_2040682: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#1033 pruneForBQ.1.1
+
+g Netherlands/GE-RIVM-113822/2022 sample-paths
+#... node_2035720:A20024G node_2041977:A14487G node_2041978:G22599C
+g node_2041977: sample-paths | g -v node_2041978: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#1060 pruneForBQ.1.1
+
+g Germany/RP-RKI-I-1060787/2022 sample-paths
+#... node_2035720:A20024G node_2042027:C5822T node_2042028:T15939C node_2042029:G22599C
+g node_2042027: sample-paths | g -v node_2042029: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#1065 pruneForBQ.1.1
+
+g France/GES-HMN-22122060165/2022 sample-paths
+#... node_2035720:A20024G node_2040165:G3794A node_2040166:A4228G node_2040167:G22599C
+g node_2040165: sample-paths | g -v node_2040167 | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#1069 pruneForBQ.1.1
+
+g Italy/CAM-TIGEM-IZSM-COLLI-41988/2022 sample-paths
+#... node_2035720:A20024G node_2040585:C29708T node_2040586:C20270G,T20271A,T20273C,G20274T node_2040587:G22599C
+g node_2040585: sample-paths | g -v node_2040587: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#1073 pruneForBQ.1.1
+
+g Brazil/RS-LACENRS-431812780/2022 sample-paths
+#... node_2035720:A20024G node_2042245:C26110T node_2042246:G22599C
+g node_2042245: sample-paths | g -v node_2042246: | cut -f 1 >> pruneForBQ.1.1
+wc -l pruneForBQ.1.1
+#1079 pruneForBQ.1.1
+
+
+# Between XBB.1 and branch with most XBB.1.*, there is a mut/rev on 21998
+g BHR/480024421/2022 sample-paths
+#... node_2498052:G22317T node_2498454:C21998A node_2498455:G27915T node_2498558:A21998C
+g node_2498454: sample-paths | g -v node_2498558: | cut -f 1 > pruneForXBB.1
+wc -l pruneForXBB.1
+#324 pruneForXBB.1
+
+
+# A chunk of ~6k XBB.1.5 seqs are on a multi-mut-rev: 22813, 174, 5065
+# Actually the 22813 is a rev/re-mut.  Whack 'em all in case of Ns.
+g USA/FL-CDC-LC0979591/2023 sample-paths
+#... node_2504208:T22813G node_2504209:T10204C node_2504220:G174T node_2504221:G22813T node_2504254:T5065C node_2504255:T174G node_2504256:C5065T
+g node_2504208: sample-paths | g -v node_2504256: | cut -f 1 > pruneForXBB.1.5
+wc -l pruneForXBB.1.5
+#859 pruneForXBB.1.5
+
+wc -l pruneFor*
+#    61 pruneForBA.4.6
+#  1079 pruneForBQ.1.1
+#   115 pruneForBQ.1_17039
+#   324 pruneForXBB.1
+#   859 pruneForXBB.1.5
+#  2438 total
+
+# Prune those and also the dups in idToGisaidName.alreadyInTree
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor* idToGisaidName.alreadyInTree) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Use radius 12 just to be on the safe side, since BQ.1_17039 was out on some bogus flip-flops
+# and there are so many little 22599 re-mut branches that belong back on BQ.1.1.
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    59m24.263s
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned
+
+# Is this on main BA.4.6 now?
+g Argentina/PAIS-A1620/2022 sample-paths.pruned
+#... node_2995198:C28724T node_3020544:A23535G node_3024318:C8140T node_3024323:G22599C node_3024970:C14599T node_3024971:T65A,A69C
+# Yes (for now, check next build)
+
+# Is BQ.1_17039 one reversion off BQ.1.1 instead of serial flip-flops?
+g Belgium/Jessa_11-2242-003597/2022 sample-paths.pruned
+#... node_2468868:T22942A node_2484853:G22599C node_2485517:A17039G node_2543320:C22599G
+# Yep, back to only one flip-flop
+
+# Is this part of XBB.1 free of flip-flop on 21998?
+g BHR/480024421/2022 sample-paths.pruned
+#... node_3074554:G22317T node_3075592:G27915T
+# Yep.
+
+# Is this part of XBB.1.5 free of flip-flops on 22813, 174, 5065?
+g USA/FL-CDC-LC0979591/2023 sample-paths.pruned
+#... node_3074554:G22317T node_3075592:G27915T node_3079403:T23018C node_3079404:T17124C node_3082375:T10204C
+# Yep (for now, check next build)
+
+# Hopefully at least some of these are put on main BQ.1.1...
+g England/QEUH-3262482D/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2552503:T4579A
+# Good, regular BQ.1.1.
+g France/GES-LBZCentre-CR2212050845/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2543320:C22599G node_2552276:G22599C node_2552277:C28603T
+# Doh!  Well, see what happens in next build.
+g Canada/ON-PHL-22-48891/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2543320:C22599G node_2552416:G22599C node_2552422:C1722T
+# Same, oh well, maybe we needed multiple rounds.
+g Canada/QC-L00540109001/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2543320:C22599G node_2552276:G22599C node_2552277:C28603T
+# Ditto.
+g Denmark/DCGC-614537/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2516777:G27798T node_2516778:C20199T,A21137G 
+# OK, that's now regular BQ.1.1
+g Netherlands/GE-RIVM-113822/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2543320:C22599G node_2552276:G22599C node_2552398:A14487G
+g Germany/RP-RKI-I-1060787/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2543320:C22599G node_2552416:G22599C node_2552417:C5822T,T15939C
+g France/GES-HMN-22122060165/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2552497:G3794A,A4228G
+g Italy/CAM-TIGEM-IZSM-COLLI-41988/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2513048:C29708T node_2513132:C20270G,T20271A,T20273C,G20274T node_2513142:G26217T
+g Brazil/RS-LACENRS-431812780/2022 sample-paths.pruned
+#... node_2484853:G22599C node_2485517:A17039G node_2552486:C26110T
+
+
+# Use as basis for next daily build
+ln -f gisaidAndPublic.$today.pruned.opt.pb gisaidAndPublic.$today.masked.useMe.pb

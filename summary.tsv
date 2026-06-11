@@ -1,0 +1,173 @@
+start date	notes file	tree dates	pruning	force moves	name changes	clade/lineage changes	comment
+2021-04-01	notes/21_04_01_treeWork.txt	2021-03-31	y	n	n	n	pruned using matUtils filtering which was later added to build process. notes include other exploratory work.
+2021-06-03	notes/21_06_03_treeWork.txt	2021-06-04	y	n	y	n	pruned withdrawn seqs, updated changed names. notes include exploratory work.
+2021-06-07	notes/21_06_07_treeWork.txt	2021-06-07	y	n	y	n	pruned withdrawn seqs, updated changed names.
+2021-07-12	notes/21_07_12_gbRenaming.txt	2021-07-12	y	n	y	n	pruned duplicated seqs, updated names w/changed dates
+2021-09-02	notes/21_09_02_badDeltaBranch.txt	2021-08-31	y	n	n	n	pruned seqs basal to branch deemed bad, that stole Delta sequences from main Delta branch. First use of badBranchSeed.ids to permanently exclude sequences.
+2021-10-06	notes/21_10_06_treeCleaning.txt	2021-10-04	y	n	y	n	pruned withdrawn seqs, updated changed names, might have been applied to 2021-10-06 too
+2021-10-07	notes/21_10_07_fixDeltaAgain.txt	2021-10-04,2021-10-06,2021-10-07	n	n	n	n	masked G21987A (Delta issue, later added to Problematic_Sites) and reoptimized
+2021-10-15	notes/21_10_15_lopBadDeltaSamples.txt	2021-10-14,2021-10-15	y	n	n	n	pruned seqs basal to branch deemed bad, badBranchSeed.ids reappears
+2021-10-23	notes/21_10_23_treeWork.txt	2021-10-23	y	n	n	n	not sure why I re-annotated the pruned & optimized tree, maybe just in case
+2021-10-30	notes/21_10_30_treeWork.txt	2021-10-30	y	n	y	n	pruned withdrawn seqs, updated changed names, pruned basal seqs using grep sample-paths
+2021-11-07	notes/21_11_07_fixAnnotations.txt	2021-10-27,2021-10-28,2021-10-29,2021-10-30,2021-10-31,2021-11-01,2021-11-02,2021-11-03,2021-11-04	n	n	n	y	re-annotated dates on which nextstrain 21A was missed
+2021-11-09	notes/21_11_09_addPangoDesignation297.txt	2021-11-09	n	n	n	n	added B.1.640 seqs that were excluded by overly stringent branch length filter
+2021-11-25	notes/21_11_25_B.1.1.529.txt	2021-11-24	n	n	n	n	added first Omicron seqs that were excluded by overly stringent branch length filter
+2021-11-29	notes/21_11_29_omicronPath.txt	2021-11-28	n	n	n	y	needed to add a lot of Ns to B.1.1.529 mutation set because the root moved a lot
+2021-12-02	notes/21_12_02_treeCleanup.txt	2021-12-01	y	n	n	n	pruned duplicated seqs, pruned a small number of seqs with changed names to be added back later
+2021-12-06	notes/21_12_06_treeWork.txt	2021-12-06	y	n	n	y	pruned basal seqs and changed seqs, added back changed seqs, annotated B.1.1.529, BA.1, BA.2
+2021-12-08	notes/21_12_08_treeWork.txt	2021-12-07	y	n	n	y	pruned basal seqs and changed seqs, added back changed seqs, tweaked annotations
+2021-12-15	notes/21_12_15_treeWork.txt	2021-12-15	y	n	n	n	pruned basal seqs
+2022-01-10	notes/22_01_10_treeWork.txt	2022-01-09,2022-01-10	y	n	n	y	pruned basal seqs, re-annotated 21M
+2022-01-12	notes/22_01_12_treeWork.txt	2022-01-12	n	n	n	n	relaxed branch length filter because BA.2 and BA.3 were lost
+2022-01-14	notes/22_01_14_treeWork.txt	2022-01-13,2022-01-14	y	n	n	y	pruned & excluded lots of basal seqs (including BA.2 and BA.3 by accident, fixed 2022-01-16)
+2022-02-02	notes/22_02_02_treeWork.txt	2022-02-01	y	n	n	n	first use of dropoutContam filter
+2022-02-14	notes/22_02_14_treeWork.txt	2022-02-13	y	n	n	n	first use of refBackfill filter
+2022-02-16	notes/22_02_16_treeWork.txt	2022-02-15	n	n	n	n	masked 28254 and 28461 on Delta branch
+2022-03-01	notes/22_03_01_treeWork.txt	2022-03-01	y	n	n	y	pruned basal seqs, duplicates, .1's with .2's, fixed BA.2 annotation
+2022-03-11	notes/22_03_11_treeWork.txt	2022-03-10	n	n	n	n	almost did a force-move but it wasn't necessary in 2022-03-10 tree
+2022-03-18	notes/22_03_18_treeWork.txt	2022-03-17	y	n	n	n	pruned duplicated seqs, misplaced recombinants, masked more sites for BA.1, pruned seqs for split lineages
+2022-03-28	notes/22_03_28_treeWork.txt	2022-03-26,2022-03-29	y	y	n	y	force-moved nodes to fix immediate reversion, pruned for split BA.2 and split branch of BA.1, annotated new lineages
+2022-04-02	notes/22_04_02_treeWork.txt	2022-03-30	y	n	n	y	more masking, re-optimization, pruning for split BA.1.15 and BA.1.18, pruning duplicates, annotated new lineages and miscRecombOrContam label
+2022-04-04	notes/22_04_04_treeWork.txt	2022-04-02	y	n	n	n	pruned seqs causing bad branches, pruned duplicates
+2022-04-06	notes/22_04_06_treeWork.txt	2022-04-05	y	n	n	n	pruned and re-added BA.2.11 and BA.2.12.1 samples to unmask 22917
+2022-04-15	notes/22_04_15_treeWork.txt	2022-04-13	y	n	n	n	pruned seqs causing split lineages on rev branches, pruned a few duplicates
+2022-04-29	notes/22_04_29_treeWork.txt	2022-04-29	y	n	n	n	pruned duplicates, first use of usher-sampled
+2022-05-04	notes/22_05_04_treeWork.txt	2022-05-04	y	n	n	n	pruned BA.2.12.1 basal cruft
+2022-05-20	notes/22_05_20_treeWork.txt	2022-05-20	n	n	n	n	repeated branch-specific masking & subsequent steps after adding BSM locations
+2022-05-25	notes/22_05_25_treeWork.txt	2022-05-25	y	n	n	n	pruned seqs added without masking on 2022-04-29, dups, seqs with changed names
+2022-05-27	notes/22_05_27_treeWork.txt	2022-05-26	y	n	n	n	pruned to fix split BA.1.1
+2022-05-31	notes/22_05_31_treeWork.txt	2022-05-31	y	n	n	n	pruned to fix rev/re-mut on path to BA.2.11, split BA.5.3, split BA.4.1
+2022-06-02	notes/22_06_02_treeWork.txt	2022-06-01	y	n	n	n	pruned to fix split BA.1.17.2
+2022-06-06	notes/22_06_06_treeWork.txt	2022-06-05	y	n	n	n	pruned to fix BA.2.37, BA.5.2
+2022-06-21	notes/22_06_21_treeWork.txt	2022-06-21	y	n	n	n	pruned to fix BA.5, BA.5.1, name changes, BA.2.61, BA.2.64, BA.2.70, BA.2.3.9
+2022-06-26	notes/22_06_26_treeWork.txt	2022-06-26	y	n	n	n	pruned to fix branches from pango-designation#786, #787
+2022-07-11	notes/22_07_11_treeWork.txt	2022-07-10,2022-07-11	y	n	n	n	pruned to fix BA.2.10, split BA.2.76
+2022-07-16	notes/22_07_16_treeWork.txt	2022-07-16	y	n	n	n	pruned to fix bad branch w/BA.13 and others (A23767G) including mini-BA.2 (A11537G, T11524C), BA.3.1
+2022-07-18	notes/22_07_18_treeWork.txt	2022-07-18	y	n	n	n	pruned to fix mini-BA.4.1s, mini-BA.4, mini-BA.2.12.1, BA.2.75, misc BA.2 rev/re-mut, BA.4
+2022-07-20	notes/22_07_20_treeWork.txt	2022-07-20	y	n	n	n	pruned to fix BA.5.3.1, BA.4
+2022-07-21	notes/22_07_21_treeWork.txt	2022-07-21	y	n	n	n	added BSM 212, pruned to fix BA.5.3.1, BA.5.2.1
+2022-08-19	notes/22_08_19_treeWork.txt	2022-08-19	y	n	n	n	pruned to fix split BA.2.3.5, BA.5, BA.5.2.1 
+2022-08-24	notes/22_08_24_treeWork.txt	2022-08-23	n	n	n	n	added BSM for BA.5 deletion, re-masked, re-optimized
+2022-08-30	notes/22_08_30_treeWork.txt	2022-08-29,2022-08-30	n	n	n	n	added BSM (28877 and 28878), re-masked, re-optimized
+2022-09-14	notes/22_09_14_treeWork.txt	2022-09-14	y	n	n	n	pruned to fix BA.2.75, BA.2.75.2, BA.2.75.3, BA.5.1.15, added BSM, re-masked, re-opt
+2022-09-22	notes/22_09_22_treeWork.txt	2022-09-22	y	n	n	n	pruned to fix BL.4, BA.5.2.21, some other C 27012T branch, mini-BA.2, BJ.1, BF.5, BA.5.2, split BA.5.2.1; BA.5 masking
+2022-09-29	notes/22_09_29_treeWork.txt	2022-09-28	y	n	n	n	pruned to fix BA.5.2.6, BA.2.12.1, BA.5.1.23; added BSM for BA.2.75
+2022-10-01	notes/22_10_01_treeWork.txt	2022-10-01	y	n	n	n	pruned to fix BA.2.12.1 again
+2022-10-31	notes/22_10_31_treeWork.txt	2022-10-31	y	n	n	n	pruned to fix BQ.1.1 branches, BQ.1.1.11
+2022-11-15	notes/22_11_15_treeWork.txt	2022-11-15	y	n	n	n	added BSM for BA.2, BA.2.75; pruned to fix BQ.1.1 branches, BA.2.56, BA.5.3.3, BA.2.9, BE.8, BQ.1.25
+2022-11-17	notes/22_11_17_treeWork.txt	2022-11-17	y	n	n	n	pruned to fix split BA.2.75.2, BA.5.3, BA.5.1
+2022-12-08	notes/22_12_08_treeWork.txt	2022-12-08	y	n	n	n	pruned to fix split BA.5.5, "CK.1-like", BA.2.64
+2022-12-09	notes/22_12_09_treeWork.txt	2022-12-09	y	n	n	n	pruned to fix split BA.4.6
+2022-12-13	notes/22_12_13_treeWork.txt	2022-12-12	y	n	n	n	pruned to fix BQ.1.1, BA.4.6.2
+2022-12-29	notes/22_12_29_treeWork.txt	2022-12-29,2022-12-30	y	n	n	n	pruned to fix pango-designation#1470, #1471, XBB.1, BN.1.3
+2023-01-03	notes/23_01_03_treeWork.txt	2023-01-02,2023-01-03	y	n	n	n	pruned to fix pango-designation#1504, #1509, BA.5.2, mini-BA.5, mini-BF.5, BQ.1.11, mini-BA.4
+2023-01-04	notes/23_01_04_treeWork.txt	2023-01-03,2023-01-04	y	n	n	n	pruned to fix not-quite-p-d#1514, branches with run-of-mut artifacts incl. mini-BQ.1.1, mini-BA.5s, BQ.1, BQ.1.24
+2023-01-05	notes/23_01_05_treeWork.txt	2023-01-05	y	n	n	n	pruned to fix BA.2.76, run-of-mut (again), p-d#1514 XBF, permanently excluded repeat troublemakers
+2023-01-11	notes/23_01_11_treeWork.txt	2023-01-10,2025-01-11	y	n	n	n	pruned to fix BA.2.9.5, split BA.5.1.30, BA.2.36, BA.2.18, BA.2 branches in BA.9, split BA.1.15.2, BA.1.1 branch in BA.1.17.2, BF.7.10, BA.5.2
+2023-01-23	notes/23_01_23_treeWork.txt	2023-01-22,2023-01-23	y	n	n	n	pruned to fix BQ.1_17039, mini-BA.5.3.1 in BA.2, misc BA.5/BQ
+2023-02-01	notes/23_02_01_treeWork.txt	2023-02-01	y	n	n	n	pruned to fix BQ.1_17039, BA.4.6, BQ.1.1, XBB.1, XBB.1.5
+2023-02-14	notes/23_02_14_treeWork.txt	2023-02-14	y	n	n	n	pruned to fix XBB.1.12, BA.5.2 branches, XBJ, BQ.1.1.48, XBB
+2023-02-16	notes/23_02_16_treeWork.txt	2023-02-15	y	n	n	n	pruned to fix XBB, XBB.1, BF.7.16, BA.2.75.2, BQ.1.2.1, BA.1.14.2, BA.5.1.22
+2023-02-24	notes/23_02_24_treeWork.txt	2023-02-24	y	n	n	n	pruned to fix BF.7.16, BA.1.8, BA.1.9, XBB.1, XBB.1.5, BQ.1.1, BQ.1.1.67, BA.5.1
+2023-02-25	notes/23_02_25_treeWork.txt	2023-02-25	y	n	n	n	pruned to fix XBB.1
+2023-03-08	notes/23_03_08_treeWork.txt	2023-03-08	y	n	n	n	pruned to fix XBB, p-d#1643, XBC.1.5, BA.1.8, BA.5.2.6, XBB.1.9.2
+2023-03-09	notes/23_03_09_treeWork.txt	2023-03-09	y	n	n	n	pruned to fix XBB.1.9.2, XBB.1.5, BA.4.1, several run-of-muts
+2023-03-13	notes/23_03_13_treeWork.txt	2023-03-13	y	n	n	n	pruned to fix XBB.1.9.2, XBB.1.5, permanently excluded repeat troublemakers
+2023-03-14	notes/23_03_14_treeWork.txt	2023-03-14	y	n	n	n	pruned to fix XBB.1, XBB.1.9.2, XBB.1.5, more permanent exclusions
+2023-03-15	notes/23_03_15_treeWork.txt	2023-03-15	y	n	n	n	pruned to fix samples that were missed by dropout filter, XBB.1.5
+2023-03-29	notes/23_03_29_treeWork.txt	2023-03-29	y	n	n	n	pruned to fix XBB.2.3, XBB.2.3.2, BQ.1.1.39, CH.1.1.18, p-d#1784, p-d#1808
+2023-05-09	notes/23_05_09_treeWork.txt	2023-05-09	y	n	n	n	added BSM for FE.1.1; pruned to fix mini-XBB.1.5, XBB.1.5>T10204C, XBB.1.31, XBB.1.5>G17259T, FE.1.1, XBB.1.10, XBB.1>G19656T
+2023-05-11	notes/23_05_11_treeWork.txt	2023-05-11	y	n	n	n	pruned to fix XBB.1.5.37, XBB.1.5.4, XBB.1.5.51
+2023-05-18	notes/23_05_18_treeWork.txt	2023-05-18	y	n	n	n	pruned to fix mini-BA.5.2.1, BA.5, BA.5.2.20, BA.2.9, mini-BA.5, BA.4 rev branch, BA.2.56, BA.5.1, BA.5.2.62, BA.4.6, FL.10, sars-cov-2-variants/lineage-proposals#2, mini-BA.2.75s, BQ.1>A17039G, multiple rounds
+2023-05-20	notes/23_05_20_treeWork.txt	2023-05-20	y	n	n	n	pruned to fix B.1 branch on B.1.1.7 rev branch, BA.1.1 branch on pre-BA.1 dropout branch, BA.5, BA.5.2.1, FL.10, FE.1, XBB.1.5, A.27 on B.1, B.1.1.291 on B.1, AY.85, permanently exclude some
+2023-05-30	notes/23_05_30_treeWork.txt	2023-05-30	y	n	n	n	pruned to fix split FL.15, XBC.1.6.1, split FL.10>C4234T
+2023-06-06	notes/23_06_06_treeWork.txt	2023-06-06	y	n	n	n	more permanent exclusions, pruned to fix XBB.1.9.1, XBB.1.5.72, XBB.1.5.77, B.1.617.*, run-of-muts, BS.1.1.18, multiple rounds
+2023-06-13	notes/23_06_13_treeWork.txt	2023-06-13	y	n	n	n	pruned to fix l-d#156, mini-Delta and A branch in B.1, DV.8, FE.1.1.2, FE.1.1, XBB.2.12; found problem caused by incomplete VCF file on 2023-06-07
+2023-06-16	notes/23_06_16_treeWork.txt	2023-06-16	y	n	n	n	pruned to fix sequences added on 2023-06-07 with incomplete VCF, B.1 dropout branch, bit of A in B, XBB.1.18 run-of-muts, XBB.1 run of muts, XBB.2.12, XCE, more permanent exclusions
+2023-07-05	notes/23_07_05_treeWork.txt	2023-07-05	y	n	n	n	pruned to fix XBB.1.5, l-p#288, p-d#2074, p-d#2016, split XBB.1.16.11, BN.1.3.6 rev branches, XBB.1.5.66, XBB.1.5.67, EG.2, mini-BA.5.1, XBB.1.5.37, XBB.1.5.77, BQ.1.1.18, BQ.1.11, DV.8, FL.4, multiple rounds
+2023-07-09	notes/23_07_09_treeWork.txt	2023-07-09	y	n	n	n	pruned to fix BA.5.2.1, BE.1.1, FR.1.4, multiple rounds
+2023-07-10	notes/23_07_10_treeWork.txt	2023-07-10	y	n	n	n	pruned to fix BA.5.2.1, XBB.1.5.63, XBB.1.5.73, multiple rounds, more permanent exclusions
+2023-07-14	notes/23_07_14_treeWork.txt	2023-07-14	y	n	n	n	pruned to fix mini-BA.5.2, mini-XBB.1.9.1, mini-XBB.1.9.2, EG.1.6, XBB.1.5.92, more permanent exclusions
+2023-07-18	notes/23_07_18_treeWork.txt	2023-07-18	y	n	n	n	pruned to fix EG.1, FY.4.1, l-p#280, l-p#346, l-p#418, XBB.1.5 basal
+2023-07-27	notes/23_07_27_treeWork.txt	2023-07-27	y	n	n	n	pruned to fix HS.1, FP.4, run-of-muts mini XBB.1.5, mini-XBB.1.9, l-p#347, XBB dropout branches, XBB.1.5.13, FL.2, XBB.1.9.1, more permanent exclusions
+2023-08-16	notes/23_08_16_treeWork.txt	2023-08-16	y	n	n	n	pruned to fix l-p#33, l-p#555, l-p#553, l-p#543 (XBB.1.5.37), l-p#562 (XBB.1.5), FL.3, FL.2, HS.1, HT.1, XBB.1.5.97, XBB.1.5.100, HZ.2, JA.1, XBB.2.3.2
+2023-08-23	notes/23_08_23_treeWork.txt	2023-08-23	y	n	n	n	pruned to fix BA.2.86
+2023-08-25	notes/23_08_25_treeWork.txt	2023-08-25	y	n	n	n	pruned to fix mini-FL, HT.1, HZ.1, FE.1, XBB.1.18.1, XBB.1.5.37, XBB.1.5.49
+2023-09-06	notes/23_09_06_treeWork.txt	2023-09-06	y	n	n	n	pruned to fix EG.5.1, XCM, BA.2.35, BA.2.75.6, BA.5.10, XBB.1.5.49, FL.21, split XBB.1.9.2, l-p#537, EG.5.1.1
+2023-09-14	notes/23_09_14_treeWork.txt	2023-09-14	y	n	n	n	pruned to fix DF.1, GJ.1.2.2, Fede Gueli branch, XBB.1.15, XBB.1.5.75, XBB.1.5.79, l-p#537 / l-p#763 / p-d#2194 (HK.3), l-p#730, l-p#526
+2023-09-15	notes/23_09_15_treeWork.txt	2023-09-15	y	n	n	n	pruned to fix EG.10.1, GJ.1.2.2, l-p#537 / l-p#763 / p-d#2194 (HK.3), l-p#730
+2023-09-19	notes/23_09_19_treeWork.txt	2023-09-19	y	n	n	n	pruned to fix EG.10.1, p-d#2288, l-p#828, yatisht/usher#350, rando rev22995, GA.4
+2023-09-28	notes/23_09_28_treeWork.txt	2023-09-28	y	n	n	n	pruned to fix EG.10.1, more permanent exclusions
+2023-09-29	notes/23_09_29_treeWork.txt	2023-09-29	y	n	n	n	pruned to fix FL.36, JN.1, XBB.1.5, EG.2, BA.5.1>C29614T, BA.5 basal, multiple rounds
+2023-09-30	notes/23_09_30_treeWork.txt	2023-09-30	y	n	n	n	pruned to fix EG.2, BA.5.1>C29614T, BA.5.6, mini-BA.5.1
+2023-10-15	notes/23_10_15_treeWork.txt	2023-10-15	y	n	n	n	pruned to fix BA.5.3.1, split B.1.160.16, B.1.466, B.1.222, had to add XCB back
+2023-10-25	notes/23_10_25_treeWork.txt	2023-10-25	y	n	n	n	pruned to fix B.1.637, B.1.526, split B.1.160.14, split FY.6, XBC.1.6.6, HV.1, AY.120.1, AY.25.1, BA.5.2, FE.1.1.1, FY.1.4, GA.4, GK.1.6, split JT.1, XCQ, XCT, multiple rounds
+2023-10-31	notes/23_10_31_treeWork.txt	2023-10-31	y	n	n	n	pruned to fix split B.1.637, XCT, JG.3>A22910G, multiple rounds
+2023-11-01	notes/23_11_01_treeWork.txt	2023-11-01	y	n	n	n	pruned to fix B.1.526, XCT
+2023-11-07	notes/23_11_07_treeWork.txt	2023-11-06	y	n	n	n	pruned to fix EG.5.1.1, E.g.5.1.3, XBB.1.16.6, BA.5 dropout
+2023-12-21	notes/23_12_21_treeWork.txt	2023-12-21	y	n	n	n	pruned to fix p-d#2403, JD.1.2, split B.1.1.265, split B.1.1.410, split B.1.237, B.1.406, B.1.527, Fede branch, p-d#2419, mini-JN.1, JN.1 rev/re-mut branch
+2024-01-11	notes/24_01_11_treeWork.txt	2024-01-11	y	n	n	n	pruned to fix JN.1.1.3, XDD, JN.1.11
+2024-01-16	notes/24_01_16_treeWork.txt	2024-01-16	y	n	n	n	pruned to fix HK.30, JQ.1, split B.1.162, XBB.1.22, split EG.5.1.13, JK.1, B.1.545, split BA.5.3.1, split B.56, split XBB.1.3, split B.1.586, split B.1.314, split BF.7.1, split BE.4
+2024-01-19	notes/24_01_19_treeWork.txt	2024-01-18	y	n	n	n	pruned to fix BA.5, multiple rounds, permanent exclusions
+2024-01-30	notes/24_01_30_treeWork.txt	2024-01-30	y	n	n	n	pruned to fix HK.3, JN.2
+2024-02-12	notes/24_02_12_treeWork.txt	2024-02-12	y	n	n	n	pruned to fix p-d#2458, l-p#1371, JN.1.1, mini-BA.5.1, HK.1, HK.3.1
+2024-03-05	notes/24_03_05_treeWork.txt	2024-03-05	y	n	n	n	pruned to fix JN.1, mini-BA.2.86, JN.1.4 split by run-of-muts, JN.1.9 split by revs
+2024-03-22	notes/24_03_22_treeWork.txt	2024-03-22	y	n	n	n	pruned to fix FM.2, l-p#1201, l-p#1453
+2024-04-12	notes/24_04_12_treeWork.txt	2024-04-12	y	n	n	n	pruned to fix p-d#2559, l-p#1253, p-d#2531
+2024-04-18	notes/24_04_18_treeWork.txt	2024-04-18	y	n	n	n	pruned to fix KP.1.1, p-d#25662
+2024-04-22	notes/24_04_22_treeWork.txt	2024-04-22	y	n	n	n	pruned to fix mini-JN.1, split JN.1.1 (l-p#1525), other l-p#1525, JN.1.8.1
+2024-04-23	notes/24_04_23_treeWork.txt	2024-04-23	y	n	n	n	pruned to fix l-p#1525
+2024-05-06	notes/24_05_06_treeWork.txt	2024-05-06	y	y	n	n	pruned to fix p-d#2494, l-p#1253; force move to fix JN.1.16.1
+2024-05-24	notes/24_05_24_treeWork.txt	2024-05-24	y	y	n	n	pruned to fix masking of 21627 in BA.2.86, split JN.1.16, split JN.1.18.2, JN.1.4, JN.1.39.1, split JN.1.4>T18453C; force moves to fix p-d#2567, JN.1.39>T22928C, l-p#1437
+2024-05-25	notes/24_05_25_treeWork.txt	2024-05-25	y	n	n	n	pruned to fix masking of 21627 in BA.2.86
+2024-06-05	notes/24_06_05_treeWork.txt	2024-06-05	y	n	n	n	pruned to fix JN.1.23.1, split JN.1.54, KP.3.2.2, split JN.1.7.6
+2024-06-19	notes/24_06_19_treeWork.txt	2024-06-19	n	y	n	n	force move to fix JN.1.16.1, JN.1.18.3, split LB.1>A2618G, split KP.1.1.3, JN.1.39.1, JN.1.18.5
+2024-06-20	notes/24_06_20_treeWork.txt	2024-06-20	n	y	n	n	force move to fix JN.1.16.1, JN.1.6.1
+2024-06-27	notes/24_06_27_treeWork.txt	2024-06-27	y	y	n	n	force move to fix split LB.1.3; pruned to fix split BA.1.1, split JN.1.4.5, split BA.1.17.2, BA.5.1_no29666, split JN.1.54.1, LB.1
+2024-07-18	notes/24_07_18_treeWork.txt	2024-07-18	y	y	n	n	force move JN.1.64.1, LK.2; pruned to fix KP.2.14, l-p#1253, JN.1.7.8
+2024-07-23	notes/24_07_23_treeWork.txt	2024-07-23	y	n	n	n	pruned to fix KP.2, MG.1, JN.1.66; permanent exclusions, multiple rounds
+2024-07-30	notes/24_07_30_treeWork.txt	2024-07-30	y	y	n	n	force move to fix MH.1, KP.1.1, JN.1.7.8, JN.1.16.1, JN.1.18.6; pruned to fix JN.1.7.8, split BA.5.1, LB.1.8, split LB.1.2
+2024-08-16	notes/24_08_16_treeWork.txt	2024-08-16	y	y	n	n	force move to fix LB.1.8, KP.1.1, KP.2.18, LB.1; pruned to fix JN.1.7.4, KP.1.1.3, p-d#2733
+2024-09-11	notes/24_09_11_treeWork.txt	2024-09-11	y	n	n	n	pruned to fix MU.1, l-p#1934, p-d#2738, JN.1.16.1, split JN.1.11.1, KP.1.1.3, split JN.1.48.1
+2024-09-16	notes/24_09_16_treeWork.txt	2024-09-16	y	n	n	n	pruned to fix JN.1.16.1, KP.1.1.3, split MC.1, split KP.2, split KP.3
+2024-09-17	notes/24_09_17_treeWork.txt	2024-09-17	y	n	n	n	pruned to fix JN.1.16.1, split KP.2
+2024-09-18	notes/24_09_18_treeWork.txt	2024-09-18	y	n	n	n	pruned to fix JN.1.16.1
+2024-09-25	notes/24_09_25_treeWork.txt	2024-09-25	y	n	n	n	pruned to fix JN.1.16.1, KP.3.1.1
+2024-10-23	notes/24_10_23_treeWork.txt	2024-10-23	y	n	n	n	pruned to fix split ND.1.1, mini-KP.3.1.1, LF.7.4, KP.2.27
+2024-10-24	notes/24_10_24_treeWork.txt	2024-10-24	y	n	n	n	pruned to fix mafft / 21654 artifact in BA.2.86.1
+2024-10-30	notes/24_10_30_treeWork.txt	2024-10-30	y	n	n	n	pruned to fix split MC.10, LY.1, MB.1, split MC.16, JN.1.16.1; permanent exclusions
+2024-11-01	notes/24_11_01_treeWork.txt	2024-11-01	y	n	n	n	pruned to fix JN.1.16.1, XEC.3, mini-KP.3.1.1
+2024-11-07	notes/24_11_07_treeWork.txt	2024-11-07	y	n	n	n	pruned to fix l-p#2185, MB.1, l-p#2194
+2024-11-18	notes/24_11_18_treeWork.txt	2024-11-18	y	n	n	n	pruned to fix split MK.1, LP.9, MC.13.2, NC.1.1, NC.1.2, split KS.1
+2024-12-09	notes/24_12_09_treeWork.txt	2024-12-09	y	n	n	n	pruned to fix KP.2.3 rev branches
+2024-12-18	notes/24_12_18_treeWork.txt	2024-12-18	y	n	n	n	pruned to fix split LF.7.2.1
+2025-01-09	notes/25_01_09_treeWork.txt	2025-01-09	y	n	n	n	pruned to fix KP.3.1, l-p#2322
+2025-01-17	notes/25_01_17_treeWork.txt	2025-01-17	y	n	n	n	pruned to fix XDY, BA.1.1 run-of-muts, KS.1.1.1, NC.1, split BE.4
+2025-01-22	notes/25_01_22_treeWork.txt	2025-01-22	y	n	n	n	pruned to fix BA.1.1.18, split MC.1
+2025-01-23	notes/25_01_23_treeWork.txt	2025-01-23	y	n	n	n	pruned to fix BA.1.1.18, run-of-muts mini-BA.1, multi-rev mini-BA.1, XEC
+2025-02-26	notes/25_02_26_treeWork.txt	2025-02-26	y	n	n	n	pruned to fix KP.3.3.5, LP.8.1.1
+2025-03-18	notes/25_03_18_treeWork.txt	2025-03-18	y	n	n	n	pruned to fix split XEC.11.1, l-p#2492, l-p#2464, XEC.5
+2025-04-01	notes/25_04_01_treeWork.txt	2025-04-01	y	n	n	n	pruned to fix l-p#2922
+2025-04-10	notes/25_04_10_treeWork.txt	2025-04-10	y	n	n	n	pruned to fix l-p#2199
+2025-04-16	notes/25_04_16_treeWork.txt	2025-04-16	n	y	n	n	force move to fix LP.8.1.8>C21627A, LP.8.1>C3096T, NY.7
+2025-04-28	notes/25_04_28_treeWork.txt	2025-04-28	y	n	n	n	pruned to fix p-d#2940; multiple rounds
+2025-06-04	notes/25_06_04_treeWork.txt	2025-06-04	y	n	n	n	pruned to fix MC.41, split PT.1, PU.1, split XFG.3
+2025-06-05	notes/25_06_05_treeWork.txt	2025-06-05	y	n	n	n	pruned to fix MC.41, split XFG.3
+2025-06-11	notes/25_06_11_treeWork.txt	2025-06-11	y	y	n	n	pruned to fix NY.7.2; force move to fix NY.7.2
+2025-08-05	notes/25_08_05_treeWork.txt	2025-08-05	y	n	n	n	pruned to fix PQ.5.1, QD.1, split XFG.9
+2025-09-08	notes/25_09_08_treeWork.txt	2025-09-08	y	n	n	n	pruned to fix PQ.1.5, XFG.10.1, l-p#2879, NB.1.8.1 (p-d#3074)
+2025-10-13	notes/25_10_13_treeWork.txt	2025-10-13	y	n	n	n	pruned to fix XFG.3.6, XFG.3 multi-rev, LF.7.11
+2025-10-22	notes/25_10_22_treeWork.txt	2025-10-22	y	n	n	n	pruned to fix NB.1.8.1 branch
+2025-10-29	notes/25_10_29_treeWork.txt	2025-10-29	y	n	n	n	pruned to replace XFJ.3.1
+2025-11-21	notes/25_11_21_treeWork.txt	2025-11-21	y	n	n	n	pruned to fix p-d#3075, BA.3.2.2 (l-p#3093)
+2025-12-03	notes/25_12_03_treeWork.txt	2025-12-03	y	n	n	n	pruned to fix l-p#3142, PQ.2.10, RD.1
+2025-12-17	notes/25_12_17_treeWork.txt	2025-12-17	y	n	n	n	pruned to fix PQ.25, PQ.25.1, PQ.17.7.1, p-d#3056
+2026-01-09	notes/26_01_09_treeWork.txt	2026-01-09	y	n	n	n	pruned to fix l-p#3199, PQ.42 (l-p#3173), split QC.6, split RE.2.2.4
+2026-01-20	notes/26_01_20_treeWork.txt	2026-01-20	y	n	n	n	pruned to fix split RD.1.1.1>C5100T, l-p#3239
+2026-01-26	notes/26_01_26_treeWork.txt	2026-01-26	y	n	n	n	pruned to fix p-d#3173, split QF.7 (p-d#3174)
+2026-02-04	notes/26_02_04_treeWork.txt	2026-02-04	y	n	n	n	pruned to fix p-d#3173, split PQ.12 (l-p#3264), PQ.25.2 (p-d#3183), l-p#3267				
+2026-02-26	notes/26_02_26_treeWork.txt	2026-02-26	y	n	n	n	pruned to fix PQ.25.2, split XFG.3.4.3, split QF.7, XFV
+2026-03-20	notes/26_03_20_treeWork.txt	2026-03-19	y	n	n	n	pruned to fix split RE.2.2.9
+2026-04-08	notes/26_04_08_treeWork.txt	2026-04-08	y	n	n	n	pruned to fix l-p#3378, XFG.1.1 multi-rev (p-d#3207), PQ.16.1
+2026-04-20	notes/26_04_20_treeWork.txt	2026-04-20	y	n	n	n	pruned to fix split RV.1, l-p#3300
+2026-05-20	notes/26_05_20_treeWork.txt	2026-05-20	y	n	n	n	pruned to fix BA.3.2; permanent exclusions

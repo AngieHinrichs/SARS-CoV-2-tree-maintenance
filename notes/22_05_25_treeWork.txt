@@ -1,0 +1,236 @@
+# On 2022-04-29 somehow I screwed up making mask.vcf and it was 0 bytes -- causing a day's worth of
+# completely unmasked sequences to be added to the tree, seeding bad branches.  :b  It's way past
+# time to remove and re-add all of those.
+
+# In the meantime, I also found a bunch of COG-UK sequences whose names were shuffled between
+# 2022-03-26 and 2022-03-27 -- prune those and let them be re-added tomorrow.
+
+# Jeltje has identified a bunch of duplicated IDs -- can probably prune a bunch of those too.
+
+# And I think I found at least one badSeed kind of mini-something branch while making lineageTree
+# (05-22)... if there's time, go on a badSeed hunt too.
+
+today=2022-05-25
+cd $ottoDir/$today
+
+# Unmasked additions from 2022-04-29:
+vcfSamples ../2022-04-29/new.masked.vcf.gz | wc -l
+#102376
+# Oh damn, that was two days' worth, too.  Oh well, good thing usher-sampled is super fast now. :)
+vcfSamples ../2022-04-29/new.masked.vcf.gz \
+| awk -F\| '{if ($3 == "") {print $1;} else {print $2;}}' \
+    > ids.2022-04-29.unmasked
+g -Fwf ids.2022-04-29.unmasked $epiToPublic | cut -f 2 > ids.2022-04-29.unmasked.epiToPublic
+g -Fwf <(cat ids.2022-04-29.unmasked ids.2022-04-29.unmasked.epiToPublic) samples.$today \
+    > unmaskedToPrune
+wc -l unmaskedToPrune
+#94201 unmaskedToPrune
+
+# COG-UK name changes:
+wc -l /data/tmp/angie/cogUk.2022-03-27.changed
+#892 /data/tmp/angie/cogUk.2022-03-27.changed
+cut -f 1 /data/tmp/angie/cogUk.2022-03-27.changed \
+| g -Fwf - samples.$today \
+    > cogUkNameChangedToPrune
+wc -l cogUkNameChangedToPrune
+#552 cogUkNameChangedToPrune
+# So not all were in the tree... but also some were added multiple times, probably because of
+# sequences not being identical...  I wonder if some still need to be corrected in GISAID, hmmm.
+#England/LSPA-391033F/2022|EPI_ISL_10961462|2022-03-03
+#England/LSPA-391033F/2022|2022-03-03
+
+# NORT-YNNTDER would be good for a quick GISAID check because it appeared on 2022-03-26 as a BA.1.1
+# sequence and was added to the tree that way -- but after names were shuffled on 2022-03-27, the
+# new sequence by that name was BA.2.  (I found the name shuffle when trying to figure out why
+# the tree had some sequences in BA.1.1 that were clearly BA.2 in pangolin/usher results.)
+
+# Jeltje's dups list
+head /hive/users/jeltje/sarscov/daily_results/2022-05-25/dupsInTree.tsv 
+#Scotland/OXON-F89677/2021|2021-09-13    Scotland/OXON-F89677/2020|2020-12-28
+#Denmark/DCGC-307050/2022|OW741932.1|2022-01-06  Denmark/2022|OW741932.1|2022-01-06
+#England/NORT-YBORJE/2022|2022-01-02     England/NORT-YBORJE/2021|2021-12-30
+#Denmark/DCGC-297293/2021|OW722482.1|2021-12-28  OW722482.1|2021-12-28
+#Denmark/DCGC-315379/2022|OW763574.1|2022-01-11  Denmark/2022|OW763574.1|2022-01-11
+#Denmark/DCGC-273839/2021|OW673067.1|2021-12-08  Denmark/2021|OW673067.1|2021-12-08
+#Denmark/DCGC-294746/2021|OW705134.1|2021-12-28  Denmark/2021|OW705134.1|2021-12-28
+#Denmark/DCGC-297220/2021|OW722108.1|2021-12-30  OW722108.1|2021-12-30
+#England/NORT-YBOORG/2021|2021-12-30     England/NORT-YBOORG/2022|2022-01-02
+#Denmark/2021|OW685806.1|2021-12-12      OW685806.1|2021-12-12
+# In most cases, if one name is shorter than the other then that's the one we want to get rid
+# of because it's simply missing a real isolate name.  (Looks like date changes when the lengths
+# are the same.)
+# But in some cases, the length changes because the country changes and in that case we want
+# to figure out which country is correct:
+#Wales/NORT-YBO78U/2022|2022-01-02       England/NORT-YBO78U/2022|2022-01-04
+#Scotland/NORT-YNNR5MB/2022|2022-02-23   England/NORT-YNNR5MB/2022|2022-02-25
+wc -l /hive/users/jeltje/sarscov/daily_results/2022-05-25/dupsInTree.tsv
+#13418 /hive/users/jeltje/sarscov/daily_results/2022-05-25/dupsInTree.tsv
+perl -wne 'chomp; ($l, $r) = split(/\t/); @wl = split(/\|/, $l); @wr = split(/\|/, $r);
+    if (@wl > @wr) {
+      print "drop\t$r\n";
+    } elsif (@wr > @wl) {
+      print "drop\t$l\n";
+    } else {
+      ($dateL, $dateR) = ($wl[$#wl], $wr[$#wr]);
+      if ($dateL ne $dateR) {
+        print "date change\t$l\t$r\n";
+      } else {
+        ($nameL, $nameR) = ($wl[0], $wr[0]);
+        @nL = split(/\//, $nameL);
+        @nR = split(/\//, $nameR);
+        ($countryL, $countryR) = ($nL[0], $nR[0]);
+        if ($countryL ne $countryR) {
+          print "country change\t$l\t$r\n";
+        } elsif (length($l) > length($r)) {
+          print "drop\t$r\n";
+        } elsif (length($r) > length($l)) {
+          print "drop\t$l\n";
+        } else {
+          print STDERR "dunno bout $l\t$r\n";
+        }
+      }
+    }' \
+    /hive/users/jeltje/sarscov/daily_results/2022-05-25/dupsInTree.tsv \
+    > jeltjeDups
+wc -l jeltjeDups
+#13418 jeltjeDups
+
+g ^drop jeltjeDups | cut -f 2 > jeltjeDupsToPrune
+wc -l jeltjeDupsToPrune
+#13119 jeltjeDupsToPrune
+
+g -v ^drop jeltjeDups | g -vE '(England|Scotland|Northern|Wales)'
+# No output, at least the changes are all COG-UK.
+
+g -v ^drop jeltjeDups | tawk '{print $2; print $3;}' > jeltjeChangers
+
+g -v ^drop jeltjeDups | cut -f 2  | cut -d/ -f 2 \
+| g -Fwf - $cogUkDir/cog_metadata.csv \
+| awk -F, '{print $1 "|" $5;}' \
+    > jeltjeChangersKeepers
+
+g -Fwf jeltjeChangersKeepers jeltjeChangers > jeltjeChangersToPrune
+
+# $epiToPublic duplicates -- remove the GISAID versions.
+cut -d\| -f 2 samples.$today | g ^EPI_ISL \
+| g -Fwf - $epiToPublic | cut -f 1,2 > samples.epiToPublic
+wc -l samples.epiToPublic
+#18264 samples.epiToPublic
+g -Fwf <(cut -f 2 samples.epiToPublic) samples.$today \
+| awk -F\| '{if ($3 == "") { print $1; } else { print $2; }}' > samples.mappedPublicIds
+wc -l samples.mappedPublicIds
+#17975 samples.mappedPublicIds
+g -Fwf samples.mappedPublicIds $epiToPublic \
+| cut -f 1 \
+    > samples.mappedEpiIds
+g -Fwf samples.mappedEpiIds samples.$today \
+    > epiMappedToPrune
+wc -l epiMappedToPrune
+#17935 epiMappedToPrune
+
+wc -l *ToPrune
+#    552 cogUkNameChangedToPrune
+#  17935 epiMappedToPrune
+#    299 jeltjeChangersToPrune
+#  13119 jeltjeDupsToPrune
+#  94201 unmaskedToPrune
+# 126106 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat *ToPrune) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+# Now add back the samples from 2022-04-29 (at least the ones whose names haven't changed since
+# then, others can wait for the next daily build), but properly masked this time!
+time vcfRenameAndPrune ../2022-04-29/new.masked.vcf.gz \
+        <(tawk '{print $1, $1;}' unmaskedToPrune) stdout \
+| vcfFilter -excludeVcf=mask.vcf stdin \
+| gzip -c \
+    > pruned.2022-04-29.really.masked.vcf.gz
+#real    7m11.438s
+vcfSamples pruned.2022-04-29.really.masked.vcf.gz | wc -l
+#81555
+
+# Damn, some samples more recently added to the tree might have inferred mutations from the
+# not-masked samples.  Still need to do a big search & destroy for mutations that should be
+# masked.  'branch-specific mask' on the entire tree?  (or if we're lucky, just Omicron??)
+tawk '$7 == "mask" {print "N" $2 "N\tnode_1";}' mask.vcf > mask.really.tsv
+wc -l mask.really.tsv
+#265 mask.really.tsv
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pruned.pb -m mask.really.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.remasked.pb
+#real    11m53.370s
+
+# Now add back the properly masked samples.
+# Note: when I upped the threads, even to 100, it seemed to freeze up... stick with 64.
+time ~angie/github/usher_branch/build/usher-sampled \
+    -T 64 -A -e 5 \
+    -i gisaidAndPublic.$today.masked.pruned.remasked.pb \
+    -v pruned.2022-04-29.really.masked.vcf.gz \
+    -o gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.pb \
+    --optimization_radius 0 --batch_size_per_process 10 \
+    > usher.2022-04-29.addedBack.log 2>usher-sampled.2022-04-29.addedBack.stderr
+#real    107m24.725s
+
+# Branch-specific masking
+time $scriptDir/maskDelta.sh gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.pb \
+    gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.deltaMasked.pb
+#real    9m39.460s
+# Improved matOptimize from branch
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.deltaMasked.pb \
+    -o gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.preTrim.pb \
+    >& matOptimize.usher_branch.2022-04-29.addedBack.log
+#real    50m2.302s
+# Trim
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.preTrim.pb \
+    --max-parsimony 20 \
+    --max-branch-length 50 \
+    --max-path-length 150 \
+    -O -o gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.trim.pb
+
+mv samples.$today{,.prePrune}
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.trim.pb \
+    -u samples.$today
+
+sampleCountComma=$(echo $(wc -l < samples.$today) \
+                   | sed -re 's/([0-9]+)([0-9]{3})$/\1,\2/; s/([0-9]+)([0-9]{3},[0-9]{3})$/\1,\2/;')
+echo "$sampleCountComma genomes from GISAID, GenBank, COG-UK and CNCB ($today); sarscov2phylo 13-11-20 tree with newer sequences added by UShER" \
+    > hgPhyloPlace.plusGisaid.description.txt
+
+# Add nextclade annotations to protobuf (completely specified by nextstrain.clade-mutations.tsv)
+time $matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.$today.masked.pruned.remasked.2022-04-29.addedBack.trim.pb \
+    -P $ottoDir/$prevDate/cladeToPath \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade
+#real    3m51.138s
+
+mv gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.prePrune.pb
+
+# Add pangolin lineage annotations to protobuf.
+time $matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -P $ottoDir/$prevDate/lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c $ottoDir/$prevDate/lineageToName \
+    -f 0.95 \
+    -D details.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    >& annotate.pango
+#real    9m54.659s
+
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.masked.taxonium.jsonl.gz
+

@@ -1,0 +1,114 @@
+# BA.5.5 lost a big chunk, discovered in 22_12_05_updateLineageTreePb, really need to monitor
+# lineage sizes for loss...
+
+today=2022-12-08
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+g USA/CA-HLX-STM-27JQRGTUK/2022 sample-paths
+#... node_2007085:C27889T node_2353932:C492T
+g Brazil/SC-FIOCRUZ-15942/2022 sample-paths
+#... node_2007085:C27889T node_2353932:C492T node_2353933:C21789T
+g node_2353932: sample-paths | g -v node_2353933: | cut -f 1 > pruneForBA.5.5
+wc -l pruneForBA.5.5
+#35 pruneForBA.5.5
+
+# FedeGueli pointed out that Indonesia/JK-CW62-2714/2022 & beyond are placed with a reversion on
+# 25504; should probably get rid of the two Indonesia sequences there and let the others be moved.
+g Indonesia/JK-CW62-2714/2022 sample-paths
+#... node_2140467:C16616A node_2181466:C25504G node_2181471:G22894T node_2181473:T22942A node_2181477:G25504C ...
+g Turkey/KSS-UEAH4878217175/2022 sample-paths
+#...node_2140467:C16616A node_2181466:C25504G node_2181471:G22894T node_2181473:T22942A node_2181477:G25504C node_2181479:G2407A,C2485T,C2592T,C5646T,C8752T,A27293G
+g node_2181477: sample-paths | g -v node_2181479: | cut -f 1 > pruneForCK.1like
+wc -l pruneForCK.1like
+#2 pruneForCK.1like
+
+# BA.2.64 is on a rev25000 branch with a couple re-muts...
+g Indonesia/LA-NIHRD-MI-22-11968/2022 sample-paths
+#... node_1693524:C2790T node_1738256:T25000C node_1738298:C3961T,G11266T node_1738299:T28678C
+g Indonesia/KU-NIHRD-WGS.22.03535/2022 sample-paths
+#... node_1693524:C2790T node_1738256:T25000C node_1738298:C3961T,G11266T node_1738299:T28678C node_1738300:C25000T
+g node_1738299: sample-paths | g -v node_1738300: | cut -f 1 > pruneForBA.2.64
+wc -l pruneForBA.2.64
+#2 pruneForBA.2.64
+
+wc -l pruneFor*
+#   2 pruneForBA.2.64
+#  35 pruneForBA.5.5
+#   2 pruneForCK.1like
+#  39 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Use a bigger radius than in the daily build just in case the hop from almost-BA.5 to
+# BA.5.whatever is large.
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned &
+
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz
+
+# Is BA.5.5 back together?
+g Brazil/SC-FIOCRUZ-15942/2022 sample-paths.pruned
+#... node_2486233:C27889T node_2889797:C21789T node_2889798:C492T
+# Yes!
+
+# Has this little branch escaped the 25504 & reversion?
+g Turkey/KSS-UEAH4878217175/2022 sample-paths.pruned
+#... node_2647679:C16616A node_2696633:C25504G node_2696639:G22894T node_2696641:T22942A node_2696649:G2407A,C2485T,C2592T,C5646T,C8752T,G25504C,A27293G
+# Nope.  Oh well.
+
+# Has BA.2.64 escaped 25000-rev land?
+g Indonesia/KU-NIHRD-WGS.22.03535/2022 sample-paths.pruned
+#... node_2098698:C2790T node_3103751:C3961T node_3103752:G11266T node_3103753:T28678C
+# Looks like it.
+
+# Now to reannotate clades & lineages on it.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath.update \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# No output, good.
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+
+# Check all those paths above after pruned sequences are added back, to see if we need to
+# make any permanent exclusions.

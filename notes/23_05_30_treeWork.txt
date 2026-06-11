@@ -1,0 +1,108 @@
+today=2023-05-30
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# FL.15 is split -- late acquisition of 22928
+g Japan/PG-474116/2023 sample-paths
+#... node_2175071:G2174A node_2175077:G1464T,C12890T node_2175080:T22928C
+g node_2175077: sample-paths | g -v node_2175080: | cut -f 1 > pruneForFL.15
+wc -l pruneForFL.15
+#6 pruneForFL.15
+
+
+# Shay says (https://github.com/yatisht/usher/issues/344) XBC.1.6 has a deletion at 28271
+# but I have the Omicron A28271T -- and masked-out back-mutation on that in branchSpecificMask.yml.
+# Instead I should whack XBC.1.6 and let the sequences be replaced -- and mask to ref allele
+# instead of forcing the Omicron mut.  But is the deletion  in XBC, XBC.1 or just XBC.1.6??
+# Maybe leave that one for later.
+
+# Shay also reports in usher#344 that there's a flip-flop on T14960A around the XBC.1.6.1 node.
+g Australia/QLD0x0131C9/2023 sample-paths
+#... node_2032281:C12733T node_2032372:A14960T node_2032373:C28000T node_2032376:T14960A
+# Spare this branch too:
+g Australia/SA535900/2023 sample-paths
+#... node_2032281:C12733T node_2032372:A14960T node_2032437:T3214C,G3614A node_2032439:T20286C node_2032440:T14960A
+g node_2032372: sample-paths | g -v node_2032376: | g -v node_2032440: | cut -f 1 > pruneForXBC.1.6.1
+wc -l pruneForXBC.1.6.1
+#36 pruneForXBC.1.6.1
+
+
+# FL.10 has two branches with C4234T (split)
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/28
+g Austria/AGES-1137057/2023 sample-paths
+#... node_2175926:G2235A node_2176103:C21998A node_2176105:C4234T
+g node_2176103: sample-paths | g -v node_2176105: | cut -f 1 > pruneForFL.10
+wc -l pruneForFL.10
+#3 pruneForFL.10
+
+
+# There is some basal crap pulling off some Delta sublineages, but... need a full-tree sample-paths
+# for that.  Leave it for next iteration (along with Shay's XBC.1.6 del28271 issue).
+
+wc -l pruneFor*
+#   3 pruneForFL.10
+#   6 pruneForFL.15
+#  36 pruneForXBC.1.6.1
+#  45 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    104m58.406s
+g radius matOptimize.pruned.log 
+#Will double radius after each iteration
+#parsimony score after optimizing: 12555354,with radius 1, second from start 220
+#parsimony score after optimizing: 12555343,with radius 2, second from start 309
+#parsimony score after optimizing: 12555338,with radius 4, second from start 823
+#parsimony score after optimizing: 12555335,with radius 8, second from start 3470
+#parsimony score after optimizing: 12555334,with radius 16, second from start 5524
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# FL.15 unified with one T22928C?
+g Japan/PG-474116/2023 sample-paths.pruned
+#... node_2175061:G2174A node_2175067:T22928C node_2175068:G1464T,C12890T
+# T22928C first now, yep, good, check after samples are added back.
+
+
+# XBC.1.6.1 flip-flop on 14906 gone?
+g Australia/QLD0x0131C9/2023 sample-paths.pruned
+#... node_2032285:C12733T node_2032405:C28000T
+g Australia/SA535900/2023 sample-paths.pruned
+#... node_2032285:C12733T node_2032461:T3214C,G3614A,T20286C
+# Yep, good, check after samples are added back.
+
+
+# FL.10 down to one branch with C4234T?
+g Austria/AGES-1137057/2023 sample-paths.pruned
+#... node_2175913:G2235A node_2176166:C4234T node_2176167:C21998A
+# Good.
+
+# No need to replace this time, but use it as the basis for 2023-05-31 build.
+ln -s gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+

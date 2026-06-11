@@ -1,0 +1,121 @@
+# As requested by Chris in https://github.com/cov-lineages/pango-designation/issues/435 , mask
+# 28254 in Delta, optimize and see if AY.96 is absorbed into AY.46.
+
+today=2022-02-15
+cd $ottoDir/$today
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths -S sample-paths
+deltaNode=$(grep IND/GBRC714b/2021 sample-paths | awk '{print $NF;}' | sed -re 's/:.*//;')
+echo -e "N28254N\t$deltaNode" > mask28254.tsv
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m mask28254.tsv \
+    -o gisaidAndPublic.$today.masked.delta28254.pb
+#real    2m0.970s
+
+$matOptimize -T 50 -r 8 -M 1 \
+    -S move_log.delta28254 -i gisaidAndPublic.$today.masked.delta28254.pb \
+    -o gisaidAndPublic.$today.masked.delta28254.opt.pb \
+    >& matOptimize.delta28254.log
+#original parsimony score:6685534
+#parsimony score after optimizing: 6685287,with radius 8, second from start 1164 
+#parsimony score after optimizing: 6685286,with radius 8, second from start 1185 
+#parsimony score after optimizing: 6685286,with radius 8, second from start 1204 
+#parsimony score after optimizing: 6685286,with radius 8, second from start 1222 
+#...
+#parsimony score after optimizing: 6685286,with radius 8, second from start 1803 
+#Final Parsimony score 6685286
+
+# Make a taxonium protobuf:
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.delta28254.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --write-taxodium gisaidAndPublic.$today.masked.delta28254.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.delta28254.opt.taxodium.pb
+
+# That wasn't enough -- half of the former AY.96 is held back by a back-mutation at 28461 (N:63).
+# And coloring by N:63, there seems to be a lot of counterproductive flip-flopping in Delta.
+# So, I guess we better mask that too.
+echo -e "N28254N\t$deltaNode" > maskTwo.tsv
+echo -e "N28461N\t$deltaNode" >> maskTwo.tsv
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m maskTwo.tsv \
+    -o gisaidAndPublic.$today.masked.deltaTwo.pb
+#real    2m18.051s
+
+$matOptimize -T 50 -r 8 -M 1 \
+    -S move_log.deltaTwo -i gisaidAndPublic.$today.masked.deltaTwo.pb \
+    -o gisaidAndPublic.$today.masked.deltaTwo.opt.pb \
+    >& matOptimize.deltaTwo.log
+# Crap, after ~20 minutes it stopped updating its log files and sat using 105% CPU for an hour --
+# wedged.  I tried a kill -S SIGUSR2 but it still stayed stuck.  Will kill it and try again in
+# case it was some MPI fluke.
+mv move_log.deltaTwo{,.wedged}
+mv matOptimize.deltaTwo.log{,.wedged}
+# Run the same matOptimize command again.... OK, this time it worked.
+#original parsimony score:6672494
+#parsimony score after optimizing: 6669231,with radius 8, second from start 1456 
+#parsimony score after optimizing: 6669227,with radius 8, second from start 1478 
+#parsimony score after optimizing: 6669227,with radius 8, second from start 1495 
+#parsimony score after optimizing: 6669227,with radius 8, second from start 1513 
+#...
+#parsimony score after optimizing: 6669227,with radius 8, second from start 1794 
+#Final Parsimony score 6669227
+
+# Make a taxonium protobuf:
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.deltaTwo.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --write-taxodium gisaidAndPublic.$today.masked.deltaTwo.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.deltaTwo.opt.taxodium.pb
+
+# Wait... my original suggestion was to mask 28461 (not 28254).  Might as well give that a try too...
+echo -e "N28461N\t$deltaNode" > mask28461.tsv
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m mask28461.tsv \
+    -o gisaidAndPublic.$today.masked.delta28461.pb
+#real    1m58.710s
+
+$matOptimize -T 50 -r 8 -M 1 \
+    -S move_log.delta28461 -i gisaidAndPublic.$today.masked.delta28461.pb \
+    -o gisaidAndPublic.$today.masked.delta28461.opt.pb \
+    >& matOptimize.delta28461.log
+#original parsimony score:6673766
+#parsimony score after optimizing: 6670743,with radius 8, second from start 1510 
+#parsimony score after optimizing: 6670739,with radius 8, second from start 1532 
+#parsimony score after optimizing: 6670739,with radius 8, second from start 1552 
+#...
+#parsimony score after optimizing: 6670739,with radius 8, second from start 1801 
+#Final Parsimony score 6670739
+
+# Make a taxonium protobuf:
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.delta28461.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --write-taxodium gisaidAndPublic.$today.masked.delta28461.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.delta28461.opt.taxodium.pb
+
+# -- Nope, both need to be masked in order to merge AY.96 back into AY.46.
+# And wherever I see 28254 (ORF8:121) in Delta, it does look super-flaky, usually with re-muts.
+# So no great loss... I wonder if it's an untrimmed adapter kind of error...

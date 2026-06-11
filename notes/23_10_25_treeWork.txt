@@ -1,0 +1,330 @@
+today=2023-10-25
+cd $ottoDir/$today
+# Don't limit to Omicron this time, I'm going to clean up some old branches too.
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+#real    9m15.184s
+
+# Do some cleanup around the bases of B.1.637 and B.1.526's several very distinct sublineages
+# (I wonder if some of them are recombinants because they have a lot of revs & muts... should
+# look in RIPPLES/RIVET.)  Prune from 23664, spare B.1.637 (11804) and B.1.526 (16500).
+g USA/NY-PRL-2021_03_15_00E10/2021 sample-paths
+#... node_3645181:T9867C,A20262G node_3645215:T23664C node_3645217:T28869C node_3645219:C27925T node_3645220:C9891T node_3645221:A9749G node_3645222:T22917G node_3645232:A21801G,T22032C,C28887T node_3645233:G11804A ...
+g USA/NY-P1A11/2021 sample-paths
+#... node_3645181:T9867C,A20262G node_3649445:A22320G node_3649446:C21846T node_3649447:A16500C
+g node_3645215: sample-paths | g -v node_3645233: | g -v node_3649447: | cut -f 1 \
+    > pruneForB.1.637_526
+wc -l pruneForB.1.637_526
+#306 pruneForB.1.637_526
+
+
+# More around the B.1.526 branches...
+# Prune from 22320 (upstream of B.1.526 start!), spare these branches:
+g USA/NY-PRL-2021_0624_52H03/2021 sample-paths
+#... node_3645181:T9867C,A20262G node_3649445:A22320G node_3649446:C21846T node_3649447:A16500C node_3656767:C27925T node_3661517:T11296G,C21058T node_3661518:A7201G node_3661525:G6101A,C10450T
+g USA/NY-PRL-2020_1229_00C05/2020 sample-paths
+#... node_3645181:T9867C,A20262G node_3649445:A22320G node_3649446:C21846T node_3649447:A16500C node_3656767:C27925T node_3656768:G22992A node_3656769:C140T node_3656770:C4456T,C10775T node_3656784:C23731T
+g USA/NY-PRL-2021_03_15_00G02/2021 sample-paths
+#... node_3645181:T9867C,A20262G node_3649445:A22320G node_3649446:C21846T node_3649447:A16500C node_3656767:C27925T node_3656768:G22992A node_3657678:T28869C node_3657679:A28975G node_3657680:T23664C node_3657681:C27739T node_3657682:T28879G node_3657683:A7201G node_3657693:A25968G node_3657694:G28879T node_3657695:A24432G node_3657704:C28311T,T28879G node_3657705:C8809T node_3657706:G6101A
+g USA/MD-IGS-012106307255A/2021 sample-paths
+#... node_3645181:T9867C,A20262G node_3649445:A22320G node_3649446:C21846T node_3649447:A16500C node_3649470:G23012A node_3649480:C27925T
+g node_3649445: sample-paths | g -v node_3661525: | g -v node_3656784: | g -v node_3657706: \
+| g -v node_3649480: | cut -f 1 > pruneForB.1.526
+wc -l pruneForB.1.526
+#731 pruneForB.1.526
+
+
+# B.1.160.14 is split, and both branches could use a little basal-fluff cleaning... then see
+# what happens when seqs are added back.
+g Germany/un-ChVir21613/2020 sample-paths
+#... node_96271:C27434T node_97176:G25606T node_97177:C7504T
+g node_97176: sample-paths | g -v node_97177: | cut -f 1 > pruneForB.1.160.14
+wc -l pruneForB.1.160.14#
+#5 pruneForB.1.160.14
+g Switzerland/BE-ETHZ-340100/2020 sample-paths
+#... node_96271:C27434T node_96527:C7504T node_96528:G18580A node_96529:C313T node_96534:G25606T
+g node_96528: sample-paths | g -v node_96534: | cut -f 1 >> pruneForB.1.160.14
+wc -l pruneForB.1.160.14
+#43 pruneForB.1.160.14
+
+
+# FY.6 is split -- I added a label for now but need to get rid of 2935-first on one of the branches.
+# https://github.com/cov-lineages/pango-designation/commit/0edc7edc6a6f129b8fbeec81e95d4d3014248b2c
+g France/OCC-HCL723000325001/2023 sample-paths
+#... node_1084670:A22161G node_1088779:T2935C node_1088780:C2037T
+g node_1088779: sample-paths | g -v node_1088780: | cut -f 1 > pruneForFY.6
+wc -l pruneForFY.6
+#1 pruneForFY.6
+
+
+# Cornelius pointed out XBC.1.6.6 > ... > 22896C is split & should be rejoined.
+# Might need to mask 29762 which Cornelius describes as "dropouty" and would be pango-masked anyway.
+g Australia/SA543915/2023 sample-paths
+#... node_951264:C10156T node_951273:C29762T node_951279:T22896C
+g node_951273: sample-paths | g -v node_951279: | cut -f 1 > pruneForXBC.1.6.6
+wc -l pruneForXBC.1.6.6
+#12 pruneForXBC.1.6.6
+
+
+# Fede spotted some rev-branches splitting out T22917G's from HV.1 in parent EG.5.1.6
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/933
+# Just look for stray T22917G's in EG.5.1.6
+g Canada/SK-RRPL-649767/2023 sample-paths
+#... node_1159869:C5835T node_1160508:G670T node_1160509:T22917G
+g node_1160508: sample-paths | g -v node_1160509: | cut -f 1 > pruneForHV.1
+wc -l pruneForHV.1
+#1 pruneForHV.1
+g Wales/CLIMB-CM7YMSXR/2023 sample-paths
+#... node_1159869:C5835T node_1160537:T26409G node_1160538:T28251C,A28254C node_1160539:T22917G,G26409T
+g node_1160537: sample-paths | g -v node_1160539: | cut -f 1 >> pruneForHV.1
+wc -l pruneForHV.1
+#14 pruneForHV.1
+g USA/FL-CDC-LC1054484/2023 sample-paths
+#... node_1159869:C5835T node_1160437:T29625C node_1160448:T22917G
+# T29625C is a reversion so I don't care so much that we'll whack more here:
+g node_1160437: sample-paths | g -v node_1160448: | cut -f 1 >> pruneForHV.1
+wc -l pruneForHV.1
+#50 pruneForHV.1
+
+
+# AY.120.1 has a split-off little 10323-first branch, should be C11095T first
+# Whack this whole little branch in hopes that it's added back in the right place.
+g USA/OR-CDC-LC0181654/2021 sample-paths
+#... node_3569253:A25003G node_3574813:A10323G node_3575584:C11095T
+g node_3575584: sample-paths | cut -f 1 > pruneForAY.120.1
+wc -l pruneForAY.120.1
+#29 pruneForAY.120.1
+
+
+# AY.25.1 is annotated with 3948 first but looks like it should be 11562 first because there
+# is a larger branch (4295 seqs) with 11562 and only a couple hundred with 3948 but not 11562.
+g Canada/BC-BCCDC-169948/2021 sample-paths
+#... node_2900860:A27507C node_2901145:A3948G node_2901191:G11562T
+g node_2901145: sample-paths | g -v node_2901191: | cut -f 1 > pruneForAY.25.1
+wc -l pruneForAY.25.1
+#218 pruneForAY.25.1
+
+
+# BA.5.2 has a branch with C5310T fist before C23707T (BA.5.2.20)
+g Canada/QC-L00514336001/2022 sample-paths
+#... node_1997215:C27012T node_2064819:C5310T node_2064823:C23707T
+g node_2064819: sample-paths | g -v node_2064823: | cut -f 1 > pruneForBA.5.2.20
+wc -l pruneForBA.5.2.20
+#61 pruneForBA.5.2.20
+
+
+# FE.1.1.1 gets 28093 late and is not placed in FE.1.1
+g Italy/UMB-LAOP-116-2-51/2023 sample-paths
+#... node_1195536:T4579A node_1196238:C3261T,T3577G node_1196239:C15180T node_1196240:C28093T
+# Spare this other little even-later 28093:
+g Ireland/D-BH-470057230/2023 sample-paths
+#... node_1195536:T4579A node_1196238:C3261T,T3577G node_1196239:C15180T node_1196407:T3420C node_1196408:C28651T node_1196409:C7815T,C28093T
+g node_1196238: sample-paths | g -v node_1196240: | g -v node_1196409: | cut -f 1 > pruneForFE.1.1.1
+wc -l pruneForFE.1.1.1
+#42 pruneForFE.1.1.1
+
+
+# Give this one another chance to be put in FY.1.4 proper (designated but missing the final S mut):
+echo 'USA/CA-CDPH-A3000000297096/2023|OQ883456.1|2023-04-12' > pruneForFY.1.4
+
+
+# Give these two a chance to be placed in GA.4 proper:
+echo 'Nigeria/NCDC-NR-GL-0071/2023|EPI_ISL_17242363|2023-02-19' > pruneForGA.4
+echo 'Nigeria/NCDC-NR-GL-0072/2023|EPI_ISL_17242362|2023-02-19' >> pruneForGA.4
+
+
+# Give this a chance for GK.1.6:
+echo 'USA/CA-HLX-STM-DZYXR428A/2023|EPI_ISL_18145194|2023-08-07' > pruneForGK.1.6
+
+
+# JT.1 is split by 29762-first, unify.
+g Australia/SA542497/2023 sample-paths
+#... node_951264:C10156T node_951273:C29762T node_951279:T22896C
+g node_951273: sample-paths | g -v node_951279: | cut -f 1 > pruneForJT.1
+wc -l pruneForJT.1
+#12 pruneForJT.1
+
+
+# If the Guatemala/1462-DLNS/2023 branchlet of XCQ is replaced, will it pick up 6536 and 27915
+# that all the other XCQ sequences have?
+g Guatemala/1462-DLNS/2023 sample-paths
+#... node_1322764:A13187G,C22388T,C23757T node_1322786:G27915T
+g node_1322786: sample-paths | cut -f 1 > pruneForXCQ
+
+
+# XCT is placed in an absolute garbage branch in BA.4_dropout... surely we can do better.
+g Australia/NSW-ICPMR-49495/2023 sample-paths
+# prune from A22893C,T22942A, it's all just a big garbage raft
+#... node_1611600:T27788G node_1611604:A22893C,T22942A node_1611605:C25416T node_1611606:T14257C,A26275G node_1611607:A17039G node_1611608:G22599C node_1611628:A22942G,G23018T node_1611629:G22577C,T23019C node_1611630:A22001G,T22016C,C22033A,A22190G,G22331A,G22898A node_1611635:C22893A node_1611636:G22917T node_1611637:T23018C,T23031C node_1611644:G18583A node_1611645:C14257T,G15451A,A16935G,G17039A node_1611646:C2954T node_1611647:A1931C,T11750C node_1611656:C9866T node_1611657:A12160G node_1611658:A18583G node_1611660:T17859C node_1611661:C15738T node_1611662:A22115G,T24991A,G27915T node_1611663:A405G,A20741G,A22893C,C23018T node_1611664:C2334T,G5720A,C9693T,C12789T,A19886G,T22917G,G22927T,T22928C,C23031T,C24134A,G25606A,C25721T node_1611665:C1684T,C1889T,C7051T,T15939C,T16342C,A16878T,A18492G,C20320T,T24073C node_1611666:T25959C node_1611667:A27507C,T28297C
+g node_1611604: sample-paths | g -v node_1611667: | cut -f 1 > pruneForXCT
+wc -l pruneForXCT
+#242 pruneForXCT
+
+
+wc -l pruneFor*
+#   29 pruneForAY.120.1
+#  218 pruneForAY.25.1
+#   43 pruneForB.1.160.14
+#  731 pruneForB.1.526
+#  306 pruneForB.1.637_526
+#   61 pruneForBA.5.2.20
+#   42 pruneForFE.1.1.1
+#    1 pruneForFY.1.4
+#    1 pruneForFY.6
+#    2 pruneForGA.4
+#    1 pruneForGK.1.6
+#   50 pruneForHV.1
+#   12 pruneForJT.1
+#   12 pruneForXBC.1.6.6
+#    5 pruneForXCQ
+#  242 pruneForXCT
+# 1756 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m37.410s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13340614,with radius 1, second from start 245 
+#parsimony score after optimizing: 13340604,with radius 2, second from start 332 
+#parsimony score after optimizing: 13340595,with radius 4, second from start 783 
+#parsimony score after optimizing: 13340578,with radius 8, second from start 3182 
+#parsimony score after optimizing: 13340575,with radius 16, second from start 5559 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# Look at B.1.637 and B.1.526 in taxonium.
+
+# Is there one B.1.160.14 with 7504 and then 25606?
+g Germany/un-ChVir21613/2020 sample-paths.pruned
+#... node_96271:C27434T node_97727:C7504T node_97728:G25606T
+g Switzerland/BE-ETHZ-340100/2020 sample-paths.pruned
+#... node_96271:C27434T node_97727:C7504T node_97728:G25606T node_97729:G18580A ...
+# Yay.  (and see what happens tomorrow)
+
+# FY.6: 2037 and then 2935?
+g France/OCC-HCL723000325001/2023 sample-paths.pruned
+#... node_1084655:A22161G node_1088796:C2037T node_1088797:T2935C
+# Yep.
+
+# XBC.1.6.6: 22896 and then 29762?
+g Australia/SA543915/2023 sample-paths.pruned
+#... node_951253:C10156T node_951273:T22896C node_951274:C29762T
+# Yep.
+
+# 5835 > 22917 > ... ?
+g Canada/SK-RRPL-649767/2023 sample-paths.pruned
+#... node_1159854:C22033A node_1159855:C5835T node_1160571:T22917G node_1160572:G670T
+g Wales/CLIMB-CM7YMSXR/2023 sample-paths.pruned
+#... node_1159854:C22033A node_1159855:C5835T node_1160571:T22917G node_1160575:T28251C,A28254C ...
+g USA/FL-CDC-LC1054484/2023 sample-paths.pruned
+#... node_1159854:C22033A node_1159855:C5835T node_1160571:T22917G node_1160585:T29625C
+# Yep.
+
+# 11562 > 3948?
+g Canada/BC-BCCDC-169948/2021 sample-paths.pruned
+#... node_2900678:A27507C node_2937425:G11562T node_2937426:A3948G
+# Yep.
+
+# 23707 > 5310?
+g Canada/QC-L00514336001/2022 sample-paths.pruned
+#... node_1997040:C27012T node_1997041:C23707T node_1997042:C5310T
+# Yep.
+
+# 4579 > 28093 > ... ?
+g Italy/UMB-LAOP-116-2-51/2023 sample-paths.pruned
+#... node_1195465:A3662G node_1195503:T4579A node_1195506:C28093T node_1195507:C3261T,T3577G,C15180T
+g Ireland/D-BH-470057230/2023 sample-paths.pruned
+#... node_1195465:A3662G node_1195503:T4579A node_1195506:C28093T node_1195507:C3261T,T3577G,C15180T node_1195508:T3420C,C7815T,C28651T
+# Yep.
+
+# 22896 > 29762?
+g Australia/SA542497/2023 sample-paths.pruned
+#... node_951253:C10156T node_951273:T22896C node_951274:C29762T
+# Yep.
+
+# Is XCT somewhere recognizable?  (check in taxonium too)
+g Australia/NSW-ICPMR-49495/2023 sample-paths.pruned
+#... node_1560231:G12160A node_2233662:G26529A node_2233848:G16935A node_2233855:A22001G,T22016C,C22033A,A22190G node_2233857:A16935G,G22599C,T22942A,A26275G node_2233858:G27915T node_2233859:A405G,A12160G,G15451A node_2233860:C1684T,C1889T,C2334T,G5720A,C7051T,C9693T,C9866T,C12789T,C15738T,T15939C,T16342C,A16878T,T17859C,A18492G,A19886G,C20320T,A20741G,A22115G,G22331A,G22577C,A22893C,G22898A,A22942G,G23018T,T23019C,T24073C,C24134A,T24991A,C25416T,G25606A,C25721T,T25959C,A26529G,A27507C,T28297C node_2233861:G22927T,T22928C
+# Looks like it's still in dropout-land, will probably have to prune more to get it out of there,
+# check in taxonium.  Yep, prune from A22001G,T22016C,C22033A,A22190G.
+
+g node_2233855: sample-paths.pruned | g -v node_2233861: | cut -f 1 > pruneMoreForXCT
+wc -l pruneMoreForXCT
+#11 pruneMoreForXCT
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(sort -u pruneMoreFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    32m37.437s
+# Hmmm, it probably didn't get very far...
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13340486,with radius 1, second from start 269
+#parsimony score after optimizing: 13340481,with radius 2, second from start 366
+#parsimony score after optimizing: 13340481,with radius 4, second from start 833
+# -- Yep, I bet we need a bigger radius to get it out of dropout-land.  But it was
+# satisfied with its progress (-m 0.00000001) so it stopped.
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# Is XCT somewhere recognizable?  (check in taxonium too)
+g Australia/NSW-ICPMR-49495/2023 sample-paths.pruned
+#... node_2233662:G26529A node_2233848:G16935A node_2233849:C25416T,A26275G node_2233850:A22893C,G27915T node_2233851:A405G,C9866T,G15451A,T16342C,T17859C node_2233855:C1684T,C1889T,C2334T,G5720A,C7051T,C9693T,A12160G,C12789T,C15738T,T15939C,A16878T,A16935G,A18492G,A19886G,C20320T,A20741G,A22001G,T22016C,C22033A,A22115G,A22190G,G22331A,G22577C,G22599C,G22898A,G22927T,T22928C,T22942G,G23018T,T23019C,T24073C,C24134A,T24991A,G25606A,C25721T,T25959C,A26529G,A27507C,T28297C
+# Still in dropout-land, need a bigger radius which may happen in the daily opt, although more
+# rounds of pruning could be necessary too.  Or we could just leave it there.

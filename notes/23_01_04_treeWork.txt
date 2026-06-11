@@ -1,0 +1,199 @@
+today=2023-01-03
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# https://github.com/cov-lineages/pango-designation/issues/1514
+# Usher seems misplacing it in a weird BA.1/BA.2 recombinant branch
+#*** NOTE after the fact -- this was the wrong branch, doh!  garbage, but different from PD1514.
+g Israel/ICH-741204007/2022 sample-paths
+#... node_1706260:C16342T node_1706352:C22792T node_1706831:C27259A
+g France/BFC-LBZCentre-MA2206130057/2022 sample-paths
+#... node_1706260:C16342T node_1706352:C22792T node_1706831:C27259A node_1706838:T22792C node_1706839:C27889T node_1706840:T27438C node_1706841:C29666T node_1706857:G23040A node_1706858:T22917G node_1706862:T23018G node_1706863:G12160A node_1706864:C22792T node_1706869:T26858C node_1706870:T9866C node_1706872:T22792C node_1706883:G26529A
+g node_1706831: sample-paths | g -v node_1706883: | cut -f 1 > pruneForPD1514
+wc -l pruneForPD1514
+#422 pruneForPD1514
+
+# Checking on sequences from branches that I just wholesale lopped yesterday, seeing what
+# happened when they were added back:
+
+# The run-of {19209, 19210, 19212, 19217} got moved to DB.1... will need to permanently exclude
+# some samples so it can at least be placed more basally.  Or just permanently exclude it all
+# so it doesn't suck in samples with Ns.
+# Marker: Russia/VLA-RII-MH72175S/2022
+# Permanently exclude:
+g Canada/QC-L00552663001A/2022 sample-paths
+#... node_2248235:C23248T node_2248236:T19209G,A19210G,A19212G,A19214G,C19217A
+g Philippines/PH-RITM-2271/2022 sample-paths
+#... node_2248235:C23248T node_2248236:T19209G,A19210G,A19212G,A19214G,C19217A node_2248237:T23248C node_2248238:T22450C,C22599G,G22942T,T27741C node_2248239:C2698T,C22893A,G29700A ...
+g node_2248236: sample-paths | g -v node_2248239: | cut -f 1 > excludeFor19s
+wc -l excludeFor19s
+#4 excludeFor19s
+g node_2248236: sample-paths | cut -f 1 > pruneFor19s
+wc -l pruneFor19s
+#3574 pruneFor19s
+
+# And these ones got placed in BA.5.1.17 but still form a mini-BA.5: USA/TX-HMH-MCoV-117522/2022
+# Just exclude them all
+g France/PAC-ChTo-B222810198/2022 sample-paths
+#... node_2040898:T19209G,A19210G,A19212G,A19214G,C19217A 
+g France/PAC-ChTo-B222510036/2022 sample-paths
+#... node_2040898:T19209G,A19210G,A19212G,A19214G,C19217A node_2040899:T23200A,A25314G node_2040900:T29033G node_2040901:C606T,T25517C node_2040902:C28849T node_2040964:T28849C
+g node_2040898: sample-paths | g -v node_2040964: | cut -f 1 >> excludeFor19s
+wc -l excludeFor19s
+#153 excludeFor19s
+g node_2040898: sample-paths | cut -f 1 >> pruneFor19s
+wc -l pruneFor19s
+#4652 pruneFor19s
+
+# And a mini-BQ.1.1: Spain/MD-H12O_221672/2022
+echo 'Spain/MD-H12O_221672/2022|EPI_ISL_15927609|2022-11-08' >> excludeFor19s
+g Spain/MD-H12O_221672/2022 sample-paths
+#... node_2030937:A19212G,A19214G,C19217A
+g node_2030937: sample-paths | cut -f 1 >> pruneFor19s
+wc -l pruneFor19s
+#4860 pruneFor19s
+# Check when added back: Canada/QC-L00563423001/2022
+
+# mini-BA.5 with run-of in low 400s: Germany/BW-RKI-I-972501/2022
+g Sweden/4055954964/2022 sample-paths
+#... node_2044618:G407T,G410T,C412T,C414T,T416A ...
+g Sweden/1592516563/2022 sample-paths
+#... node_2044618:G407T,G410T,C412T,C414T,T416A node_2044619:C27438T,T29666C ...
+g node_2044618: sample-paths | g -v node_2044619: | cut -f 1 > excludeFor400s
+wc -l excludeFor400s
+#9 excludeFor400s
+g node_2044618: sample-paths | cut -f 1 > pruneFor400s
+wc -l pruneFor400s
+#86 pruneFor400s
+
+# mini-BA.5 with run-of in low 100s / 250s/260s: env/Austria/CeMM34237/2022
+g USA/GA-ASC-210804317/2022 sample-paths
+#... node_2129077:G114A,C117T
+g Australia/WA5678/2022 sample-paths
+#... node_2129077:G114A,C117T node_2129078:C244T,G256A,A258G,G261A,T5284C node_2129079:A264G
+g node_2129077: sample-paths | g -v node_2129079: | cut -f 1 > excludeForUtr5
+wc -l excludeForUtr5
+#9 excludeForUtr5
+g node_2129077: sample-paths | cut -f 1 > pruneForUtr5
+wc -l pruneForUtr5
+#520 pruneForUtr5
+
+# garbage off of miscBA2BA1PostSpike (not Fede's): France/BFC-LBZCentre-MA2206130057/2022
+g Kenya/ILRI_COVM03911/2022 sample-paths
+#... node_1706839:C27889T ...
+g France/BFC-LBZCentre-MA2206130057/2022 sample-paths
+#... node_1706839:C27889T node_1706840:T27438C node_1706841:C29666T node_1706857:G23040A node_1706858:T22917G node_1706862:T23018G node_1706863:G12160A node_1706864:C22792T node_1706869:T26858C node_1706870:T9866C node_1706872:T22792C node_1706883:G26529A
+g node_1706839: sample-paths | g -v node_1706883: | cut -f 1 > excludeForMisc
+wc -l excludeForMisc
+#153 excludeForMisc
+g node_1706839: sample-paths | cut -f 1 > pruneForMisc
+wc -l pruneForMisc
+#301 pruneForMisc
+
+# Little branch missing 22942, prune & add back in case some have Ns: France/ARA-HMN-22112290372/2022
+g USA/MD-IGS-042229701226A/2022 sample-paths
+#... node_1993462:T14257C node_2032439:A17039G
+g node_2032439: sample-paths | cut -f 1 > pruneForBQ.1
+wc -l pruneForBQ.1
+#216 pruneForBQ.1
+
+# See if we can get BQ.1.24 back on BQ.1:
+g SouthAfrica/NHLS-UCT-GP-U342/2022 sample-paths
+#... node_1993462:T14257C node_1993466:G22599C node_1993467:C22281T
+g SouthAfrica/CERI-KRISP-K048637/2022 sample-paths
+#... node_1993462:T14257C node_1993466:G22599C node_1993467:C22281T node_1993473:T22942A
+g node_1993467: sample-paths | g -v node_1993473: | cut -f 1 > pruneForBQ.1.24
+wc -l pruneForBQ.1.24
+#11 pruneForBQ.1.24
+
+wc -l pruneFor*
+#  4860 pruneFor19s
+#    86 pruneFor400s
+#   216 pruneForBQ.1
+#    11 pruneForBQ.1.24
+#   301 pruneForMisc
+#   422 pruneForPD1514
+#   520 pruneForUtr5
+#  6416 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# The stuff on the miscBA2BA1PostSpike branch has a long way to go to get back to BA.5,
+# so use radius 20....
+time $matOptimize \
+    -T 80 -r 20 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    123m46.445s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -C clade-paths.pruned -S sample-paths.pruned &
+
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+# Is BQ.1.24 back on BQ.1?
+g SouthAfrica/CERI-KRISP-K048637/2022 sample-paths.pruned
+#... node_2433822:C27889T node_2439662:C1931A node_2442497:G28681T node_2449873:G16935A node_2457354:T2954C node_2457369:C11750T node_2469824:C28312T node_2469870:A22893C node_2470426:T14257C node_2470431:G22599C node_2470449:T22942A node_2470450:C22281T
+
+# CRAP I actually didn't prune what needed pruning for PD1514.
+g Nepal/NPHL-S-1855/2022 sample-paths
+#... node_1707889:C27012T,G27382C ...
+g Australia/NSW-ICPMR-40152/2022 sample-paths
+#... node_1707889:C27012T,G27382C node_1707890:G22577C,A27383T,T27384C node_1707891:C9866T,G15451A,G23018T node_1707892:A22190G node_1707893:G22331A node_1707894:A22001G,T22016C,C22033A node_1707896:G22599C,T23018G,T27012C node_1707902:A12444G,G22898A,T22942G,G23018C node_1707903:T23019C node_1707904:G18583A,T23031C node_1707905:T3339C,C6070T node_1707906:C1627T node_1707907:C8692T node_1707908:G625T
+g node_1707889: sample-paths | g -v node_1707908: | cut -f 1 >> pruneForPD1514
+wc -l pruneForPD1514
+#867 pruneForPD1514
+
+# Repeat the steps from pruning onwards.
+
+# Check again
+# Is BQ.1.24 back on BQ.1?
+g SouthAfrica/CERI-KRISP-K048637/2022 sample-paths.pruned
+#... node_2433645:C27889T node_2439485:C1931A node_2442320:G28681T node_2449696:G16935A node_2457175:T2954C node_2457190:C11750T node_2469645:C28312T node_2469691:A22893C node_2470247:T14257C node_2470252:G22599C node_2470269:T22942A node_2470270:C22281T
+# Shoot, it's still getting G22599C before T22942A, oh well.
+
+g Australia/NSW-ICPMR-40152/2022 sample-paths.pruned
+#... node_2106748:C2790T node_2157114:A951G node_2157146:G22577C,G23040A node_2157147:A22001G node_2157148:G951A node_2157149:T22016C node_2157150:C25416T,A26275G node_2157151:G625T,C1627T,T3339C,C6070T,C8692T,A12444G,G15451A,G18583A,C22033A,A22190G,G22331A,G22599C,G22898A,T22942G,T23018C,T23019C,T23031C
+# Aw crud, I will check in taxonium but that looks like some weird little BA.2 thing...
+# more pruning, ugh.
+
+g India/MH_BJCOG_INSACOG_Run73_4410/2022 sample-paths.pruned
+# node_1700071:C2790T node_1741094:A951G node_1741123:G22577C,G23040A
+g node_1741123: sample-paths >> pruneForPD1514
+wc -l pruneForPD1514
+#884 pruneForPD1514
+
+# Repeat the steps from pruning onwards.
+
+# Check again
+g Australia/NSW-ICPMR-40152/2022 sample-paths.pruned
+#... node_2106743:C2790T node_3046285:C25416T node_3049720:G23040A node_3049731:C22033A node_3049732:A26275G node_3070549:A22190G node_3070550:G22331A node_3070553:A12444G,G18583A node_3070554:G625T,C1627T,T3339C,C6070T,C8692T,G15451A,A22001G,T22016C,G22577C,G22599C,G22898A,T22942G,T23018C,T23019C,T23031C
+# It's at least sorta on the way to BA.2.75 now... I wonder if another optimization round would
+# get it there.
+
+# Close enough, rebuild 2022-01-04 with it.  I interrupted the build before it installed links
+# so all I have to do is get rid of new.masked.vcf.gz.
+prevDate=2023-01-03
+today=2023-01-04
+cd $ottoDir/$today
+# Move aside the files that updateCombinedTree.sh uses (doesn't rebuild) if they already exist.
+mv new.masked.vcf.gz{,.orig}
+
+time $scriptDir/updateCombinedTree.sh $prevDate $today $problematicSitesVcf \
+    $ottoDir/$prevDate/gisaidAndPublic.$prevDate.pruned.opt.pb \
+    >& updateCombinedTree.redo.log
+
+# There is still a lot of mess in the headwaters of BA.2.75 & BA.2.38... some mini-BA.2.75s and
+# mini-BA.2s, but I'll save that for another day, I'm way behind on rolling out a shared full tree.

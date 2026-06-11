@@ -1,0 +1,173 @@
+today=2023-10-31
+cd $ottoDir/$today
+# Don't limit to Omicron this time, I'm going to clean up some old branches too.
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+#real    9m22.504s
+
+# Now B.1.637 is split... trimming basal fluff from both major branches should help unify.
+g USA/NY-Wadsworth-21005003-01/2020 sample-paths
+#... node_3652637:C27925T node_3665190:T23664C node_3665201:T28869C node_3665202:G28044T,C28887T node_3665203:G11804A,T22917G,A23012G node_3665204:A9749G,A21801G,T22032C node_3665205:C9891T node_3665206:C24138A node_3665232:T25072C
+g USA/WA-CDC-LC0044767/2021 sample-paths
+#... node_3652637:C27925T node_3665190:T23664C node_3665201:T28869C node_3665202:G28044T,C28887T node_3665203:G11804A,T22917G,A23012G node_3665204:A9749G,A21801G,T22032C node_3665205:C9891T node_3666002:T28044G node_3666003:C5581T,T27925C node_3666004:G20262A node_3666005:C25413T,C25703T node_3666006:T5581C,C27925T node_3666008:G5300T node_3666009:G28044T node_3666010:C24138A node_3666014:C5581T
+# Prune all the way back to T23664C, spare those two branches
+g node_3665190: sample-paths | g -v node_3665232: | g -v node_3666014: | cut -f 1 > pruneForB.1.637
+wc -l pruneForB.1.637
+#124 pruneForB.1.637
+
+
+# XCT is still in dropout garbage land - prune all the way back to G16935A
+g Australia/NSW-ICPMR-49495/2023 sample-paths
+#... node_2240908:G26529A node_2241101:G16935A node_2241102:C25416T,A26275G node_2241103:A22893C,G27915T node_2241104:T22942A node_2241105:A405G,C9866T,T16342C node_2241106:G15451A,T17859C node_2241115:A12160G,T15939C,A16935G,G22599C,G22898A,A22942G,T23019C,A26529G node_2241116:C15738T,C16342T,A20741G,A22001G,T22016C,A22190G,G22577C,G23018T node_2241117:A22115G,G22331A,T24991A node_2241118:C2334T,G5720A,C9693T,C12789T,A19886G,G22927T,T22928C,C24134A,G25606A,C25721T node_2241119:C1684T,C1889T,C7051T,T16342C,A16878T,A18492G,C20320T,C22033A,T24073C node_2241120:T28297C node_2241121:T25959C,A27507C
+g node_2241101: sample-paths | g -v node_2241121: | cut -f 1 > pruneForXCT
+wc -l pruneForXCT
+#30 pruneForXCT
+
+
+# Fede requests join of 22910 in JG.3 (there's a 25046-first)
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1036
+g Canada/ON-PHL-23-35923/2023 sample-paths
+#... node_1160973:C23673T node_1161300:C25046T node_1161301:A22910G
+g node_1161300: sample-paths | g -v node_1161301: | cut -f 1 > pruneForJG.3
+wc -l pruneForJG.3
+#1 pruneForJG.3
+
+wc -l pruneFor*
+# 124 pruneForB.1.637
+#   1 pruneForJG.3
+#  30 pruneForXCT
+# 155 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    108m0.816s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13376256,with radius 1, second from start 263
+#parsimony score after optimizing: 13376249,with radius 2, second from start 354
+#parsimony score after optimizing: 13376242,with radius 4, second from start 816
+#parsimony score after optimizing: 13376236,with radius 8, second from start 3335
+#parsimony score after optimizing: 13376235,with radius 16, second from start 5578
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# Unified B.1.637?
+g USA/NY-Wadsworth-21005003-01/2020 sample-paths.pruned
+#... node_3656358:G11804A,C16500A,A21801G,T21846C,T22032C,G22320A,C24138A,G28044T,C28887T,G28975A node_3656359:T25072C
+g USA/WA-CDC-LC0044767/2021 sample-paths.pruned
+#... node_3656358:G11804A,C16500A,A21801G,T21846C,T22032C,G22320A,C24138A,G28044T,C28887T,G28975A node_3657129:C5581T,G20262A,C25413T,C25703T node_3657130:G5300T
+# For now, yes -- see what happens when sequences are added back.  Also see if pango.clade-muts
+# path works.
+# Oh dear, in taxonium I can see that one janky sequence has the unified B.1.637 as a child of
+# B.1.526, not good.  Prune more.
+
+# Did XCT move?
+g Australia/NSW-ICPMR-49495/2023 sample-paths.pruned
+#... node_2240909:G26529A node_2241056:T26858C node_2241074:G22599C node_2241078:G15451A,C15738T node_2241079:T16342C,A19326G,C25416T node_2241081:T17859C,G23018C,T23019C node_2241082:A405G,C1889T,C2334T,G5720A,C9693T,C9866T,A12160G,C12789T,T15939C,A16878T,A18492G,A22001G,T22016C,C22033A,A22115G,A22190G,G22331A,G22577C,A22893C,G22898A,G22927T,T22928C,T22942G,C23018T,T24073C,C24134A,T24991A,G25606A,C25721T,T25959C,A26275G,A26529G,C26858T,A27507C,G27915T,T28297C node_2241083:C1684T,C7051T,G19326A,A19886G,C20320T,A20741G
+# Somewhere, but doesn't look like anywhere near a parental lineage... check in taxonium.
+# Yep, prune more.
+
+# 22910 before 25046?
+g Canada/ON-PHL-23-35923/2023 sample-paths.pruned
+#... node_1160975:C23673T node_1161347:A22910G node_1161348:C25046T
+# Yay, yep, see what happens when seqs are added back.
+
+# Get B.1.637 out of B.1.526-land.
+g USA/NY-Wadsworth-21005003-01/2020 sample-paths.pruned
+#... node_3656356:T28869C node_3656357:A9749G,C9891T,T22917G node_3656358:G11804A,C16500A,A21801G,T21846C,T22032C,G22320A,C24138A,G28044T,C28887T,G28975A node_3656359:T25072C 
+g node_3656357: sample-paths.pruned | g -v node_3656358: | cut -f 1 > pruneMoreForB.1.637
+wc -l pruneMoreForB.1.637
+#1 pruneMoreForB.1.637
+# Probably should permanently exclude that one but let's see what happens tomorrow.
+
+# Get XCT out of BA.4_dropout-land.
+g node_2241056: sample-paths.pruned | g -v node_2241083: | cut -f 1 > pruneMoreForXCT
+wc -l pruneMoreForXCT
+#102 pruneMoreForXCT
+
+
+wc -l pruneMoreFor*
+#   1 pruneMoreForB.1.637
+# 102 pruneMoreForXCT
+# 103 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(sort -u pruneMoreFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Use an even more stringent -m in hopes of forcing a higher radius.
+time $matOptimize \
+    -T 80 -m 0.000000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    32m37.437s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -S sample-paths.pruned
+    
+# Check paths
+
+# Ended up looking in taxonium.
+
+# Hopefully not a child of B.1.526:
+g USA/NY-Wadsworth-21005003-01/2020 sample-paths.pruned
+#... 
+# Doh, now it's tied in by a few other sequences.  Probably need to prune B.1.526 fluff at
+# the same time.
+
+# Out of dropout-land?
+g Australia/NSW-ICPMR-49495/2023 sample-paths.pruned
+#... 
+# Nope, yet more crap sequences tieing it in.  Might need to get rid of all BA.4_dropout fluff
+# except for XAS... or just whack XCT and see if it's put back somewhere closer to one of its
+# putative ancestral lineages (JG.4, DV.7.1 with two breakpoints).

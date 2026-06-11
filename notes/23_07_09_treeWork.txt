@@ -1,0 +1,148 @@
+today=2023-07-09
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c B.1.1.529 -S sample-paths
+
+# https://github.com/cov-lineages/pango-designation/issues/2016 -- BA.5.2.1, BE.1.1, BF.7
+# are all on crap branches off of BA.5_dropout or BA.5.
+
+g Belgium/MBLG-CTMAPF98881736/2022 sample-paths
+#... node_2596338:C27259A node_3036546:T22813G node_3036557:C27889T node_3036679:C1627T node_3036680:A28330G node_3036683:A27038G node_3036688:G22813T node_3036689:G22599C node_3036690:C7528T node_3036692:G26529A 
+
+g Andorra/AND-259_221941418901-GC/2022 sample-paths
+#... node_2596338:C27259A node_3036546:T22813G node_3036557:C27889T node_3036679:C1627T node_3036680:A28330G node_3036683:A27038G node_3036688:G22813T node_3066263:G26529A
+
+g node_3036546: sample-paths | g -v node_3036692: | g -v node_3066263: | cut -f 1 > pruneForBA.5.2.1
+wc -l pruneForBA.5.2.1
+#589 pruneForBA.5.2.1
+
+g Austria/AGES-180298/2022 sample-paths
+#... node_2597083:G26529A node_2896230:C1931A node_2896231:G28681T node_2896271:C11750T node_2896272:G16935A node_2896273:T2954C node_2896319:C27889T 
+g node_2896230: sample-paths | g -v node_2896319: | cut -f 1 > pruneForBE.1.1
+wc -l pruneForBE.1.1
+#763 pruneForBE.1.1
+
+# FR.1.4 placed in FR.1.1 with rev on 21807
+g CHN/LNCDC-157-1/2023 sample-paths
+#... node_2401608:C7318T node_2401609:T14961C,C21807A node_2401610:C1142T node_2401611:T2372C node_2401659:A21807C ...
+g node_2401609: sample-paths | g -v node_2401659: | cut -f 1 > pruneForFR.1.4
+# Note: this blows away FR.1.1 to be added back in next build, but I know there's no other
+# way to get rid of that reversion and the result of this will never go live in hgPhyloPlace.
+wc -l pruneForFR.1.4
+#359 pruneForFR.1.4
+
+wc -l pruneFor*
+#   589 pruneForBA.5.2.1
+#   763 pruneForBE.1.1
+#   359 pruneForFR.1.4
+#  1711 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m59.724s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 12783896,with radius 1, second from start 272
+#parsimony score after optimizing: 12783882,with radius 2, second from start 372
+#parsimony score after optimizing: 12783869,with radius 4, second from start 923
+#parsimony score after optimizing: 12783868,with radius 8, second from start 3829
+#parsimony score after optimizing: 12783863,with radius 16, second from start 5540
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# BF.7 in right place?
+g Belgium/MBLG-CTMAPF98881736/2022 sample-paths.pruned
+#... node_2596251:C27259A node_2596996:G26529A node_2598052:A27038G node_2598058:A28330G node_2598059:C27889T node_2598060:C1627T node_2598061:G22599C node_2598062:C7528T 
+
+# BA.5.2.1 in right place?
+g Andorra/AND-259_221941418901-GC/2022 sample-paths.pruned
+#... node_2596251:C27259A node_2596996:G26529A node_2598052:A27038G node_2598058:A28330G node_2598059:C27889T node_2598060:C1627T
+
+# Damn, still upstream of 27889.  Probably have to prune more, check in taxonium.
+
+# BE.1.1 in right place?
+g Austria/AGES-180298/2022 sample-paths.pruned
+#... node_2596251:C27259A node_2596996:G26529A node_2756183:C27889T node_2762792:C1931A node_2766048:G28681T node_2772881:C11750T node_2772882:T2954C node_2772883:G16935A 
+# Promising but check in taxonium.
+
+# FR.1.4 placed in FR.1.1 with rev on 21807?
+g CHN/LNCDC-157-1/2023 sample-paths.pruned
+#... node_2401612:C7318T node_2401613:C1142T,T2372C,T14961C ...
+# Rev is gone but check again when FR.1.1 is added back.
+
+
+# OK, prune more for BA.5.2.1 (or rather its parent misplaced branch that also has miscBA.5BA.2.75)
+g Japan/RIMD17909/2022 sample-paths.pruned
+#... node_2596251:C27259A node_2596996:G26529A node_2598052:A27038G node_2598058:A28330G node_2598059:C27889T
+g node_2598052: sample-paths.pruned | g -v node_2598059: | cut -f 1 > pruneMoreForBA.5.2.1
+wc -l pruneMoreForBA.5.2.1
+#280 pruneMoreForBA.5.2.1
+
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb \
+    -p -s <(cat pruneMoreFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    30m38.102s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 12783563,with radius 1, second from start 260
+#parsimony score after optimizing: 12783562,with radius 2, second from start 357
+#parsimony score after optimizing: 12783562,with radius 4, second from start 911
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+# BA.5.2.1 in right place?
+g Andorra/AND-259_221941418901-GC/2022 sample-paths.pruned
+#node_2596251:C27259A node_2596996:G26529A node_2598564:C27889T node_2598565:A27038G node_2598566:A28330G node_2598567:C1627T
+# Good.
+
+# Use that for next daily build.
+ln -s gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb

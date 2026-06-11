@@ -1,0 +1,201 @@
+# Argh, I left out 21987-masking when making the comprehensive VCF, and then I thought I fixed
+# it with branch-specific masking (followed steps in maskDelta.sh but added G21987A)... BUT the
+# node (B.1.617.2) was actually downstream of the first G21987A that needed to be masked. doh!
+
+# So... take 2 (after also cleaning up a bunch of withdrawn & renamed sequences... more like take 4
+# for 10-04).  And this will also need to be applied to 10-06 and 10-07.
+
+today=2021-10-04
+cd $ottoDir/$today
+
+grep -F B.1.617 clade-paths.postReanno
+#B.1.617 node_322339      > C14408T > C241T > C3037T > A23403G > G29742T > T22917G > T27638C > G28881T > G210T > C21618G > G29402T > C23604G > C25469T > G23012C
+#B.1.617.2       node_21060       > C14408T > C241T > C3037T > A23403G > G29742T > T22917G > T27638C > G28881T > G210T > C21618G > G29402T > C23604G > C25469T > G24410A > C22995A,C27752T > A28461G > C16466T > T26767C > G21987A > G15451A
+#...
+# So let's use... node_322339's parent (C25469T) for 21987.  I don't think I need to re-mask the
+# other delta-specific mutations fro maskDelta.sh because they should have been correctly masked
+# the first time around, it's just 21987 that's still screwed up.
+g  IND/GBRC714b/2021 sample-paths.postLopAndRename 
+#IND/GBRC714b/2021|MZ359877.1|2021-04-23 node_9979:C14408T node_10163:C241T node_10164:C3037T node_10165:A23403G node_20275:G29742T node_20276:T22917G node_20277:T27638C node_20278:G28881T node_20279:G210T node_20280:C21618G node_20281:G29402T node_20282:C23604G node_20754:C25469T node_20755:G24410A node_20758:C22995A,C27752T node_20759:A28461G node_20763:C16466T node_21058:T26767C node_21059:G21987A node_21060:G15451A 
+
+echo -e "G21987A\tnode_20754" > mask21987.tsv
+
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 4966055
+#Total Samples in Tree: 4072901
+#Total Condensed Nodes in Tree: 528147
+#Total Samples in Condensed Nodes: 2739326
+#Total Tree Parsimony: 3519536
+#Number of Clade Annotations: 2
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m mask21987.tsv \
+    -o gisaidAndPublic.$today.masked.21987Masked.pb
+
+$matUtils summary -i gisaidAndPublic.$today.masked.21987Masked.pb
+#Total Nodes in Tree: 4966031
+#Total Samples in Tree: 4072901
+#Total Condensed Nodes in Tree: 0
+#Total Samples in Condensed Nodes: 0
+#Total Tree Parsimony: 3519437
+#Number of Clade Annotations: 2
+
+# Now optimize a little.
+$matOptimize -T 50 -i gisaidAndPublic.$today.masked.21987Masked.pb \
+    -M 3 -r 8 -S save_log.21987Masked -o gisaidAndPublic.$today.masked.21987Masked.opt.pb \
+    >& matOptimize.21987Masked.log
+#original parsimony score:3487497
+#Final Parsimony score 3484384
+
+# Recondense nodes after optimize.
+$matUtils extract -i gisaidAndPublic.$today.masked.21987Masked.opt.pb \
+    -O -o gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb
+$matUtils summary -i gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb
+#Total Nodes in Tree: 4952215
+#Total Samples in Tree: 4072901
+#Total Condensed Nodes in Tree: 525601
+#Total Samples in Condensed Nodes: 2755250
+#Total Tree Parsimony: 3484384
+#Number of Clade Annotations: 2
+
+# Check clade annotations.
+$matUtils extract -i gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb \
+    -C clade-paths.post21987Mask
+wc -l clade-paths.post21987Mask
+#1381 clade-paths.post21987Mask
+# Yay!
+
+# Replace for the nth time
+mv gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pre21987Mask.pb
+rm gisaidAndPublic.$today.masked.pb \
+&& ln -f gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb \
+    gisaidAndPublic.$today.masked.pb
+
+# Copy-paste taxodium commands & extractPublic command from updateCombinedTree.sh.
+
+
+# Now 2021-10-06
+today=2021-10-06
+cd $ottoDir/$today
+
+grep -F B.1.617 clade-paths.postReanno
+#B.1.617 node_339992      > C14408T > C241T > C3037T > A23403G > G29742T > T22917G > T27638C > G28881T > G210T > C21618G > G29402T > C23604G > C25469T > G23012C
+#B.1.617.2       node_21087       > C14408T > C241T > C3037T > A23403G > G29742T > T22917G > T27638C > G28881T > G210T > C21618G > G29402T > C23604G > C25469T > G24410A > C22995A,C27752T > A28461G > C16466T > T26767C > G21987A > G15451A
+#...
+# So let's use... node_339992's parent (C25469T) for 21987.  I don't think I need to re-mask the
+# other delta-specific mutations fro maskDelta.sh because they should have been correctly masked
+# the first time around, it's just 21987 that's still screwed up.
+g  IND/GBRC714b/2021 sample-paths.postLopAndRename
+#IND/GBRC714b/2021|MZ359877.1|2021-04-23 node_9994:C14408T node_10180:C241T node_10181:C3037T node_10182:A23403G node_20298:G29742T node_20299:T22917G node_20300:T27638C node_20301:G28881T node_20302:G210T node_20303:C21618G node_20304:G29402T node_20305:C23604G node_20780:C25469T node_20781:G24410A node_20784:C22995A,C27752T node_20785:A28461G node_20789:C16466T node_21085:T26767C node_21086:G21987A node_21087:G15451A 
+echo -e "G21987A\tnode_20780" > mask21987.tsv
+
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 5058691
+#Total Samples in Tree: 4147235
+#Total Condensed Nodes in Tree: 537531
+#Total Samples in Condensed Nodes: 2785268
+#Total Tree Parsimony: 3584791
+#Number of Clade Annotations: 2
+
+time $matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m mask21987.tsv \
+    -o gisaidAndPublic.$today.masked.21987Masked.pb
+
+$matUtils summary -i gisaidAndPublic.$today.masked.21987Masked.pb
+#Total Nodes in Tree: 5058606
+#Total Samples in Tree: 4147235
+#Total Condensed Nodes in Tree: 0
+#Total Samples in Condensed Nodes: 0
+#Total Tree Parsimony: 3584423
+#Number of Clade Annotations: 2
+
+# Now optimize a little.  When the other -T50 optimize job is done.
+$matOptimize -T 50 -i gisaidAndPublic.$today.masked.21987Masked.pb \
+    -M 3 -r 8 -S save_log.21987Masked -o gisaidAndPublic.$today.masked.21987Masked.opt.pb \
+    >& matOptimize.21987Masked.log
+#original parsimony score:3548275
+#Final Parsimony score 3543342
+
+# Recondense nodes after optimize.
+$matUtils extract -i gisaidAndPublic.$today.masked.21987Masked.opt.pb \
+    -O -o gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb
+$matUtils summary -i gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb
+
+# Check clade annotations.
+$matUtils extract -i gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb \
+    -C clade-paths.post21987Mask
+wc -l clade-paths.post21987Mask
+#1380 clade-paths.post21987Mask
+# OK, who got knocked out:
+diff <(cut -f1 clade-paths.preLop | sort) <(cut -f1 clade-paths.post21987Mask | sort)
+#124d123
+#< AY.3.1
+g -F AY.3.1 clade-paths.postReanno
+#AY.3.1  node_269445      > C14408T > C241T > C3037T > A23403G > G29742T > T22917G > T27638C > G28881T > G210T > C21618G > G29402T > C23604G > C25469T > G24410A > C22995A,C27752T > A28461G > C16466T > T26767C > G21987A > G15451A > C10029T > C19220T > G28916T > G4181T > C27874T > C6402T > C7124T > G9053T > C8986T > T6402C > A11332G > A11201G > C6402T > A11456G > G29050A > C29509T > C25339T > T23284C > C18115T > G3644T > C20199T > A21987G
+# Ah, 21987 at the end, makes sense.  Make it end at C20199T.
+g node_269445: sample-paths.postLopAndRename | head -1
+#USA/MS-UMMC-X11G6-210999024649/2021|EPI_ISL_2966606|2021-07-01  node_9994:C14408T node_10180:C241T node_10181:C3037T node_10182:A23403G node_20298:G29742T node_20299:T22917G node_20300:T27638C node_20301:G28881T node_20302:G210T node_20303:C21618G node_20304:G29402T node_20305:C23604G node_20780:C25469T node_20781:G24410A node_20784:C22995A,C27752T node_20785:A28461G node_20789:C16466T node_21085:T26767C node_21086:G21987A node_21087:G15451A node_69471:C10029T node_69526:C19220T node_69527:G28916T node_69528:G4181T node_69544:C27874T node_69626:C6402T node_69641:C7124T node_69642:G9053T node_69643:C8986T node_69644:T6402C node_69774:A11332G node_69775:A11201G node_69776:C6402T node_260840:A11456G node_260841:G29050A node_260842:C29509T node_266192:C25339T node_266206:T23284C node_269440:C18115T node_269441:G3644T node_269442:C20199T node_269445:A21987G USA/MS-UMMC-X11G6-210999024649/2021|EPI_ISL_2966606|2021-07-01:G9968A 
+$matUtils extract -i gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb \
+    -S sample-paths.post21987Mask
+g USA/MS-UMMC-X11G6-210999024649/2021 sample-paths.post21987Mask
+#USA/MS-UMMC-X11G6-210999024649/2021|EPI_ISL_2966606|2021-07-01  node_9995:C14408T node_10181:C241T node_10182:C3037T node_10183:A23403G node_20299:G29742T node_20300:T22917G node_20301:T27638C node_20302:G28881T node_20303:G210T node_20304:C21618G node_20305:G29402T node_20306:C23604G node_20781:C25469T node_20782:G24410A node_20785:C22995A,C27752T node_20786:A28461G node_20790:C16466T node_21084:T26767C node_21085:G15451A node_69114:C10029T node_69115:C19220T node_69116:G28916T node_69117:G4181T node_69121:C27874T node_69201:C6402T node_69215:C7124T node_69216:G9053T node_69217:C8986T node_69218:T6402C node_69344:A11332G node_69345:A11201G node_69346:C6402T node_248625:A11456G node_248626:G29050A node_248627:C29509T node_252784:C25339T node_252798:T23284C node_255704:C18115T node_255705:G3644T node_255706:C20199T USA/MS-UMMC-X11G6-210999024649/2021|EPI_ISL_2966606|2021-07-01:G9968A 
+# OK, node_255706 now.
+
+# Re-annotate with paths, adding back B.1.1.269.
+egrep '^[0-9]' clade-paths.post21987Mask \
+| cut -f 1,2 \
+    > cladeNodes.post21987Mask.nextclade
+egrep '^[A-Z]' clade-paths.post21987Mask \
+| cut -f 1,2 \
+    > cladeNodes.post21987Mask.pango
+echo -e "AY.3.1\tnode_255706" \
+    >> cladeNodes.post21987Mask.pango
+
+# Re-annotate and replace daily build protobuf
+$matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.21987Masked.opt.recondensed.pb \
+    -l \
+    -C cladeNodes.post21987Mask.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb
+
+$matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -C cladeNodes.post21987Mask.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.masked.nextclade.pangolin.pb -C clade-paths.post21987Mask
+wc -l clade-paths.post21987Mask
+#1381 clade-paths.post21987Mask
+
+# Copy-pasted post-annotate commands from updateCombinedTree.sh
+
+
+# Now as soon as 2021-10-07 is merged, but before the usual optimization, mask 21987,
+# then proceed with optimization as usual...
+today=2021-10-07
+cd $ottoDir/$today
+
+# Mask 21987 with the node with C25469T:
+$matUtils extract -i merged.pb -S sample-paths.merged
+g IND/GBRC714b/2021 sample-paths.merged \
+| sed -re 's/ /\n/g;' \
+| g C25469T \
+| sed -re 's/^(node_[0-9]+):.*/G21987A\t\1/;' \
+    > mask21987.tsv
+
+time $matUtils mask -i merged.pb \
+    -m mask21987.tsv \
+    -o merged.21987Masked.pb
+
+$matOptimize -T 50 -r 8 -S move_log -i merged.21987Masked.pb -M 5 \
+    -o gisaidAndPublic.$today.masked.preTrim.pb \
+    >& matOptimize.merged.log
+
+$matUtils extract -i gisaidAndPublic.$today.masked.preTrim.pb \
+    -b 30 \
+    -O -o gisaidAndPublic.$today.masked.pb
+
+# Carry on...
+time $scriptDir/updateCombinedTree.sh 2021-10-06 2021-10-07 $problematicSitesVcf \
+    >& updateCombinedTree.post21987Mask.log

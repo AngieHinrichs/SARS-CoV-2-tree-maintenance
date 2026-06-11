@@ -1,0 +1,206 @@
+today=2022-08-19
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Time to do a bit more cleanup before making the v1.14 lineageTree.pb.
+
+# I still don't know how to move the misplaced-under-BA.2.36 branch onto the BA.2 backbone,
+# but I can add a BA.2_21765_rev22792 label to prevent misclassification as BA.36.
+# --> do that in pango.clade-mutations.tsv.
+
+# BA.2.3.5 is split... lop from Philippines/PH-PGC-110810/2022, keep from England/ALDP-3A4B4BF/2022
+g Philippines/PH-PGC-110810/2022 sample-paths
+#... node_1416604:C8991T node_1416605:C25810T node_1442399:C19269T
+g England/ALDP-3A4B4BF/2022 sample-paths
+#... node_1416604:C8991T node_1416605:C25810T node_1442399:C19269T node_1442401:C936T
+g node_1442399: sample-paths | g -v node_1442401: | cut -f 1 > pruneForBA.2.3.5
+wc -l pruneForBA.2.3.5
+#7 pruneForBA.2.3.5
+
+
+# BA.1.9 is child of rev 26530 -- and there is a mini-BA.1.14 on that rev too, ugh.
+# Is BA.1.9 split with some non-rev branch? -- Don't see any slam-dunks.  There are other 23767's
+# but probably homoplasy.
+
+# BA.2.64 is on a 25000 rev and that 25000 rev branch has a mini-BA.2.56: Spain/CL-COV30284/2022
+# The real BA.2.56 is much larger though, no great loss.  We just need to exclude _all_ reversions
+# since lineage when making lineageTree.pb.
+
+# Ah crud, BA.5 > C27889T got split -- T27438C got put first on the way to BA.5.2.1.
+# But I can't lop it all because proposed911 is in there... well, I don't need that
+# for lineageTree.pb, but still, I don't want to lop it from anything that will be out on
+# genome.ucsc.edu, hmmmm.  I'll try some strategic expemtions, maybe optimization will still
+# do what I want.
+g England/PHEP-YYFP7W5/2022 sample-paths
+#... node_1637049:G26529A node_1637050:T22200G node_1717375:T27438C
+g USA/NJ-CDC-LC0805531/2022 sample-paths
+#... node_1637049:G26529A node_1637050:T22200G node_1717375:T27438C node_1753765:C21691T node_1753766:C27889T
+g England/PHEP-YYFT9IQ/2022 sample-paths
+#... node_1637049:G26529A node_1637050:T22200G node_1717375:T27438C node_1717607:G28681T node_1717608:C27889T
+g Israel/CVL-9006553/2022 sample-paths
+#... node_1637049:G26529A node_1637050:T22200G node_1717375:T27438C node_1717452:G17278T node_1717453:C15960T node_1717465:C27889T
+g USA/FL-CDC-STM-9GQGRQ3PE/2022 sample-paths
+#... node_1637049:G26529A node_1637050:T22200G node_1717375:T27438C node_1717452:G17278T node_1717453:C15960T node_1717454:C6606T node_1717464:C26542T,C27889T
+# --> pick up the parent of that node and proposed911: node_1717454
+g Germany/SN-RKI-I-889991/2022 sample-paths
+#... node_1637049:G26529A node_1637050:T22200G node_1717375:T27438C node_1717399:A26529G node_1717402:C27889T
+g Israel/ICH-741236114/2022 sample-paths
+#... node_1637049:G26529A node_1637050:T22200G node_1717375:T27438C node_1717477:T27807C node_1717479:C29666T node_1717480:G22427A node_1717481:C27807T node_1717482:A6491G node_1717483:C27889T
+g Australia/VIC66520/2022 sample-paths
+#... node_1637049:G26529A node_1637050:T22200G node_1717375:T27438C node_1717623:C27889T
+g node_1717375: sample-paths | g -v node_1753766: | g -v node_1717608: | g -v node_1717465: \
+| g -v node_1717454: | g -v node_1717402: | g -v node_1717483: | g -v node_1717623: \
+| cut -f 1 > pruneForBA.5
+wc -l pruneForBA.5
+#923 pruneForBA.5
+
+# much of BA.5.2 has G12310A -- but there is a branch in BA.5.2.1 that has G12310A and then a
+# reversion on BA.5.2.1-defining 27038.  Might need to permanently exclude some?
+# Lop from France/HDF-IPP45439/2022, keep from England/QEUH-3EDF8B0/2022.
+g Sweden/1596065463/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1681266:A21766C node_1685952:G12310A
+g France/ARA-HCL022114352201/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1681266:A21766C node_1685952:G12310A node_1685953:G27038A
+g node_1685952: sample-paths | g -v node_1685953: | cut -f 1 > pruneForBA.5.2
+
+# There's a really weird mini-BA.5 in BA.5.2.1... maybe caused by 21770 homoplasies getting joined??
+g Canada/ON-KHS-22-09183-v1/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1681266:A21766C node_1682675:C29358A 
+# This belongs elsewhere in BA.5.2.1:
+g Wales/PHWC-PJ9Q8N/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1681266:A21766C node_1682675:C29358A node_1682676:G21770A node_1682679:A29358C node_1685392:T6979G
+# This belongs elsewhere in BA.5.2.1:
+g Germany/SN-RKI-I-899133/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1681266:A21766C node_1682675:C29358A node_1682676:G21770A node_1682679:A29358C node_1684870:G28371T
+# This belongs in BA.5.2:
+g Canada/QC-L00495201001/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1681266:A21766C node_1682675:C29358A node_1682676:G21770A node_1682679:A29358C node_1682680:G27038A node_1682681:G12310A
+# This is on a mini-BA.5:
+g Norway/27616/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1681266:A21766C node_1682675:C29358A node_1682676:G21770A node_1682679:A29358C node_1682680:G27038A node_1682930:G28330A node_1682931:T1627C ...
+g node_1682675: sample-paths | g -v node_1682681: | g -v node_1682931: | g -v node_1685392: \
+| g -v node_1684870: | cut -f 1 > pruneForBA.5.2.1
+#122 pruneForBA.5.2.1
+
+# And there's somewhat of a mini-BA.5.2.1 that is way out on a reversion-abomination branch...
+# I wonder if some of it can be folded back in, worth a try, no great loss if it doesn't work.
+g Italy/TAA-PAB_SABES_1900939108/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1695944:T6979G node_1705737:A3859G node_1706833:G22917T
+g USA/CA-FG-290886/2022 sample-paths
+#... node_1665364:C1627T node_1681259:A27038G node_1695944:T6979G node_1705737:A3859G node_1706833:G22917T node_1706834:G27038A node_1706835:T22813G node_1706836:A26709G node_1706844:G3859A node_1706845:G6979T node_1706873:A22775G node_1706875:T22674C node_1706878:A26529G,G26577C node_1706879:C22674T node_1707099:G28371T node_1707100:C5284T node_1707101:G26529A node_1707102:C26577G node_1707103:G22775A node_1707138:T5284C node_1707140:T28371G node_1707147:G26709A node_1707151:A22992G node_1707152:A22995C node_1707164:C23013A node_1707173:G28371T node_1707175:A23013C node_1707176:C5284T node_1707181:C22995A node_1707182:G22992A node_1707195:T22917G node_1707196:G22813T node_1707229:A27038G
+g node_1706833: sample-paths | g -v node_1707229: | cut -f 1 > pruneForBA.5.2.1.ugh
+wc -l pruneForBA.5.2.1.ugh
+#2132 pruneForBA.5.2.1.ugh
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time $matOptimize \
+    -T 96 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    31m7.002s
+
+# Make taxonium in case we need to prod & fix more
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.masked.pruned.opt.taxonium.jsonl.gz \
+    >& tax.log &
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt \
+    -C clade-paths.opt
+
+# BA.2.3.5 intact?
+g England/ALDP-3A4B4BF/2022 sample-paths.opt
+#... node_1641783:C2790T node_1751420:C8991T node_1751421:C25810T node_1782721:C936T node_1782722:C19269T
+# Good.
+
+# BA.5 > 27889T intact?
+# Main BA.5.1:
+g Australia/VIC66520/2022 sample-paths.opt
+#... node_2025517:G26529A node_2025518:T22200G node_2025519:C27889T node_2122590:T27438C
+# Good.
+# Stubs:
+g USA/NJ-CDC-LC0805531/2022 sample-paths.opt
+#... node_2025517:G26529A node_2025518:T22200G node_2025519:C27889T node_2122590:T27438C node_2122629:C21691T
+g England/PHEP-YYFT9IQ/2022 sample-paths.opt
+#... node_2025517:G26529A node_2025518:T22200G node_2025519:C27889T node_2122590:T27438C node_2122625:G28681T
+g Israel/CVL-9006553/2022 sample-paths.opt
+#... node_2025517:G26529A node_2025518:T22200G node_2025519:C27889T node_2122590:T27438C node_2122653:C29666T node_2133187:G17278T node_2133327:C15960T node_2133328:T29666C
+g USA/FL-CDC-STM-9GQGRQ3PE/2022 sample-paths.opt
+#... node_2025517:G26529A node_2025518:T22200G node_2025519:C27889T node_2122590:T27438C node_2122653:C29666T node_2133187:G17278T node_2133327:C15960T node_2133328:T29666C node_2133329:C6606T node_2133342:C26542T
+g Germany/SN-RKI-I-889991/2022 sample-paths.opt
+#... node_2025517:G26529A node_2025518:T22200G node_2025519:C27889T node_2122590:T27438C node_2122591:A26529G
+
+# In BA.5.2 now?
+g France/ARA-HCL022114352201/2022 sample-paths.opt
+#... node_2025519:C27889T node_2060303:A28330G node_2060304:C1627T node_2079769:A27038G node_2079776:A21766C node_2081429:G21770A node_2081430:G27038A node_2081431:G12310A node_2081432:A21770G
+# Dang, nope, still in BA.5.2.1 with rev on 27038.  Probably need to trim more.
+g Canada/QC-L00495201001/2022 sample-paths.opt
+#... node_2025519:C27889T node_2060303:A28330G node_2060304:C1627T node_2079769:A27038G node_2079776:A21766C node_2081429:G21770A node_2081430:G27038A node_2081431:G12310A
+# Same.
+
+# In BA.5.6?
+g USA/2140471/2022 sample-paths.opt
+#... node_2025519:C27889T node_2060303:A28330G node_2060304:C1627T node_2079769:A27038G node_2079776:A21766C node_2081429:G21770A node_2081430:G27038A ...
+# Same.
+
+# In BA.5.5?
+g USA/CA-61210930102885/2022 sample-paths.opt
+#... node_2025519:C27889T node_2060303:A28330G node_2060304:C1627T node_2079769:A27038G node_2079776:A21766C node_2081429:G21770A node_2081430:G27038A ...
+# Same.
+
+# In BA.5.1?
+g Germany/SN-RKI-I-945715/2022 sample-paths.opt
+#... node_2025519:C27889T node_2060303:A28330G node_2060304:C1627T node_2079769:A27038G node_2079776:A21766C node_2081429:G21770A node_2081430:G27038A ...
+# Same.
+
+# On a normal-length path in BA.5.2.1?
+g USA/CA-FG-290886/2022 sample-paths.opt
+#... node_2025519:C27889T node_2060303:A28330G node_2060304:C1627T node_2079769:A27038G node_2092624:C5284T node_2092625:G14593A node_2092626:G28371T node_2092637:A14593G
+# Yep.
+
+# So, definitely improved, except for the mini-BA.5 in BA.5.2.1 > A21766C > G21770A.
+# I need to get going with the lineageTree generation... should watch out for that branch and
+# prune from lineageTree.pb if it's included.
+
+wc -l clade-paths*
+#   1934 clade-paths
+#   1932 clade-paths.opt
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2.3.5
+#BA.5.1.3
+
+# Re-annotate
+tail -n+2 clade-paths.opt | g -E '^[1-2][0-9]' | cut -f 1,2 > cladeNodesReassign.nextclade
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l -C cladeNodesReassign.nextclade \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb
+tail -n+2 clade-paths.opt | g -E '^[A-Za-z]' | cut -f 1,3 > lineageToPath.pruned.opt
+$matUtils annotate -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pb \
+    -P lineageToPath.pruned.opt \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb \
+    -C clade-paths.opt
+wc -l clade-paths clade-paths.opt
+#   1934 clade-paths
+#   1935 clade-paths.opt
+# Added one for the not-BA.2.36  22792 rev branch:
+comm -13 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.opt | sort)
+#BA.2_21765_no22792
+
+ln -f gisaidAndPublic.$today.masked.pruned.opt.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+chmod 664 g*pb
+
+mv clade-paths{.opt,}
+mv sample-paths{.opt,}
+
+# Paste in steps after annotation from upCo.

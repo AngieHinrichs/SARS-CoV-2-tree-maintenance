@@ -1,0 +1,52 @@
+# Just a little tweak for BA.2.86 before bedtime.  The first two Denmark sequences were placed
+# without C21622T,G21624C -- and now those two mutations are added separately on two branches,
+# but should really be basal.
+
+today=2023-08-23
+cd $ottoDir/$today
+
+cat > pruneForBA.2.86<<EOF
+Denmark/DCGC-647646/2023|EPI_ISL_18097315|2023-07-31
+Denmark/DCGC-647676/2023|EPI_ISL_18097345|2023-07-24
+EOF
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+# Optimize straight to .useMe.pb for tomorrow's build.
+time $matOptimize \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m35.353s
+
+ln -sf gisaidAndPublic.$today.pruned.opt.pb gisaidAndPublic.$today.masked.useMe.pb
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13009173,with radius 1, second from start 231 
+#parsimony score after optimizing: 13009168,with radius 2, second from start 314 
+#parsimony score after optimizing: 13009157,with radius 4, second from start 757 
+#parsimony score after optimizing: 13009153,with radius 8, second from start 2925 
+#parsimony score after optimizing: 13009147,with radius 16, second from start 5568 
+
+# 2023-08-24
+# Check paths
+cat > BA.2.86.samples <<EOF
+Israel/ICH-741198454/2023|EPI_ISL_18096761|2023-07-31
+Denmark/DCGC-647646/2023|EPI_ISL_18097315|2023-07-31
+Denmark/DCGC-647676/2023|EPI_ISL_18097345|2023-07-24
+USA/UM-10052670540/2023|OR461132.1|2023-08-03
+England/GSTT-LSBC55/2023|EPI_ISL_18111770|2023-08-13
+Denmark/DCGC-647694/2023|EPI_ISL_18114953|2023-08-07
+USA/VA-GBW-H20-330-6734/2023|EPI_ISL_18121060|2023-08-10
+SouthAfrica/NICD-N55999/2023|EPI_ISL_18125249|2023-07-28
+SouthAfrica/NICD-N55967/2023|EPI_ISL_18125259|2023-07-24
+EOF
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb -s BA.2.86.samples -S sample-paths.BA.2.86
+wc -l sample-paths.BA.2.86
+#7 sample-paths.BA.2.86
+less sample-paths.BA.2.86
+# OK, as expected the BA.2.86 root node now includes C21622T,G21624C, good:
+#... node_3310725:C897A,G3431T,A7842G,C8293T,G8393A,T9866C,G11042T,C12789T,T13339C,T15756A,A18492G,C21622T,G21624C,C21711T,G21941T,T22032C,C22033A,A22034G,C22208T,C22353A,G22577C,G22770A,G22895C,T22896A,G22898A,A22910G,C22916T,T22942A,T23005A,G23012A,C23013A,T23018C,T23019C,G23222A,C23271T,C23423T,A23604G,C24378T,C24990T,C25207T,G26529C,A26610G,C26681T,C26833T,C28958A ...

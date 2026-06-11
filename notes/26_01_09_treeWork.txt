@@ -1,0 +1,110 @@
+today=2026-01-09
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3199
+# There is a PQ.19+S:T572I branch misplaced under PQ.32 @AngieHinrichs
+# PQ.19+C23277T(S:T572I)
+g USA/CO-CDPHE-45455926/2025 sample-paths
+#... node_2535490:C23277T node_2535535:A21713G node_2535536:G22599A
+g node_2535535: sample-paths | g -v node_2535536: | cut -f 1 > pruneForLP3199
+wc -l pruneForLP3199
+#1 pruneForLP3199
+
+
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3173
+# Due to the complex mutations in 26491-26497 area, usher place it on a flip-flop branch @AngieHinrichs
+g Spain/AN-PMC-43090/2025 sample-paths
+#... node_2525230:G22865T node_2534506:A21627C node_2534517:T26491C,A26492T,T26497C node_2534518:C21627A
+g node_2534517: sample-paths | g -v node_2534518: | cut -f 1 > pruneForPQ.42
+wc -l pruneForPQ.42
+#2 pruneForPQ.42
+
+
+# QC.6 is split -- late G22103A after one sequence
+g Spain/AR-HCULB-00005622/2025 sample-paths
+#... node_2379936:C11008T node_2379998:T1315C,C18508T,C26151T node_2379999:C13740T,C20762T,T22228C node_2380000:T9151A,G22103A 
+g node_2379999: sample-paths | g -v node_2380000: | cut -f 1 > pruneForQC.6
+wc -l pruneForQC.6
+#1 pruneForQC.6
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c BA.3.2 -S sample-paths.BA.3.2
+
+# RE.2.2.4 is split -- late C7764T after a couple sequences
+g Germany/NW-RKI-I-1149635/2025 sample-paths.BA.3.2
+#... node_927281:C13255T,A25998G node_927282:C1441T,C21855T,G22081T node_927283:C7764T
+g node_927282: sample-paths.BA.3.2 | g -v node_927283: | cut -f 1 > pruneForRE.2.2.4
+wc -l pruneForRE.2.2.4
+#2 pruneForRE.2.2.4
+
+
+wc -l pruneFor*
+#  1 pruneForLP3199
+#  2 pruneForPQ.42
+#  1 pruneForQC.6
+#  2 pruneForRE.2.2.4
+#  6 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m43.737s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15244126,with radius 1, second from start 176 
+#parsimony score after optimizing: 15244106,with radius 2, second from start 249 
+#parsimony score after optimizing: 15244099,with radius 4, second from start 581 
+#parsimony score after optimizing: 15244092,with radius 8, second from start 2661 
+#parsimony score after optimizing: 15244088,with radius 16, second from start 5546 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+
+# Check paths
+
+# 21713, 22599 before 23277?
+g USA/CO-CDPHE-45455926/2025 sample-paths.pruned
+#... node_2525231:G22865T node_2531709:A21713G node_2531710:G22599A node_2531711:C23277T
+# Good, but of course check tomorrow.
+
+# No more flip-flop on 21627?
+g Spain/AN-PMC-43090/2025 sample-paths.pruned
+#... node_2525231:G22865T node_2536916:T26491C,A26492T,T26497C
+# Good.
+
+# 22103 before C13740T,C20762T,T22228C ?
+g Spain/AR-HCULB-00005622/2025 sample-paths.pruned
+#... node_2379938:C11008T node_2380000:T1315C,C18508T,G22103A,C26151T node_2380001:T9151A,C13740T,C20762T,T22228C
+# Good (for now...)
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c BA.3.2 -S sample-paths.BA.3.2.pruned
+
+# 7764 before C1441T,C21855T,G22081T ?
+g Germany/NW-RKI-I-1149635/2025 sample-paths.BA.3.2.pruned
+#... node_927282:C13255T,A25998G node_927283:C7764T node_927284:C1441T,C21855T,G22081T
+# Good.

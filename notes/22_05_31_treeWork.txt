@@ -1,0 +1,219 @@
+today=2022-05-31
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# BA.2.11 has an annoying back-mut/re-mut on its path
+# Lop from France/GES-HMN-22042290679/2022, keep from France/ARA-HCL022065723801/2022
+g France/GES-HMN-22042290679/2022 sample-paths
+#... node_1304432:C2790T node_1355023:G26577C node_1356408:T7820C,T22917G
+g France/ARA-HCL022065723801/2022 sample-paths
+#... node_1304432:C2790T node_1355023:G26577C node_1356408:T7820C,T22917G node_1356411:C26577G
+g node_1356408: sample-paths | g -v node_1356411: | cut -f 1 > lopForBA.2.11
+wc -l lopForBA.2.11
+#7 lopForBA.2.11
+
+# BA.5.3 is split... lop from Germany/NW-RKI-I-815715/2022, keep from SouthAfrica/NICD-N40079/2022
+g Germany/NW-RKI-I-815715/2022 sample-paths
+#... node_1485481:C27889T node_1485482:G28681T
+g SouthAfrica/NICD-N40079/2022 sample-paths
+#... node_1485481:C27889T node_1485482:G28681T node_1485485:C1931A
+g node_1485482: sample-paths | g -v node_1485485: | cut -f 1 > lopForBA.5.3
+#5 lopForBA.5.3
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat lopFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    16m23.583s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt
+# BA.2.11 back-mut/re-mut gone?:
+g France/ARA-HCL722001964101/2022 sample-paths.opt
+#... node_1612006:C2790T node_1675393:G26577C node_1677117:T22917G,C26577G
+# Crud, it still has the back-mut & re-mut... they're just closer now.  How many in the way?
+g node_1675393: sample-paths.opt | g -v node_1677117: | wc -l
+#5737
+# Too many... do we need to lop and re-add all of BA.2.11?
+g node_1677117: sample-paths.opt | wc -l
+#528
+# Ha, not that many.  Tempting to lop and let them be added back tomorrow but I don't want the
+# main site to be missing an entire lineage.
+# Leave it for next time and in the meantime maybe we'll get lucky with optimization...
+
+# Check BA.5.3 split branch
+g SouthAfrica/NICD-N40079/2022 sample-paths.opt
+#... node_1839962:C27889T node_1839963:C1931A node_1839964:G28681T
+# Good, 1931 comes first, so there should be one coherent branch now.
+
+
+# Reannoate
+time $matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -P cladeToPath \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade
+#real    3m25.286s
+rm gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+time $matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c $ottoDir/$prevDate/lineageToName \
+    -f 0.95 \
+    -D details.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    >& annotate.pango
+#real    9m34.523s
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Update metadata & make taxonium, check BA.2.11, BA.5.3 and other new lineages.
+
+# 2022-06-01
+# Dang, BA.4.1 is split... but due to NCBI download issues it will be a few hours before today's
+# build needs the protobuf, so let's fix it.
+
+# Most of BA.4.1 is BA.4 > T22917G > T21570G, but BA.4.1 is annotated on BA.4 > T21570G with
+# multiple branches with T22917G.  (Hazards of matOptimize now being more back-mutation averse...)
+# Let's whack the T22917G-less sequences and make T22917G required for BA.4.1.
+
+# Lop from SouthAfrica/NHLS-UCT-GS-BJ47/2022, keep from SouthAfrica/NCV1223/2022 and
+# England/LSPA-3E08089/2022 and USA/NY-PRL-220511_02C04/2022 and Austria/CeMM29235/2022 and
+# Austria/LB-R00071-S178/2022 and SouthAfrica/NICD-N38801/2022 and SouthAfrica/NICD-N38827/2022.
+g SouthAfrica/NHLS-UCT-GS-BJ47/2022 sample-paths
+#... node_1326474:T9866C
+# That's actually a step further back than strictly necessary for BA.4.1, but if there are any
+# unlucky 22917N's in there, this should help.
+g SouthAfrica/NCV1223/2022 sample-paths
+#... node_1326474:T9866C node_1326531:A23535G node_1326533:C25513T node_1326534:T22917G
+g England/LSPA-3E08089/2022 sample-paths
+#... node_1326474:T9866C node_1326544:A8308G node_1326545:C13255T node_1326546:T22917G
+g USA/NY-PRL-220511_02C04/2022 sample-paths
+#... node_1326474:T9866C node_1326475:T21570G node_1326477:C12049T node_1326478:T22917G
+g Austria/CeMM29235/2022 sample-paths
+#... node_1326474:T9866C node_1326475:T21570G node_1326512:C27644T,C29686T node_1326513:C3176T node_1326514:C14407T node_1326515:T22917G
+g Austria/LB-R00071-S178/2022 sample-paths
+#... node_1326474:T9866C node_1326475:T21570G node_1326512:C27644T,C29686T node_1326513:C3176T node_1326514:C14407T node_1326517:C29762T node_1326518:T22917G
+g SouthAfrica/NICD-N38801/2022 sample-paths
+#... node_1326474:T9866C node_1326475:T21570G node_1326479:C17439T,A18941G node_1326480:T22917G
+g SouthAfrica/NICD-N38827/2022 sample-paths
+#... node_1326474:T9866C node_1326558:T22917G
+g node_1326474: sample-paths | g -v node_1326534: | g -v node_1326546: | g -v node_1326478: \
+| g -v node_1326515: | g -v node_1326518: | g -v node_1326480: | g -v node_1326558: \
+| cut -f 1 > lopForBA.4.1
+wc -l lopForBA.4.1
+#192 lopForBA.4.1
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat lopFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    16m26.846s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt
+
+# BA.2.11 back-mut/re-mut gone?:
+g France/ARA-HCL722001964101/2022 sample-paths.opt
+#... node_1612003:C2790T node_1941076:T22917G node_1941077:T7820C 
+# Whoa it's actually gone now!  :)
+
+# Check BA.5.3 split branch
+g SouthAfrica/NICD-N40079/2022 sample-paths.opt
+#... node_1839795:C27889T node_1839796:C1931A node_1839797:G28681T
+# 1931 first, good.
+
+# Check BA.4.1 split branch
+g SouthAfrica/NICD-N39505/2022 sample-paths.opt
+#... node_1639270:G12160A,G27788T node_1639271:T23018G,G23040A node_1639272:A12160G node_1639273:T22917G node_1639274:T9866C node_1639275:G12160A  ...
+# Hmmm... that sample went off to some 12160 reversion branch, ugh, with a re-mut after 22917...
+# maybe lop some for that too.
+g node_1639272: sample-paths.opt | g -v node_1639275: | wc -l
+#4
+# Yep, whack 'em and try again.  Hopefully we can keep the luck with BA.2.11.  :)
+g node_1639272: sample-paths.opt | g -v node_1639275: | cut -f 1 \
+    >> lopForBA.4.1
+wc -l lopForBA.4.1 
+#196 lopForBA.4.1
+
+# Check some more BA.4.1 samples...
+g Austria/LB-R00076-S372/2022 sample-paths.opt
+#... node_1639272:A12160G node_1639273:T22917G node_1639274:T9866C node_1639275:G12160A ...
+# Same 12160 spot.
+g SouthAfrica/CERI-KRISP-K039663/2022 sample-paths.opt
+# Same.  Well, at least it should be consistent... how weird that they all got pulled into a
+# back-mut/re-mut thing (with a late necessary-for-BA.4 back-mut on 9866).
+
+# Take 3...
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat lopFor*) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+
+time ~angie/github/usher_branch/build/matOptimize \
+    -T 150 -r 8 -M 2 -S move_log.usher_branch \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.usher_branch.pruned.log
+#real    17m15.405s
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -S sample-paths.opt
+
+# BA.2.11 back-mut/re-mut gone?:
+g France/ARA-HCL722001964101/2022 sample-paths.opt
+#... node_1612003:C2790T node_1941073:T22917G node_1941074:T7820C 
+# Yay!  fixed.
+
+# Check BA.5.3 split branch
+g SouthAfrica/NICD-N40079/2022 sample-paths.opt
+#... node_1839801:C27889T node_1839802:C1931A node_1839803:G28681T
+# Good, 1931 first.
+
+# Check BA.4.1 split branch
+g SouthAfrica/NICD-N39505/2022 sample-paths.opt
+#... node_1639271:T23018G,G23040A node_1639272:T9866C,T22917G node_1639470:T21570G ...
+# Nice, 22917 and 9866 got moved back, then we get T21570G for a coherent BA.4.1.
+# It should have ~300 + ~1800 leaves:
+g node_1639470: sample-paths.opt | wc -l
+#1976
+# Woohoo!  Well, it's taken long enough that usher is running... interrupt it, regenerate
+# prevRenamed.pb and restart.  But only after re-annotating etc.
+
+# Reannoate
+time $matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -P cladeToPath \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade \
+    -o gisaidAndPublic.$today.masked.nextclade.pb \
+    >& annotate.nextclade
+#real    3m53.520s
+rm gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+time $matUtils annotate -T 50 \
+    -i gisaidAndPublic.$today.masked.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c $ottoDir/$prevDate/lineageToName \
+    -f 0.95 \
+    -D details.pango \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+    >& annotate.pango
+#real    9m40.890s
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Update metadata & make taxonium, check BA.1.17.2 etc.
+

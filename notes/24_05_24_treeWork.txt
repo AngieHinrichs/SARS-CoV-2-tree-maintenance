@@ -1,0 +1,324 @@
+today=2024-05-24
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# FedeGueli requested to unmask 21627 (S:T22N) in BA.2.86. After updating branchSpecificMask.yaml,
+# remove the 300 BA.2.86* samples that have C21627A according to GISAID so they can be added back
+# without the masking.
+zcat /data/tmp/angie/BA.2.86.C21627A.metadata.tsv.gz \
+| tail -n+2 | cut -f 3 \
+| g -Fwf - samples.$today > pruneFor21627
+wc -l pruneFor21627
+wc -l pruneFor21627
+#199 pruneFor21627
+# Also look up in $epiToPublic
+zcat /data/tmp/angie/BA.2.86.C21627A.metadata.tsv.gz \
+| tail -n+2 | cut -f 3 \
+| g -Fwf - $epiToPublic | cut --f 2 \
+| g -Fwf - samples.$today >> pruneFor21627
+wc -l pruneFor21627
+#293 pruneFor21627
+# And add one more I missed in the GISAID query (BA.2.86.1 not just JN.1):
+g Korea/KDCA274954/2023 samples.$today >> pruneFor21627
+wc -l pruneFor21627
+#294 pruneFor21627
+
+# Fede spotted a bit of JN.1.16 misplaced in JN.1.30 on a rev branch
+# https://github.com/cov-lineages/pango-designation/issues/2598
+g Chile/BI-21480/2024 sample-paths
+#... node_2261443:T27810C node_2303923:G21255T node_2304085:T22928C node_2304086:C27573T node_2304087:T21255G
+g node_2304085: sample-paths | g -v node_2304087: | cut -f 1 > pruneForJN.1.16
+wc -l pruneForJN.1.16
+#2 pruneForJN.1.16
+
+
+# Fede spotted a chunk of JN.1.18.2 misplaced a bit upstream by one sequence
+g USA/MD-CDC-LC1102955/2024 sample-paths
+#... node_2261443:T27810C node_2319866:G22599C node_2320040:T22321C node_2320042:C4331T node_2320043:C19185T node_2320044:T21738C
+g node_2320043: sample-paths | g -v node_2320044: | cut -f 1 > pruneForJN.1.18.2
+wc -l pruneForJN.1.18.2
+#1 pruneForJN.1.18.2
+
+
+# Free up this double-rev/re-mut:
+g Netherlands/NH-RIVM-137943/2024 sample-paths
+#... node_2261443:T27810C node_2300788:A22992G node_2300791:A22995C node_2300857:C774T node_2300858:T18453C node_2300880:A29725G node_2300894:C22995A node_2300895:G22992A
+g node_2300788: sample-paths | g -v node_2300895: | cut -f 1 > pruneForJN.1.4
+wc -l pruneForJN.1.4
+#346 pruneForJN.1.4
+
+
+# JN.1.39.1 has some reversions that make me suspect Ns & incorrect imputation...
+# Prune everything upstream of the reversions, to be added back tomorrow.
+g Ireland/D-NVRL-RIRL00024565/2024 sample-paths
+#... node_2261443:T27810C node_2322965:T22928C node_2323144:G22599C node_2323291:T6913C,A16011G,A19689G,C23114T,T25631C node_2323292:C21034T node_2323293:G2782T node_2323296:G19689A node_2323298:T23114C node_2323299:G17623T,C27557T
+g node_2323291: sample-paths | g -v node_2323299: | cut -f 1 > pruneForJN.1.39.1
+wc -l pruneForJN.1.39.1
+#61 pruneForJN.1.39.1
+
+
+# Many late 18453 in JN.1.4
+
+g Denmark/DCGC-669443/2023 sample-paths
+#... node_2261443:T27810C node_2304533:C774T node_2305748:A21137G node_2305749:T18453C
+g node_2305748: sample-paths | g -v node_2305749: | cut -f 1 > pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#102 pruneForJN.1.4_18453
+
+g Denmark/DCGC-669943/2023 sample-paths
+#... node_2261443:T27810C node_2304533:C774T node_2304675:C7521T node_2304676:T18453C
+g node_2304675: sample-paths | g -v node_2304676: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#103 pruneForJN.1.4_18453
+
+g Italy/VEN-IZSVe-23RS8255-8_PD/2023 sample-paths
+#... node_2261443:T27810C node_2304533:C774T node_2305618:C19269T node_2305619:T18453C
+g node_2305618: sample-paths | g -v node_2305619: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#109 pruneForJN.1.4_18453
+
+g NewZealand/24YA1380/2024 sample-paths
+#... node_2261443:T27810C node_2304533:C774T node_2304626:C29272T node_2304627:T18453C
+g node_2304626: sample-paths | g -v node_2304627: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#123 pruneForJN.1.4_18453
+
+g Sweden/T-22613669/2023 sample-paths
+#... node_2261443:T27810C node_2304533:C774T node_2306342:C27509T node_2306343:T18453C
+g node_2306342: sample-paths | g -v node_2306343: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#126 pruneForJN.1.4_18453
+
+g USA/NJ-PHEL-V24001593/2024 sample-paths
+#... node_2304533:C774T node_2305514:C18377T node_2305518:T18453C
+g node_2305514: sample-paths | g -v node_2305518: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#140 pruneForJN.1.4_18453
+
+g USA/NJ-CDC-LC1099666/2024 sample-paths
+#... node_2304533:C774T node_2305016:C14120T node_2305018:T18453C
+g node_2305016: sample-paths | g -v node_2305018: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#144 pruneForJN.1.4_18453
+
+g Scotland/CLIMB-CM7YJSQ1/2024 sample-paths
+#... node_2304533:C774T node_2305443:C22594T node_2305444:T18453C
+g node_2305443: sample-paths | g -v node_2305444: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#147 pruneForJN.1.4_18453
+
+g USA/CA-SFDPH-F41732/2024 sample-paths
+#... node_2304533:C774T node_2304987:C23757T node_2304988:T18453C
+g node_2304987: sample-paths | g -v node_2304988: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#148 pruneForJN.1.4_18453
+
+
+# Some stranded bits of JN.1.4+18453C on rev branches etc.
+
+g CHN/SH-PD20240124003/2024 sample-paths
+#... node_2261443:T27810C node_2301337:C5581A node_2301453:C23019T node_2301454:C23018T node_2301455:A5581C node_2301474:C774T node_2301477:T18453C 
+g node_2301453: sample-paths | g -v node_2301477: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#265 pruneForJN.1.4_18453
+
+g USA/CA-CDPH-500132605/2024 sample-paths
+#... node_2261443:T27810C node_2270712:C24034T node_2271127:C774T node_2271128:T18453C
+g node_2271127: sample-paths | g -v node_2271128: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#285 pruneForJN.1.4_18453
+
+g SouthKorea/KDCA291172/2024 sample-paths
+#... node_2261443:T27810C node_2293811:C22480T node_2293812:C774T node_2293813:T18453C 
+g node_2293811: sample-paths | g -v node_2293813: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#375 pruneForJN.1.4_18453
+
+g Austria/AGES-AZ-1689856/2024 sample-paths
+#... node_2261443:T27810C node_2320601:C9532T node_2320602:T21042G,A21043T,G21044C node_2320603:T9532C node_2320608:C774T node_2320609:T18453C
+g node_2320602: sample-paths | g -v node_2320609: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#401 pruneForJN.1.4_18453
+
+g USA/CO-CDPHE-41673028/2024 sample-paths
+#... node_2261443:T27810C node_2302073:C24381T node_2302074:C774T node_2302075:T18453C
+g node_2302073: sample-paths | g -v node_2302075: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#437 pruneForJN.1.4_18453
+
+g USA/WA-S24812/2024 sample-paths
+#... node_2261443:T27810C node_2265003:C25511T node_2265006:C774T node_2265009:T18453C
+g node_2265003: sample-paths | g -v node_2265009: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#490 pruneForJN.1.4_18453
+
+g SouthKorea/KDCA288392/2024 sample-paths
+#... node_2261443:T27810C node_2266107:C27493T node_2266111:C774T node_2266113:T18453C
+g node_2266107: sample-paths | g -v  node_2266113: | cut -f 1 >> pruneForJN.1.4_18453
+wc -l pruneForJN.1.4_18453
+#516 pruneForJN.1.4_18453
+
+
+# Force-move a node to change this structure:
+#T22930A > G22599C > A22930G
+#G22599C
+#to this:
+#T22930A > G22599C
+#G22599C (JN.1.18) > T22930G
+#https://github.com/cov-lineages/pango-designation/issues/2567
+# Move this branch: 
+g NewZealand/24ZA2051/2024 sample-paths
+#... node_2261443:T27810C node_2277709:T22930A node_2277714:G22599C node_2277719:A22930G
+# To:
+g Canada/ON-PHL-202405129/2024 sample-paths
+#... node_2261443:T27810C node_2319866:G22599C 
+echo -e "node_2277719\tnode_2319866" > forceMove.tsv
+
+
+# Xu wants a force-move of parent of USA/NY-CDC-LC1094418/2024 to JN.1.39
+# https://github.com/cov-lineages/pango-designation/issues/2543
+# Move:
+g USA/NY-CDC-LC1094418/2024 sample-paths
+#... node_2261443:T27810C node_2322965:T22928C node_2323453:G2782T
+# To:
+g Spain/AN-PMC-38990/2023 sample-paths
+#...node_2261443:T27810C node_2302956:G2782T
+echo -e "node_2323453\tnode_2302956" >> forceMove.tsv
+
+# And another force-move request (different 22928 muts serialized by UShER)
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1437
+# From:
+g BGD/9850683/2024 sample-paths
+#... node_2261443:T27810C node_2322965:T22928C node_2323144:G22599C node_2323152:C22928G
+# To: JN.1.18 node from above
+echo -e "node_2323152\tnode_2319866" >> forceMove.tsv
+
+
+$matUtils mask --move-nodes forceMove.tsv -i gisaidAndPublic.$today.masked.pb \
+    -o gisaidAndPublic.$today.masked.forceMove.pb.gz
+$matUtils extract -i gisaidAndPublic.$today.masked.forceMove.pb.gz -c BA.2.86 \
+    -S sample-paths.forceMove
+g NewZealand/24ZA2051/2024 sample-paths.forceMove
+#... node_2261443:T27810C node_2319881:G22599C node_2320439:T22930G
+g USA/NY-CDC-LC1094418/2024 sample-paths.forceMove
+#... node_2261443:T27810C node_2302943:G2782T node_2303910:T22928C
+g BGD/9850683/2024 sample-paths.forceMove
+#... node_2261443:T27810C node_2319881:G22599C node_2320452:T22928G
+
+
+
+wc -l pruneFor*
+#  294 pruneFor21627
+#    2 pruneForJN.1.16
+#    1 pruneForJN.1.18.2
+#   61 pruneForJN.1.39.1
+#  346 pruneForJN.1.4
+#  516 pruneForJN.1.4_18453
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.forceMove.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    109m11.681s
+
+g radius matOptimize.pruned.log
+#Will double radius after each iteration
+#parsimony score after optimizing: 14152010,with radius 1, second from start 283
+#parsimony score after optimizing: 14151990,with radius 2, second from start 390
+#parsimony score after optimizing: 14151980,with radius 4, second from start 878
+#parsimony score after optimizing: 14151976,with radius 8, second from start 3433
+#parsimony score after optimizing: 14151976,with radius 16, second from start 5556
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+
+# No more flip-flop on 21255, 22928 first?
+g Chile/BI-21480/2024 sample-paths.pruned
+#... node_2261445:T27810C node_2321874:T22928C node_2322308:C27573T
+# Good.
+
+# 21738 before 19815?
+g USA/MD-CDC-LC1102955/2024 sample-paths.pruned
+#... node_2261445:T27810C node_2318752:G22599C node_2318926:T22321C node_2318928:C4331T node_2318929:T21738C node_2318930:C19185T...
+# Good.
+
+# In JN.1.4 with no flip-flops?
+g Netherlands/NH-RIVM-137943/2024 sample-paths.pruned
+#... node_2261445:T27810C node_2303330:C774T node_2305224:T18453C node_2315595:A29725G
+# Good.
+
+# No flip-flop on 19689, 23114?
+g Ireland/D-NVRL-RIRL00024565/2024 sample-paths.pruned
+#... node_2261445:T27810C node_2318752:G22599C node_2319054:G2782T node_2319055:T6913C node_2319057:G17623T,C21034T,T22928C,T25631C,C27557T node_2319058:A16011G
+# Good (although 2782-first would probably please Xu more)
+
+# Force-moves preserved?
+g NewZealand/24ZA2051/2024 sample-paths.pruned
+#... node_2261445:T27810C node_2318752:G22599C node_2319305:T22930G
+g USA/NY-CDC-LC1094418/2024 sample-paths.pruned
+#... node_2261445:T27810C node_2301911:G2782T node_2302867:T22928C
+g BGD/9850683/2024 sample-paths.pruned
+#... node_2261445:T27810C node_2318752:G22599C node_2319318:T22928G
+# Yay!
+
+
+# 2024-05-25 - check after samples added back
+today=2024-05-25
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+#Oh #^&$%ing hell I forgot to tweak branchSpecificMask.yml.  Going to have to pruneFor21627 again.
+
+# No more flip-flop on 21255, 22928 first?
+g Chile/BI-21480/2024 sample-paths
+#... node_2261495:T27810C node_2322161:T22928C node_2322607:C27573T
+# Good.
+
+# 21738 before 19815?
+g USA/MD-CDC-LC1102955/2024 sample-paths
+#... node_2261495:T27810C node_2318994:G22599C node_2319168:T22321C node_2319170:C4331T node_2319171:T21738C node_2319172:C19185T
+# Good.
+
+# In JN.1.4 with no flip-flops?
+g Netherlands/NH-RIVM-137943/2024 sample-paths
+#... node_2261495:T27810C node_2303471:C774T node_2305422:T18453C node_2315830:A29725G
+# Good.
+
+# No flip-flop on 19689, 23114?
+g Ireland/D-NVRL-RIRL00024565/2024 sample-paths
+#... node_2261495:T27810C node_2318994:G22599C node_2319300:G2782T node_2319305:C21034T,T22928C node_2319306:T6913C,T25631C node_2319307:G17623T,C27557T node_2319308:A16011G
+# Good.
+
+# Force-moves preserved?
+g NewZealand/24ZA2051/2024 sample-paths
+#... node_2261495:T27810C node_2318994:G22599C node_2319571:T22930G
+g USA/NY-CDC-LC1094418/2024 sample-paths
+#... node_2261495:T27810C node_2302048:G2782T node_2303006:T22928C
+g BGD/9850683/2024 sample-paths
+#... node_2261495:T27810C node_2318994:G22599C node_2319584:T22928G
+# Good.

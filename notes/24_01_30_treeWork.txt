@@ -1,0 +1,167 @@
+# Get sample-paths -- restrict to BA.2 since we'll only look at recent lineages
+
+today=2024-01-30
+cd $ottoDir/$today
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2 -S sample-paths
+#real    9m0.650s
+
+# HK.3-looking branch in HK.2.1 with reversion on HK.2-defining 21604:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/1345
+grep Japan/PG-576369/2023 sample-paths
+#... node_1137867:G21604T node_1137918:G22927T node_1137999:A23670T node_1138000:T21604G
+grep node_1137999: sample-paths | grep -v node_1138000: | cut -f 1 > pruneForHK.3
+wc -l pruneForHK.3
+#2 pruneForHK.3
+
+# Similarly, this is placed in HK.27 with rev on defining 5031, and T29625C is a rev of EG.5.1 mut:
+# https://github.com/cov-lineages/pango-designation/issues/2478
+g SouthKorea/KDCA269252/2023 sample-paths
+#... node_1134034:C5031T node_1134076:G22927T node_1134105:T29625C node_1134119:T5031C node_1134120:A17612G,G29706T
+# There are a lot of 29625 revs without 5031 rev.  But since we have two revs in a row there,
+# prune the many 29625 revs to get the 5031 rev branch a chance to break out of HK.27, and give
+# those sequences a chance to be reimputed in case of Ns.
+g node_1134105: sample-paths | g -v node_1134119: | cut -f 1 >> pruneForHK.3
+wc -l pruneForHK.3
+#455 pruneForHK.3
+
+
+# There are lots of little branches in BA.2.86.1 that get A2127G after one or two other mutations,
+# which is weird... A2127G is the defining mutation of JN.2.  So are all those little branches
+# just wayward JN.2 bits anchored on sequences with 2127N and some other mut?  Or could there
+# really be that much advantage to A2127G (ORF1a:Y621C)?  Might as well try to fold them into
+# JN.2 and see what happens when other seqs are added back.
+
+# rev22770 branch with several 2127s:
+g Sweden/C-03_SE600_000200643415N2/2023 sample-paths
+#... node_2229660:C12815T node_2231246:A22770G node_2231250:A22353C node_2231251:A2127G
+g Sweden/C-03_SE600_000200643605N2/2023 sample-paths
+#... node_2229660:C12815T node_2231246:A22770G node_2231266:A22295C,G22317T node_2231267:A22353C node_2231268:G22200A,T22208C node_2231275:A2127G
+g Denmark/DCGC-669410/2023 sample-paths
+#... node_2229660:C12815T node_2231246:A22770G node_2231288:A2127G
+g node_2231246: sample-paths | g -v node_2231251: | g -v node_2231275: | g -v node_2231288: \
+| cut -f 1 > pruneForJN.2
+wc -l pruneForJN.2
+#65 pruneForJN.2
+
+g Sweden/AC-460583225118/2023 sample-paths
+#... node_2229660:C12815T node_2230001:T23027C node_2230002:A2127G
+g node_2230001: sample-paths | g -v node_2230002: | cut -f 1 >> pruneForJN.2
+wc -l pruneForJN.2
+#69 pruneForJN.2
+
+g OY881988.1 sample-paths
+#... node_2229660:C12815T node_2230381:C27092T node_2230383:A2127G
+g node_2230381: sample-paths | g -v node_2230383: | cut -f 1 >> pruneForJN.2
+wc -l pruneForJN.2
+#76 pruneForJN.2
+
+g Sweden/O-14_SE300_DC23-006250/2023 sample-paths
+#... node_2229660:C12815T node_2232481:C19269T node_2232482:A19652G node_2232483:A2127G
+g node_2232481: sample-paths | g -v node_2232483: | cut -f 1 >> pruneForJN.2
+wc -l pruneForJN.2
+#79 pruneForJN.2
+
+g Sweden/H-083126/2023 sample-paths
+#... node_2229660:C12815T node_2230280:C398T node_2230281:A2127G
+g node_2230280: sample-paths | g -v node_2230281: | cut -f 1 >> pruneForJN.2
+wc -l pruneForJN.2
+#81 pruneForJN.2
+
+g OY974020.1 sample-paths
+#... node_2229660:C12815T node_2231759:C26895T node_2231760:A2127G,A11144C,T11764A,C15279T
+g node_2231759: sample-paths | g -v node_2231760: | cut -f 1 >> pruneForJN.2
+wc -l pruneForJN.2
+#82 pruneForJN.2
+
+g Canada/ON-PHL-23-41423/2023 sample-paths
+#... node_2229660:C12815T node_2232517:C335T node_2232518:A2127G
+g node_2232517: sample-paths | g -v node_2232518: | cut -f 1 >> pruneForJN.2
+wc -l pruneForJN.2
+#84 pruneForJN.2
+
+
+wc -l pruneFor*
+#  455 pruneForHK.3
+#   84 pruneForJN.2
+#  539 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    107m4.003s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 13826910,with radius 1, second from start 268
+#parsimony score after optimizing: 13826889,with radius 2, second from start 359
+#parsimony score after optimizing: 13826880,with radius 4, second from start 814
+#parsimony score after optimizing: 13826873,with radius 8, second from start 3205
+#parsimony score after optimizing: 13826867,with radius 16, second from start 5564
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2 -S sample-paths.pruned
+    
+# Check paths
+
+# In HK.3 with no 21604 flip-flop?
+grep Japan/PG-576369/2023 sample-paths.pruned
+#... node_1130975:C6541T node_1155382:A23670T node_1155383:G22927T
+# Hmmm, 23670 first, so probably not in HK.3 but flip-flop is gone.
+
+# In HK.3 with no 5031 flip-flop?
+g SouthKorea/KDCA269252/2023 sample-paths.pruned
+#... node_1130975:C6541T node_1134038:C5031T node_1134080:G22927T node_1134599:T5031C node_1134600:T29625C node_1134601:A17612G,G29706T
+# Doh... still the flip-flop.
+
+# In JN.2 with A2127G before assorted muts?
+g Sweden/C-03_SE600_000200643415N2/2023 sample-paths.pruned
+#... node_2229532:C12815T node_2251262:A2127G node_2252284:A22770G node_2252285:A22353C
+# Yep.
+g Sweden/C-03_SE600_000200643605N2/2023 sample-paths.pruned
+#... node_2229532:C12815T node_2251123:G22200T node_2251124:T22208C node_2251125:A22353C node_2251128:A2127G node_2251129:T22200A node_2251130:A22295C,G22317T,A22770G
+# Nope, different garbage rev branch.
+g Denmark/DCGC-669410/2023 sample-paths.pruned
+#... node_2229532:C12815T node_2251262:A2127G node_2252284:A22770G
+# Yep.
+g Sweden/AC-460583225118/2023 sample-paths.pruned
+#... node_2229532:C12815T node_2251262:A2127G node_2251266:T23027C
+# Yep.
+g OY881988.1 sample-paths.pruned
+#... node_2229532:C12815T node_2251262:A2127G node_2252263:C27092T
+# Yep.
+g Sweden/O-14_SE300_DC23-006250/2023 sample-paths.pruned
+#... node_2229532:C12815T node_2251262:A2127G node_2252300:A19652G node_2252301:C19269T
+# Yep.
+g Sweden/H-083126/2023 sample-paths.pruned
+#... node_2229532:C12815T node_2251262:A2127G node_2252322:C398T
+# Yep.
+g OY974020.1 sample-paths.pruned
+#... node_2229532:C12815T node_2251262:A2127G node_2251263:A11144C,T11764A,C15279T,C26895T
+# Yep.
+g Canada/ON-PHL-23-41423/2023 sample-paths.pruned
+#... node_2229532:C12815T node_2251262:A2127G node_2252318:C335T
+# Yep.
+
+# Check again when 2024-01-31 build is done.

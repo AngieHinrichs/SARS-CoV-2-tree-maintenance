@@ -1,0 +1,100 @@
+today=2025-08-05
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Cornelius pointed out late C25672T on PQ.5.1, caused by two sequences missing coverage
+# https://github.com/cov-lineages/pango-designation/commit/a3da6529a978600069025d820bbdcacdc8d65d28
+# Xu earlier complained about the branch being lumped with other G25687T
+# https://github.com/cov-lineages/pango-designation/issues/2970#issuecomment-3035382190
+g Australia/NSW-ICPMR-57004/2025 sample-paths
+# Prune back to G25687T to make sure it gets moved to PQ.5
+#... node_2471065:C15960T node_2471928:G25687T node_2471931:C7564T,C12781T,C28153T node_2471933:C25517T,C25672T
+g node_2471928: sample-paths | g -v node_2471933: | cut -f 1 > pruneForPQ.5.1
+wc -l pruneForPQ.5.1
+#15 pruneForPQ.5.1
+
+
+# Cornelius: QD.1 not under LF.7.1.8
+# https://github.com/cov-lineages/pango-designation/commit/80f6daf4ed05e0784be64116a0cd38a9e47c1fd7
+g USA/VA-GBW-GKISBBBE96902/2025 sample-paths
+# Prune back to A21979G to make sure...
+#... node_2347665:C6310T node_2347966:A21979G node_2347969:C23277T node_2347971:C5822T,G12793A,C13119T,C14184T,A22995T,T23485A ...
+g node_2347966: sample-paths | g -v node_2347971: | cut -f 1 > pruneForQD.1
+wc -l pruneForQD.1
+#10 pruneForQD.1
+
+
+# Cornelius: XFG.9 split (late G7760A)
+# https://github.com/cov-lineages/pango-designation/commit/038c4ad0cf89074deff5a8cccd84e51bc666901c
+g Spain/CT-HUVH-E603379/2025 sample-paths
+#... node_2350586:C20178T node_2350587:T12865C node_2350588:G7760A
+g node_2350587: sample-paths | g -v node_2350588: | cut -f 1 > pruneForXFG.9
+wc -l pruneForXFG.9
+#8 pruneForXFG.9
+
+
+wc -l pruneFor*
+#  15 pruneForPQ.5.1
+#  10 pruneForQD.1
+#   8 pruneForXFG.9
+#  33 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m34.988s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15019148,with radius 1, second from start 175
+#parsimony score after optimizing: 15019137,with radius 2, second from start 245
+#parsimony score after optimizing: 15019136,with radius 2, second from start 278
+#parsimony score after optimizing: 15019136,with radius 2, second from start 318
+#parsimony score after optimizing: 15019133,with radius 4, second from start 649
+#parsimony score after optimizing: 15019133,with radius 4, second from start 684
+#parsimony score after optimizing: 15019132,with radius 8, second from start 2382
+#parsimony score after optimizing: 15019132,with radius 8, second from start 2418
+#parsimony score after optimizing: 15019128,with radius 16, second from start 5535
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# C25672T right after C15960T?
+g Australia/NSW-ICPMR-57004/2025 sample-paths.pruned
+#... node_2471061:C15960T node_2474626:C25672T node_2474645:C25517T node_2474646:C7564T,C12781T,G25687T,C28153T
+# Good.
+
+# C23277T right after C6310T?
+g USA/VA-GBW-GKISBBBE96902/2025 sample-paths.pruned
+#... node_2347667:C6310T node_2349253:C23277T node_2349254:C5822T,G12793A,C13119T,C14184T,A22995T,T23485A ...
+# Good.
+
+# G7760A right after C20178T?
+g Spain/CT-HUVH-E603379/2025 sample-paths.pruned
+#... node_2350583:C20178T node_2351338:G7760A node_2351339:T12865C
+# Good.

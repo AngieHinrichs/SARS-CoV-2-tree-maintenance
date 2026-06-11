@@ -1,0 +1,132 @@
+today=2025-01-17
+cd $ottoDir/$today
+# Do all-Omicron because there are issues in BA.1 and BA.5.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c B.1.1.529 -S sample-paths
+
+# Xu pointed out that some sequences that might be XDY+22599C (or N) are placed just upstream of
+# XDY which is at reversion C22599G.  There are apparent other reversions of 22559 in one of those
+# upstream branches which I think is dubious -- probably Ns.  Prune sequences that seem to be XDY
+# without the rev.
+# https://github.com/cov-lineages/pango-designation/issues/2866
+# XDY:
+g Canada/AB-ABPHL-118512/2024 sample-paths
+#... node_2330036:C23039G node_2330037:C22858T node_2330069:C22599G
+# "independent" reversions probably caused by Ns:
+g Sweden/AC-24_SE100_24CS501651/2024 sample-paths
+#... node_2330036:C23039G node_2330037:C22858T node_2330038:C23086T node_2330039:C22599G
+g USA/CA-CDPH-500141329/2024 sample-paths
+#... node_2330036:C23039G node_2330037:C22858T node_2330061:C29625T node_2330062:C22599G
+# Cut the cruft at node_2330036:C23039G too, just in case any of those have more Ns but
+# could get better placements in XDY.
+g node_2330036: sample-paths | g -v node_2330069: | g -v node_2330039: | g -v node_2330062: | cut -f 1 > pruneForXDY
+wc -l pruneForXDY
+#63 pruneForXDY
+
+# Branch with run-ofs... most sequences should be in BA.1.1 but are misplaced in BA.1.
+# Found when looking at pango designations with same hash, different des. lineage.
+g Germany/NW-RKI-I-543086/2022 sample-paths
+#... node_881791:C29632T node_893066:G29778A node_893067:A29776T,G29779A,T29785C,G29786A node_893069:T29632C node_893070:G22599A ...
+g node_893066: sample-paths | g -v node_893070: | cut -f 1 > pruneForBA.1.1
+wc -l pruneForBA.1.1
+#44 pruneForBA.1.1
+
+
+# Most designated KS.1.1.1 are nowhere near NC.1 which is supposed to be a descendant --
+# they're on a branch with several other mutations that don't seem to be in KS.1 because
+# it gets 21627 late.  Ns?
+# Lop the branch, see where they get added back, maybe download seqs, paste into nextclade
+# and see if they really have those muts.  Or just add extra labels as necessary.
+g Canada/BC-BCCDC-722705/2024 sample-paths
+#... node_2319904:T21738C node_2321609:A1674C node_2321618:G599A,C5806T node_2321619:C7471T node_2321620:C21627A
+g node_2321609: sample-paths | g -v node_2321620: | cut -f 1 > pruneForKS.1.1.1
+wc -l pruneForKS.1.1.1
+#28 pruneForKS.1.1.1
+
+
+# See if we can get NC.1 into KS.1 (or even KS.1.1) by pruning many seqs (mostly Russia) that
+# don't have 21627.
+g USA/NY-PRL-240918_81A04/2024 sample-paths
+#... node_2319904:T21738C node_2320158:G22132T node_2320178:A1674C node_2320201:C21627A
+g node_2320158: sample-paths | g -v node_2320201: | cut -f 1 > pruneForNC.1
+wc -l pruneForNC.1
+#95 pruneForNC.1
+
+
+# A big chunk of BE.4 got pulled onto BA.5 by some garbage, should probably permanently exclude:
+g BGD/icddrb-TND-09-0721/2022 sample-paths
+#... node_1651595:C27889T node_1827123:C10188A node_1827124:C27800T node_1827125:C1931A node_1827126:C13342T node_1827127:G23608T node_1827128:G28681T
+g node_1827123: sample-paths | g -v node_1827128: | cut -f 1 > pruneForBE.4
+wc -l pruneForBE.4
+#18 pruneForBE.4
+
+
+wc -l pruneFor*
+#   44 pruneForBA.1.1
+#   18 pruneForBE.4
+#   28 pruneForKS.1.1.1
+#   95 pruneForNC.1
+#   63 pruneForXDY
+#  248 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    66m55.660s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# 22559 before C23086T?
+g Sweden/AC-24_SE100_24CS501651/2024 sample-paths.pruned
+#... node_2329958:G24872T node_2329959:C22599G node_2329960:C22858T,C23039G node_2329961:C23086T
+# 22559 before C29625T?
+g USA/CA-CDPH-500141329/2024 sample-paths.pruned
+#... node_2329958:G24872T node_2329959:C22599G node_2329960:C22858T,C23039G node_2329983:C29625T
+# Even farther upstream than I expected, but let's see what happens when seqs are added back.
+
+# In BA.1.1?
+g Germany/NW-RKI-I-543086/2022 sample-paths.pruned
+#... node_533345:G23048A node_711798:G22599A node_711799:A29776T,G29778A,G29779A,T29785C,G29786A node_711951:T20754C
+# Good.
+
+# In KS.1 with 21627 early rather than at the end?
+g Canada/BC-BCCDC-722705/2024 sample-paths.pruned
+#... node_2319884:T21738C node_2320746:C21627A node_2320747:A1674C node_2320748:G599A,C5806T,C7471T
+g USA/NY-PRL-240918_81A04/2024 sample-paths.pruned
+#... node_2319884:T21738C node_2320746:C21627A node_2320747:A1674C node_2320760:G22132T
+# Good but again let's see what happens...
+
+# In BE.4?
+g BGD/icddrb-TND-09-0721/2022 sample-paths.pruned
+#... node_1651581:C27889T node_2093771:C1931A node_2093772:G28681T node_2245202:C13342T node_2245203:C10188A node_2245204:C27800T node_2245205:G23608T 
+# Good.

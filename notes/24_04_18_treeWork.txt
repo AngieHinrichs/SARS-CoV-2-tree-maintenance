@@ -1,0 +1,89 @@
+today=2024-04-18
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c BA.2.86 -S sample-paths
+
+# FedeGueli spotted a late 24819 after reversion, keeping some sequences out of the KP.1.1 branch
+# that have 22599 but haven't been added to the tree yet... might be better to wait but give it a
+# try:
+g USA/NY-NYULH-18138/2024 sample-paths
+#... node_2253564:T27810C node_2268565:G17334T node_2268625:G24872T node_2268650:C7113T node_2268651:T22928C node_2268652:T17334G node_2268654:A24819G
+g node_2268652: sample-paths | g -v node_2268654: | cut -f 1 > pruneForKP.1.1
+wc -l pruneForKP.1.1
+#7 pruneForKP.1.1
+
+
+# FedeGueli spotted an incorrectly imputed mutation in Portugal/PT50701/2024, shown up by new seqs
+# like Australia/QLD0x014290/2024.
+# https://github.com/cov-lineages/pango-designation/issues/2562
+g Australia/QLD0x014290/2024 sample-paths
+#... node_2268651:T22928C node_2268657:C19895T node_2268659:G22599C node_2268661:C7945T,T11422C node_2268662:T19895C
+g node_2268661: sample-paths | g -v node_2268662: | cut -f 1 > pruneForPD2562
+wc -l pruneForPD2562
+#1 pruneForPD2562
+
+
+wc -l pruneFor*
+#  7 pruneForKP.1.1
+#  1 pruneForPD2562
+#  8 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#TODO
+#real    107m4.003s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c BA.2.86 -S sample-paths.pruned
+    
+# Check paths
+
+# Flip-flop on 17334 gone?
+g USA/NY-NYULH-18138/2024 sample-paths.pruned
+#... node_2253568:T27810C node_2268569:G17334T node_2268629:G24872T node_2268654:C7113T node_2268655:T22928C node_2269061:A24819G node_2269062:T17334G
+# Nope, maybe try again after new sequences like Taiwan/CDC-W36989/2024|EPI_ISL_19055021|2024-04-01
+# have been added.
+
+# Flip-flop on 19895 gone?
+g Australia/QLD0x014290/2024 sample-paths.pruned
+#... node_2253568:T27810C node_2268569:G17334T node_2268629:G24872T node_2268654:C7113T node_2268655:T22928C node_2268657:C19895T node_2268659:G22599C node_2268661:T19895C node_2268662:C7945T,T11422C
+# Damn, nope, it just got shuffled.  How many sequences on the flip-flop now?
+g node_2268661: sample-paths.pruned | wc -l
+#829
+# No way!  Something big (like KP.1) must have got moved there... and now it's a
+# grandparent-reversion.  Well, matUtils fix was written for exactly that case.
+
+$matUtils fix -i gisaidAndPublic.$today.pruned.opt.O.pb -o test.pb
+#Node node_2268661 mutation T19895C reverts grandparent node_2268657's C19895T, moving to node_2268655 with G22599C (771 descendents)
+$matUtils extract -i test.pb -c BA.2.86  -S sample-paths.fixed
+g Australia/QLD0x014290/2024 sample-paths.fixed
+#... node_2253566:T27810C node_2268565:G17334T node_2268625:G24872T node_2268650:C7113T node_2268651:T22928C node_2268893:G22599C node_2268894:C7945T,T11422C 
+# OK, at least the flip-flop on 19895 is gone.
+mv test.pb gisaidAndPublic.$today.pruned.opt.O.pb
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb

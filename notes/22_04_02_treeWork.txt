@@ -1,0 +1,269 @@
+# I found a bug in matUtils mask -m/--mask-mutations (branch-specific masking) that cause it
+# to mask each mutation only in one branch, even if the mutation was specified for multiple
+# branches.  So maskDelta was doing a lot less than I thought it was.  For example, 11291
+# was masked only in BA.1, not all the other VoCs that have a deletion there.
+# I also found that I still had "$BA1Node" not "$BA2Node" for some BA.2 deletions, argh.
+# Jakob fixed matUtils, I recompiled and re-masked & optimized the 2022-03-30 tree.
+
+# Most of this was done on newdev where I could totally hog it and use 150 threads. :)
+# (Technically could use 192-ish)
+
+today=2022-03-30
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.2022-03-30.masked.pb -S sample-paths
+# Noticed some funky clade placements in taxonium, found 11291 where not expected...
+g Sweden/10394736/2022 sample-paths | g 11291
+#... node_1117613:C10198T node_1117614:C2790T node_1150889:T16342C node_1151488:C22786A node_1151489:A28363T node_1151698:A22786C node_1151699:G11291A node_1151715:C25624T node_1151716:C16342T node_1151723:A28370G node_1151724:T25624C 
+# Doh!  (28363 and 28370 were supposed to be masked too -- that was my BA1Node/BA2Node bug)
+
+$scriptDir/maskDelta.sh merged.pb merged.deltaMasked.pb
+$matUtils extract -i merged.deltaMasked.pb -S sample-paths.merged.deltaMasked
+g Sweden/10394736/2022 sample-paths.merged.deltaMasked | g 11291
+# No output, good, 11291 is really masked now.
+$matOptimize -T 150 -r 8 -M 2 -S move_log.remasked \
+    -i merged.deltaMasked.pb \
+    -o gisaidAndPublic.2022-03-30.remasked.opt.pb \
+    >& matOptimize.remasked.log
+g Sweden/10394736/2022 sample-paths.remasked.opt
+#... node_1117884:C10198T node_1117885:C2790T 
+# Good!  Do the post-merge-opt filtering step, reannotate, replace original pb:
+$matUtils extract -i gisaidAndPublic.2022-03-30.remasked.opt.pb \
+    --max-parsimony 20 \
+    --max-branch-length 45 \
+    --max-path-length 150 \
+    -O -o gisaidAndPublic.2022-03-30.remasked.opt.trimmed.pb
+$matUtils annotate -T 50 \
+    -l \
+    -i gisaidAndPublic.2022-03-30.remasked.opt.pb \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -D details.nextclade.reannotate \
+    -o gisaidAndPublic.2022-03-30.remasked.opt.nextclade.pb \
+    >& annotate.nextclade.reannotate
+# Can use 150 threads on newdev:
+time $matUtils annotate -T 150 \
+    -i gisaidAndPublic.2022-03-30.remasked.opt.nextclade.pb \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -c $ottoDir/$prevDate/lineageToName \
+    -f 0.95 -D details.pango.reannotate \
+    -o gisaidAndPublic.2022-03-30.remasked.opt.nextclade.pangolin.pb \
+    >& annotate.pango.reannotate
+# Took only ~3 hours instead of >6!
+$matUtils extract -i gisaidAndPublic.2022-03-30.masked.pb \
+    -S sample-paths.remask -C clade-paths.remask
+mv gisaidAndPublic.2022-03-30.masked.pb gisaidAndPublic.2022-03-30.masked.preRemask.pb
+ln -f gisaidAndPublic.2022-03-30.remasked.opt.nextclade.pangolin.pb \
+    gisaidAndPublic.2022-03-30.masked.pb
+# Paste in steps from updateCombinedTree.sh to rebuild metadata & taxonium (not public yet)
+
+# Looking at taxonium, I saw multiple bad immediate-reversion paths that I could probably have
+# manually moved OK.  For example, G5924A > A5924G here:
+g USA/TX-Curative-157461/2022 sample-paths.remask
+#... node_1183952:G23048A node_1349428:G5924A node_1378865:A5924G node_1394758:A29301G 
+
+# I figured re-optmizing should take care of those and maybe some others I didn't notice.
+$matOptimize -T 150 -r 8 -M 2 -S move_log.remask.reopt \
+    -i gisaidAndPublic.2022-03-30.masked.pb \
+    -o gisaidAndPublic.2022-03-30.masked.remask.reopt.pb \
+    >& matOptimize.remask.reopt.log
+$matUtils extract -i gisaidAndPublic.2022-03-30.masked.remask.reopt.pb -S sample-paths.remask.reopt
+# But argh, BA.1.15 and BA.1.15.1 are still split because the tree has the 3 BA.1.15-defining
+# mutations happening in different orders.  So now we need to do some strategic pruning to join
+# them back up.  (It probably wouldn't prevent a lineageTree.pb from doing its job OK, and Aine
+# has started pangoLEARN training for v.1.2.141, but I want to send this to Chris too and it's
+# wrong for them to be split...)
+
+# BA.1.15 has C25708T > T10135C > A29301G:
+g USA/VA-DCLS-11541/2021 sample-paths.remask.reopt
+#... node_1183999:G23048A node_1398212:C25708T node_1398213:T10135C node_1398214:A29301G
+
+# BA.1.15.1 has T10135C > A29301G > C25708T:
+g Scotland/QEUH-2EFC513/2021 sample-paths.remask.reopt
+#... node_1183999:G23048A node_1393618:T10135C node_1393619:A29301G node_1393620:C25708T node_1393621:A24803G
+
+# How many need to be pruned before BA.1.15?
+# C25708T but not T10135C:
+g node_1398212: sample-paths.remask.reopt | g -v node_1398213: | wc -l
+#198
+# C25708T and T10135C but not A29301G:
+g node_1398213: sample-paths.remask.reopt | g -v node_1398214: | wc -l
+#415
+# BA.1.15.1 -- T10135C but not A29301G:
+g node_1393618: sample-paths.remask.reopt | g -v node_1393619: | wc -l
+#371
+# T10135C and A29301G but not C25708T:
+g node_1393619: sample-paths.remask.reopt | g -v node_1393620: | wc -l
+#370
+
+# 2022-04-03
+
+# OK, prune and opt again.
+g node_1398212: sample-paths.remask.reopt | g -v node_1398214: \
+| cut -f 1 > pruneForBA.1.15
+g node_1393618: sample-paths.remask.reopt | g -v node_1393620: \
+| cut -f 1 > pruneForBA.1.15.1
+wc -l prune*
+#  613 pruneForBA.1.15
+#  741 pruneForBA.1.15.1
+# 1354 total
+
+# Also prune the dups I found in 2022-03-28 when last rolling a gisaid-named pb for Chris.
+$matUtils extract -i gisaidAndPublic.2022-03-30.masked.remask.reopt.pb \
+    -p -s <(cat pruneForBA.1.15 pruneForBA.1.15.1 ../2022-03-28/dupsToPruneDangit) \
+    -o gisaidAndPublic.2022-03-30.masked.remask.reopt.prune.pb
+$matOptimize -T 150 -r 8 -M 2 -S move_log.remask.reopt.prune \
+    -i gisaidAndPublic.2022-03-30.masked.remask.reopt.prune.pb \
+    -o gisaidAndPublic.2022-03-30.masked.remask.reopt.prune.opt.pb \
+    >& matOptimize.remask.reopt.prune.log
+# Always the sample-paths & taxonium:
+$matUtils extract -i gisaidAndPublic.2022-03-30.masked.remask.reopt.prune.opt.pb \
+    -C clade-paths.remask.reopt.prune.opt -S sample-paths.remask.reopt.prune.opt
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.remask.reopt.prune.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.remask.reopt.prune.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+pigz -p 8 -f gisaidAndPublic.$today.masked.remask.reopt.prune.opt.taxodium.pb
+ls `pwd`/!$.gz
+
+g Ireland/CO-NVRL-S22IRL00069121/2022 sample-paths.remask.reopt.prune.opt
+#... node_1184002:G23048A node_1393624:A29301G node_1393625:C25708T node_1393626:T10135C 
+g Turkey/HSGM-F11247/2021 sample-paths.remask.reopt.prune.opt
+#... node_1184002:G23048A node_1393624:A29301G node_1393625:C25708T node_1393626:T10135C node_1409408:A24803G 
+
+# Checking all sublineages in taxonium... oh damn BA.1.18 (5730) is split again (25855)...
+# should probably just perma-exclude the samples that split that and BA.1.17/BA.1.17.1
+# (5924 / 23664)...
+g Switzerland/BS-UHB-43205946/2021 sample-paths.remask.reopt.prune.opt
+#... node_1184002:G23048A node_1389391:G25855T node_1389392:C5730T 
+# Get rid of the (relatively few) samples with G25855T and not 1389392
+g node_1389391: sample-paths.remask.reopt.prune.opt | g -v node_1389392: \
+| cut -f 1 > pruneForBA.1.18
+wc -l pruneForBA.1.18
+#48 pruneForBA.1.18
+g node_1389392: sample-paths.remask.reopt.prune.opt | wc -l
+#20111
+# Yep, relatively very few.
+# Prune, then add them to badBranchSeeds.  Then I guess we gotta optimize yet again and hope
+# BA.1.17 / 5924 doesn't get split...
+
+$matUtils extract -i gisaidAndPublic.2022-03-30.masked.remask.reopt.prune.opt.pb \
+    -p -s pruneForBA.1.18 \
+    -o gisaidAndPublic.2022-03-30.masked.remask.reopt.reprune.pb
+$matOptimize -T 150 -r 8 -M 2 -S move_log.remask.reopt.reprune \
+    -i gisaidAndPublic.2022-03-30.masked.remask.reopt.reprune.pb \
+    -o gisaidAndPublic.2022-03-30.masked.remask.reopt.reprune.opt.pb \
+    >& matOptimize.remask.reopt.reprune.log
+# Always the sample-paths & taxonium:
+$matUtils extract -i gisaidAndPublic.2022-03-30.masked.remask.reopt.reprune.opt.pb \
+    -C clade-paths.remask.reopt.reprune.opt -S sample-paths.remask.reopt.reprune.opt
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.remask.reopt.reprune.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.remask.reopt.reprune.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+pigz -p 8 -f gisaidAndPublic.$today.masked.remask.reopt.reprune.opt.taxodium.pb
+ls `pwd`/!$.gz
+
+# NFW... instead of putting 25855 > 5730 on 5730, it put it on a path with muts and back-muts
+# on 25000, 22599, 26577, and 16064:
+g Switzerland/BS-UHB-43205946/2021 sample-paths.remask.reopt.reprune.opt
+#... node_1184001:G23048A node_1199538:T25000C node_1199579:G26577C node_1199733:G22599A node_1199734:A16064G node_1199753:C26577G node_1199754:G16064A node_1199755:C5730T,G25855T node_1199756:A22599G node_1199757:C25000T 
+g Switzerland/BS-UHB-43205946/2021 sample-paths.remask.reopt.reprune.opt \
+| sed -re 's/node_[0-9]+:/> /g'
+#... G23048A > T25000C > G26577C > G22599A > A16064G > C26577G > G16064A > C5730T,G25855T > A22599G > C25000T 
+
+# And.. I can't just manually move the node because there isn't a G23048A > C5730T,G25855T.
+# So, I guess let's do some more crap-pruning.
+
+g node_1199538: sample-paths.remask.reopt.reprune.opt | g -v node_1199757: \
+| cut -f 1 > pruneMoreForBA.1.18
+#833 pruneMoreForBA.1.18
+
+$matUtils extract -i gisaidAndPublic.$today.masked.remask.reopt.reprune.opt.pb \
+    -p -s pruneMoreForBA.1.18 \
+    -o gisaidAndPublic.$today.masked.remask.reopt.rereprune.pb
+$matOptimize -T 150 -r 8 -M 2 -S move_log.remask.reopt.rereprune \
+    -i gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.pb \
+    -o gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.pb \
+    >& matOptimize.remask.reopt.rereprune.log
+# Always the sample-paths & taxonium:
+$matUtils extract -i gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.pb \
+    -C clade-paths.remask.reopt.rereprune.opt -S sample-paths.remask.reopt.rereprune.opt
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+time $matUtils extract -i gisaidAndPublic.$today.masked.remask.reopt.rereprune.opt.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --include-nt \
+    --write-taxodium gisaidAndPublic.$today.masked.remask.reopt.rereprune.opt.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+pigz -p 8 -f gisaidAndPublic.$today.masked.remask.reopt.rereprune.opt.taxodium.pb
+ls `pwd`/!$.gz
+
+# Finally!  BA.1.17, BA.1.15, and BA.1.18 are intact.
+# BA.1.19 still has a big back-mutation ugly on it, but time is running short so... ship it.
+wc -l clade-paths*
+#   1669 clade-paths.remask.reopt.prune.opt
+#   1669 clade-paths.remask.reopt.reprune.opt
+#   1668 clade-paths.remask.reopt.rereprune.opt
+# Doh!  One went away:
+diff <(cut -f 1 clade-paths.remask.reopt.reprune.opt | sort) \
+     <(cut -f 1 clade-paths.remask.reopt.rereprune.opt | sort)
+#< BA.1.18
+# OK, with all the path-swizzling, I guess not too surprising.
+# Somehow BA.1.15 got lost and I didn't notice:
+
+# Also, I told Cornelius I would fix a couple recombinant annotations that he pointed out
+# problems with (XM has a big child branch that is not XM; XD needs to start one node up)
+g ^miscRecombOrContam $scriptDir/pango.clade-mutations.tsv > test3.tsv
+g ^XD $scriptDir/pango.clade-mutations.tsv >> test3.tsv 
+g ^BA.1.18 $scriptDir/pango.clade-mutations.tsv >> test3.tsv 
+g ^BA.1.15 $scriptDir/pango.clade-mutations.tsv >> test3.tsv 
+
+$matUtils annotate -T100 -i gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.pb \
+    -M test3.tsv -o test.pb
+grep -E '^[A-Za-z]' clade-paths.remask.reopt.rereprune.opt | cut -f 1,2 | tail -n+2 \
+    > cladeNodes.reassign.rereprune
+#Assigning XD to node node_1337632
+#Assigning miscRecombOrContam to node node_1130711
+# Node node_1199538 already assigned to England/BRIS-127600/2020|FR998884.1|2020-04-16, cannot assign to BA.1.18.
+# ?!?!?  Well, node_1199538 looks like the right path, just add it to the cladeNodes file.
+# Then a SEGV when I ran it aain with BA.1.15.... yikes.
+BA.1.15	node_1393335
+
+vi cladeNodes.reassign.rereprune
+# Update XD, add miscRecombOrContam and BA.1.18.
+# Gotta reannotate nextclade separately.
+grep -E '^[0-9]' clade-paths.remask.reopt.rereprune.opt | cut -f 1,2 \
+    > cladeNodes.reassign.rereprune.nextclade
+$matUtils annotate -i gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.pb \
+    -l -C cladeNodes.reassign.rereprune.nextclade \
+    -o gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.nextclade.pb
+$matUtils annotate -i gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.nextclade.pb \
+    -C cladeNodes.reassign.rereprune \
+    -o gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.nextclade.pangolin.pb
+$matUtils extract \
+    -i gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.nextclade.pangolin.pb \
+    -C clade-paths.remask.reopt.rereprune.opt.reannotate
+wc -l clade-paths.remask.reopt.rereprune.opt.reannotate
+#1671 clade-paths.remask.reopt.rereprune.opt.reannotate
+
+ln -f gisaidAndPublic.2022-03-30.masked.remask.reopt.rereprune.opt.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+
+# Paste in steps from updateCombinedTree.sh to rebuild metadata, taxonium and public.

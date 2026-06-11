@@ -1,0 +1,25 @@
+# hgwdev is crazy loaded, use hgcompute-03
+ssh hgcompute-03
+
+# Today's build is slow, still in updateIdMapping step, so try to sneak in a little tweak to yesterday's tree
+today=2026-03-19
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c BA.3.2 -S sample-paths.BA.3.2
+
+# Cornelius noted that all seqs on RE.2.2 > C25069T have ambiguous 17007 and thinks they should be on RE.2.2 > T17007C i.e. RE.2.2.9.
+# He suggested lopping RE.2.2 > C25069T to see if the sequences get placed on RE.2.2 > T17007C.
+g Scotland/CLIMB-CM7YFYMJ/2025 sample-paths.BA.3.2
+#... node_927610:C28791T node_927816:C25069T ...
+g node_927816: sample-paths.BA.3.2 | cut -f 1 > pruneForRE.2.2.9
+wc -l pruneForRE.2.2.9
+#25 pruneForRE.2.2.9
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+          -p -s pruneForRE.2.2.9 \
+          -O -o gisaidAndPublic.$today.masked.useMe.pb.gz
+
+ls -l gisaidAndPublic.$today.masked.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+#-rw-rw-r-- 1 angie genecats 388935391 Mar 19 15:49 gisaidAndPublic.2026-03-19.masked.pb.gz
+#-rw-rw-r-- 1 angie genecats 388925743 Mar 20 10:18 gisaidAndPublic.2026-03-19.masked.useMe.pb.gz
+
+# Still in the updateIdMapping phase of the build, so that .useMe will be used in the 2026-03-20 build.

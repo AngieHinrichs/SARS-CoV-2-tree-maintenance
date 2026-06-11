@@ -1,0 +1,123 @@
+# Been a while since I manually pruned bad-branch seeds.
+
+# Starting over 2022-03-02 so I can get this into the daily build.
+today=2022-03-01
+cd $ottoDir/$today
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths -S sample-paths
+#real    4m35.213s
+
+# Cut from Russia/LIP-CRIE-L188D0004b/2021
+g Russia/LIP-CRIE-L188D0004b/2021 sample-paths
+#Russia/LIP-CRIE-L188D0004b/2021|EPI_ISL_2031890|2021-03-27      node_3337:C241T node_3748:T26767C Ru# --> node_3748
+g node_3748: sample-paths \
+| cut -f 1 > baddiesToPrune
+wc -l baddiesToPrune
+#541 baddiesToPrune
+g CDC-ASC baddiesToPrune | wc -l
+#414
+
+# Cut from common anc of Israel/SMC-7024870/2021 and USA/FL-Path-Saliva-3053/2021
+g Israel/SMC-7024870/2021 sample-paths
+#Israel/SMC-7024870/2021|...      ... node_959321:T11418C,C11514T node_959322:A5584G,G22917T Isr...
+g USA/FL-Path-Saliva-3053/2021 sample-paths
+#USA/FL-Path-Saliva-3053/2021|... ... node_959321:T11418C,C11514T node_959324:C9891T ...
+# --> node_959321
+g node_959321: sample-paths \
+| cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#548 baddiesToPrune
+
+# Cut from common anc of Turkey/HSGM-FS398/2021 and Turkey/HSGM-FS511/2021
+g Turkey/HSGM-FS398/2021 sample-paths
+#Turkey/HSGM-FS398/2021|...       ... node_959310:C884T,G29742T node_959320:T23032C,T23035A 
+g Turkey/HSGM-FS511/2021 sample-paths
+#Turkey/HSGM-FS511/2021|...       ... node_959310:C884T,G29742T node_959311:C5184T,A15451G,...
+# --> node_959310
+g node_959310: sample-paths \
+| cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#573 baddiesToPrune
+
+# Cut from parent of CzechRepublic/CSQ0170/2021
+g CzechRepublic/CSQ0170/2021 sample-paths 
+#CzechRepublic/CSQ0170/2021|...   ... node_959284:T27638C Cze...
+g node_959284: sample-paths \
+| cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#602 baddiesToPrune
+
+# Cut from TrinidadandTobago/120600/2022 (Omicron basal crud)
+# Keep from parent of Germany/NW-RKI-I-559790/2022 (BA.2, .3, possible recombinants)
+# Keep from Italy/PIE_IRCC_15865780/2021 (BA.1)
+g TrinidadandTobago/120600/2022 sample-paths
+#TrinidadandTobago/120600/2022|...        ... node_1102058:A2832G,C10449A,C23525T,T23599G,...
+g Germany/NW-RKI-I-559790/2022 sample-paths
+#Germany/NW-RKI-I-559790/2022|...        ... node_1273016:G2832A,C4321T,C12880T,C26858T node_1290725:T22813G 
+g Italy/PIE_IRCC_15865780/2021 sample-paths
+#Italy/PIE_IRCC_15865780/2021|... ... node_1102071:A2832G 
+# --> cut node_1102058, keep node_1273016 and node_1102071
+g node_1102058: sample-paths \
+| g -v node_1273016: | g -v node_1102071: \
+| cut -f 1 >> baddiesToPrune
+wc -l baddiesToPrune
+#709 baddiesToPrune
+
+# BA.2 is assigned too deep in the tree!  It's not assigned until India/MH-RFIP08170/2022
+# but it needs to be assigned one level up... it's missing a big branch with
+# England/PHEC-4S050Z62/2022.
+g India/MH-RFIP08170/2022 sample-paths
+#India/MH-RFIP08170/2022|...      ... node_1273021:A29510C node_1273022:C2790T 
+g England/PHEC-4S050Z62/2022 sample-paths
+#England/PHEC-4S050Z62/2022|...   ... node_1273021:A29510C Eng...
+# OK so we need to mask C2790T in pango.clade-mutations.tsv.
+# Reannotate BA.2 to node_1273021 .
+g -E '^[A-Z]' clade-paths | cut -f 1,2 > cladeNodes.reassign
+vi cladeNodes.reassign
+$matUtils annotate -i gisaidAndPublic.2022-03-01.masked.nextclade.pb -C cladeNodes.reassign \
+    -o test.pb
+$matUtils extract -i test.pb -C clade-paths.test
+diff clade-paths clade-paths.test
+#< BA.2  node_1273022     ... A29510C > C2790T
+#> BA.2  node_1273021     ... > A29510C
+mv test.pb gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+# Prune duplicates identified in the 2022-02-13 and 2022-02-28 trees (see
+# 22_02_14_gisaidNamesForChris.txt and 22_03_01_msaForLenore.txt).
+# Also prune withdrawn COG-UK sequences and .1's that have been replaced by .2's:
+g -v \|LC ../2022-02-28/notInPublicMsa > moreToPrune
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat ../2022-02-13/{noNameDups,qdxNameChangeDups,miscDups} \
+                ../2022-02-28/run.alignPublic/{noNameDups,denmarkNameChangeDups} \
+                baddiesToPrune moreToPrune) \
+    -o gisaidAndPublic.$today.masked.pruned.pb
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 9939249
+#Total Samples in Tree: 8165845
+#Total Condensed Nodes in Tree: 1065789
+#Total Samples in Condensed Nodes: 5494782
+#Total Tree Parsimony: 6978486
+#Number of Clade Annotations: 2
+#Max Tree Depth: 84
+#Mean Tree Depth: 37.503826
+$matUtils summary -i gisaidAndPublic.$today.masked.pruned.pb
+#Total Nodes in Tree: 9890204
+#Total Samples in Tree: 8117259
+#Total Condensed Nodes in Tree: 1051643
+#Total Samples in Condensed Nodes: 5432866
+#Total Tree Parsimony: 6973665
+#Number of Clade Annotations: 2
+#Max Tree Depth: 84
+#Mean Tree Depth: 37.537178
+
+# Make sure clade annotations survived intact
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.pb -C clade-paths.pruned
+wc -l clade-paths clade-paths.pruned
+#  1633 clade-paths
+#  1633 clade-paths.pruned
+
+# Replace gisaidAndPublic.$today.masked.pb
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePrune.pb
+ln -f gisaidAndPublic.$today.masked.pruned.pb gisaidAndPublic.$today.masked.pb
+
+# Regenerate taxonium protobuf, recheck, regenerate public subset

@@ -1,0 +1,86 @@
+today=2024-11-01
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -c JN.1 -S sample-paths
+
+# JN.1.16.1 is on a rev-branch from JN.1.11.2
+g CHN/SH-HG20240229-601 sample-paths
+#... node_2340647:G17334T node_2340686:G24872T node_2393086:G22599C node_2393088:T21737C node_2393095:T22928C node_2393096:T17334G node_2393097:C21737T node_2393098:T24872G 
+# Also spare LB.1.1
+g USA/CO-CDC-LC1118237/2024 sample-paths
+#... node_2393096:T17334G node_2393097:C21737T node_2401870:G22111T
+g node_2393095: sample-paths | g -v node_2393098: | g -v node_2401870: | cut -f 1 > pruneForJN.16.1
+wc -l pruneForJN.16.1
+#39 pruneForJN.16.1
+
+
+# New XEC.3 is on a rev branch 
+g Canada/NB-CHUDGLD-18J-MM00036R/2024 sample-paths
+#... node_2364844:G2060A node_2364865:C24865T node_2364879:C11020T node_2364880:G25166C node_2364881:T24865C 
+g node_2364879: sample-paths | g -v node_2364881: | cut -f 1 > pruneForXEC.3
+wc -l pruneForXEC.3
+#2 pruneForXEC.3
+
+
+# KP.3.1.1 > C21654T is a bit of a mini-KP.3.1.1.  Also, Xu pointed out that deletions at 21654
+# could be interpreted as N -- and sure enough, usher-sampled reads MAPLE diff '-' as N.
+# So, strip deletions out of MAPLE to make it look like reference.  And, once again, rip out
+# all JN.1 sequences with C21654T and let them be added back with that change.
+g C21654T sample-paths | cut -f 1 > pruneFor21654
+
+
+wc -l pruneFor*
+#  7917 pruneFor21654
+#    39 pruneForJN.16.1
+#     2 pruneForXEC.3
+#  7958 total
+
+
+# Prune, re-opt etc.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    106m44.850s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+# Is JN.1.6.1 not on a frustrating rev branch?
+g CHN/SH-HG20240229-601 sample-paths.pruned
+#... node_2266858:T27810C node_2339436:T22928C node_2339437:G22599C 
+# Woohoo!  If it doesn't stay, then make more permanent exclusions.
+
+# Is XEC.3 free of the rev on 24865?
+g Canada/NB-CHUDGLD-18J-MM00036R/2024 sample-paths.pruned
+#... G2060A node_2373234:C11020T,G25166C
+# Good.
+
+
+# Check after tomorrow's build to see if there's still a mini- on KP.3.1.1 > C21654T.

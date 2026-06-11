@@ -1,0 +1,89 @@
+today=2025-02-26
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Fede emailed that KP.3.3.5 should have G22865T first (so 18555-first is an artifact and
+# should not be part of the path).  That would join two branches that both currently have
+# different mutations before G22865T.  But both branches are weakly supported, almost entirely
+# by Chile sequences, and Fede says they all have dropout at 22865.
+# So try pruning both to join for G22865T first.  
+# Currently G25455C-first:
+g Canada/AB-ABPHL-128932/2024 sample-paths
+#... node_2398659:G12208A node_2398747:G25455C node_2398748:G22865T
+g node_2398747: sample-paths | g -v node_2398748: | cut -f 1 > pruneForKP.3.3.5
+wc -l pruneForKP.3.3.5
+#2 pruneForKP.3.3.5
+# Currently C18555T-first:
+g Australia/NSW-ICPMR-55459/2024 sample-paths
+#... node_2398659:G12208A node_2398660:C18555T node_2398661:G22865T
+g node_2398660: sample-paths | g -v node_2398661: | cut -f 1 >> pruneForKP.3.3.5
+wc -l pruneForKP.3.3.5
+#9 pruneForKP.3.3.5
+
+# TODO: If the G22865T-first structure is stable after sequences are added back then update the
+# definition of KP.3.3.5 to not require 18555.  Otherwise consider labeling.
+
+
+# Fede and Xu found a branch LP.8.1 > C3261T > A23598G where 2/3 of the samples may be missing
+# coverage at 3261, and I see some reversions of 3261 in the tree.  So prune everything with
+# 3261T (keeping the reversions) to get those definitely-not-3261T sequences joined into LP.8.1.1
+# (LP.8.1 > A23598G), then see what happens when seqs are added back.
+# Keep these:
+g USA/CA-LACPHL-AY10061/2025 sample-paths
+#... node_2421567:G22132T node_2421741:C3261T node_2421743:A23598G node_2421747:C16338T,T27835C node_2421748:T3261C
+g Canada/ON-KHS-00416-v1/2025 sample-paths
+#... node_2421567:G22132T node_2421741:C3261T node_2421743:A23598G node_2421744:C3866A node_2421745:T3261C
+g node_2421741: sample-paths | g -v node_2421748: | g -v node_2421745: | cut -f 1 > pruneForLP.8.1.1
+wc -l pruneForLP.8.1.1
+#74 pruneForLP.8.1.1
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m13.690s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# G22865T before G25455C and C18555T?
+g Canada/AB-ABPHL-128932/2024 sample-paths.pruned
+#... node_2398661:G12208A,G22865T node_2398748:G25455C
+g Australia/NSW-ICPMR-55459/2024 sample-paths.pruned
+#... node_2398661:G12208A,G22865T node_2398662:C18555T
+# OK, see what happens when sequences are added back...
+
+# A23598G before C16338T,T27835C and C3866A?
+g USA/CA-LACPHL-AY10061/2025 sample-paths.pruned
+#... node_2422435:A23598G node_2422870:C16338T,T27835C
+g Canada/ON-KHS-00416-v1/2025 sample-paths.pruned
+#... node_2422435:A23598G node_2422868:C3866A
+# Good; again, see what happens tomorrow.
+

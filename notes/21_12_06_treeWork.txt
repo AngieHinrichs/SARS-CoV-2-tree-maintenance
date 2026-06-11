@@ -1,0 +1,184 @@
+# The Omicron branch has some ugly early back-muts that I believe are due to the order in which
+# sequences were added.  I'm hoping that it can be cleaned up by removing some sequences, doing
+# a little optimization, and adding them back.
+
+today=2021-12-06
+cd $ottoDir/$today
+
+# First identify sequences to prune by examining tree from hgPhyloPlace in Nextstrain view.
+$matUtils extract -i gisaidAndPublic.2021-12-06.masked.pb -C clade-paths -S sample-paths
+g node_807176: sample-paths | g -v node_807181: | cut -f 1 > omicronProblematic 
+
+# England/MILK-2C1F989/2021 withdrawn from COG-UK
+g England/MILK-2C1F989/2021 samples.$today >> omicronProblematic 
+
+# Also, Russ pointed out that CERI-KRISP updated a bunch of Omicron sequences, better quality.
+# All seem to be in chunks 669, 678, 679, 681, 682 so I re-downloaded those chunks.
+# Prune and replace those sequences too.
+g -F B.1.1.529 ../2021-12-05/sample-clades | cut -f 1 | g CERI-KRISP | g -v EPI_ISL_701 \
+| cut -d\| -f 2 | sed -re 's/(EPI_ISL_[0-9]+)[0-9]{4}$/\1/' | sort | uniq -c
+#     43 EPI_ISL_669
+#      9 EPI_ISL_678
+#     23 EPI_ISL_679
+#      6 EPI_ISL_681
+#     12 EPI_ISL_682
+g -F B.1.1.529 ../2021-12-05/sample-clades | cut -f 1 | g CERI-KRISP | g -v EPI_ISL_701 \
+    > updatedToPrune
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat omicronProblematic updatedToPrune) \
+    -O -o gisaidAndPublic.$today.masked.omiProbPruned.pb
+
+# Little bit of optimization, then see what the tree looks like in hgPhyloPlace.
+$matOptimize -T 50 -r 8 -M 1 -S move_log.omiProbPruned \
+    -i gisaidAndPublic.$today.masked.omiProbPruned.pb \
+    -o gisaidAndPublic.$today.masked.omiProbPruned.opt.pb \
+    >& matOptimize.omiProbPruned.log
+# Sent it a signal to halt & save after ~10 minutes because it pretty rapidly converges
+
+g arsimony $ottoDir/2021-12-05/matOptimize.omiProbPruned.log | head
+#original parsimony score:5033447
+#parsimony score after optimizing: 5033328,with radius 8, second from start 330 
+#parsimony score after optimizing: 5033321,with radius 8, second from start 341 
+#parsimony score after optimizing: 5033321,with radius 8, second from start 352 
+#parsimony score after optimizing: 5033321,with radius 8, second from start 361 
+#...
+g arsimony $ottoDir/2021-12-05/matOptimize.omiProbPruned.log | tail
+#...
+#parsimony score after optimizing: 5033321,with radius 8, second from start 13788 
+#parsimony score after optimizing: 5033321,with radius 8, second from start 13796 
+#parsimony score after optimizing: 5033321,with radius 8, second from start 13805 
+#Final Parsimony score 5033321
+
+# Why oh why does matOptimize override umask?
+chmod 664 gisaidAndPublic.$today.masked.omiProbPruned.opt.pb
+
+# Add line to /usr/local/apache/cgi-bin-angie/hgPhyloPlaceData/wuhCor1/protobufs.tab
+# View branch in hgPhyloPlace/Nextstrain to make sure there are fewer back mutations right
+# on that node.
+
+# Add back new sequences updated by CERI-KRISP
+# $today is still 2021-12-06 but we need the 2021-12-07 updated fasta!
+faSomeRecords <(xzcat $gisaidDir/gisaid_fullNames_2021-12-07.fa.xz) updatedToPrune ceriUpdated.fa
+time bash ~/github/sarscov2phylo/scripts/global_profile_alignment.sh -i ceriUpdated.fa \
+    -o ceriUpdated.aligned.fa -t 50
+#real    0m3.928s
+faToVcf -includeNoAltN <(cat /data/tmp/angie/NC_045512v2.fa ceriUpdated.aligned.fa) stdout \
+| vcfFilter -excludeVcf=mask.vcf stdin \
+    > ceriUpdated.masked.vcf
+time $usher -u -T 50 -A -e 5 -v ceriUpdated.masked.vcf \
+    -i gisaidAndPublic.$today.masked.omiProbPruned.opt.pb \
+    -o gisaidAndPublic.$today.masked.omiProbPruned.opt.ceriAddedBack.pb >& usher.addUpdated.log
+#real    4m48.271s
+# Hmmm, some are being excluded due to too many EPPs!  Might want to look into what nodes are
+# involved later.  Might want to do some branch-specific masking although we don't have a way to
+# apply that to new sequences' VCF...
+g Ignoring usher.addUpdated.log | wc -l
+#13
+vcfSamples ceriUpdated.masked.vcf | wc -l
+#93
+calc 13 / 93
+#13 / 93 = 0.139785
+# That's a lot.
+# Doh, clades.txt has all B.1.1... might have lost the annotation in pruning.
+# But it looks OK in the Nextstrain view... oh, hgPhyloPlace is using metadata not annotations.
+
+# hashSeqs.py is still running past 11am so might as well try to add back the omicronProblematic
+# set too.  (Hopefully won't want to permanently exclude any...)
+faSomeRecords <(xzcat $gisaidDir/gisaid_fullNames_2021-12-07.fa.xz) \
+    <(grep EPI_ISL_ omicronProblematic) omicronProblematic.gisaid.fa
+grep -v EPI_ISL omicronProblematic \
+| egrep '^(England|Northern|Scotland|Wales)' \
+| awk -F\| '{print $1 "\t" $0;}' \
+    > omicronProblematic.cogToFull
+faSomeRecords <(xzcat $cogUkDir/cog_all.fasta.xz) <(cut -f 1 omicronProblematic.cogToFull) stdout \
+| faRenameRecords stdin omicronProblematic.cogToFull omicronProblematic.cog.fa
+grep -v EPI_ISL omicronProblematic \
+| egrep -v '^(England|Northern|Scotland|Wales)' \
+| awk -F\| '{print $2 "\t" $0;}' \
+    > omicronProblematic.gbToFull
+faSomeRecords <(xzcat $ncbiDir/genbank.fa.xz) <(cut -f 1 omicronProblematic.gbToFull) stdout \
+| faRenameRecords stdin omicronProblematic.gbToFull omicronProblematic.gb.fa
+cat omicronProblematic.{gisaid,cog,gb}.fa > omicronProblematic.fa
+time bash ~/github/sarscov2phylo/scripts/global_profile_alignment.sh -i omicronProblematic.fa \
+    -o omicronProblematic.aligned.fa -t 50
+faToVcf -includeNoAltN <(cat /data/tmp/angie/NC_045512v2.fa omicronProblematic.aligned.fa) stdout \
+| vcfFilter -excludeVcf=mask.vcf stdin \
+    > omicronProblematic.masked.vcf
+time $usher -u -T 50 -A -e 5 -v omicronProblematic.masked.vcf \
+    -i gisaidAndPublic.$today.masked.omiProbPruned.opt.ceriAddedBack.pb \
+    -o gisaidAndPublic.$today.masked.omiProbPruned.opt.ceriAddedBack.omiProbAddedBack.pb \
+    >& usher.addProblematic.log
+#real    5m9.693s
+g Ignoring usher.addProblematic.log | wc -l
+#10
+# Looking at it in the Nextstrain view, there's a new butt-ugly branch full of back mutations,
+# but at least we know where those sequences fit in.  Should keep an eye out to see if there
+# are any more mass corrections.
+# OK, replace the original 12-06 with that update.  But first make sure no clade annotations
+# were lost.  Heck, should we add BA.1 and BA.2 while we're at it??
+$matUtils extract -i gisaidAndPublic.$today.masked.omiProbPruned.opt.ceriAddedBack.omiProbAddedBack.pb -C clade-paths.updated
+wc -l clade-paths*
+#  1526 clade-paths
+#  1524 clade-paths.updated
+comm -23 <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.updated | sort)
+#21K (Omicron)
+#B.1.1.529
+# Aw crap.  Oh well, we can re-annotate those nodes, and what the heck, add BA.1 and BA.2
+# while we're at it.
+
+rm gisaidAndPublic.$today.masked.nextclade.pb gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+mv gisaidAndPublic.$today.masked.pb gisaidAndPublic.$today.masked.prePruneAndReplace.pb
+ln -f gisaidAndPublic.$today.masked.omiProbPruned.opt.ceriAddedBack.omiProbAddedBack.pb \
+    gisaidAndPublic.$today.masked.pb
+mv clade-paths{,.orig}
+mv clade-paths{.updated,}
+mv sample-paths{,.orig}
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths -S sample-paths
+tail -n+2 clade-paths \
+| cut -f 1,2 \
+| egrep '^[0-9]' \
+    > nextclade.nodesToReassign
+tail -n+2 clade-paths \
+| cut -f 1,2 \
+| egrep '^[A-Z]' \
+    > pango.nodesToReassign
+# Node for B.1.1.529 -- should be common ancestor of new BA.1 and BA.2.  Go for node with G26709A
+g SouthAfrica/CERI-KRISP-K032203 sample-paths
+#SouthAfrica/CERI-KRISP-K032203/2021|EPI_ISL_6699737|2021-11-16  node_4706:C14408T node_4820:C241T node_4821:C3037T node_4822:A23403G node_744157:G28881A node_744158:G28883C node_744159:G28882A node_805276:C21846T node_805284:C23604A node_805285:G23012A node_807210:A23063T node_807213:T22882G,C22995A,A23013C,C23525T node_807215:C10029T,C21762T,G22578A,T22673C,C22674T,T22679C,C22686T,G22813T,G22898A,G22992A,A23012G,A23040G,G23048A,A23055G,T23075C,C23202A,T23599G,A27259C,C27807T node_807216:C10449A,A18163G,C25000T,C25584T,C26270T,C26577G,G26709A node_807219:T5386G,G8393A,A11537G,T13195C,C15240T node_807220:A2832G,A26530G,A28271T,C28311T node_807221:C23075T,G23948T,C24130A,A24424T node_807222:C23854A,T24469A,C24503T node_807223:T23075C node_807231:T21995G node_807235:G27762T 
+# --> node_807216
+echo -e "21K (Omicron)\tnode_807216" >> nextclade.nodesToReassign
+echo -e "B.1.1.529\tnode_807216" >> pango.nodesToReassign
+
+# Node for BA.1 (Original Omicron) -- look for shortest paths to designated seqs
+g -F ,BA.1 ~/github/pango-designation/lineages.csv \
+| cut -d, -f 1 \
+| sed -re 's/^([A-Za-z]+)_([A-Za-z]+)/\1\2/;' \
+| grep -Fwf - sample-paths \
+| tawk '{print length($2), $1, $2;}' \
+| sort -n | head
+#658     SouthAfrica/NICD-N21673/2021|EPI_ISL_6704872|2021-11-20 node_4706:C14408T node_4820:C241T node_4821:C3037T node_4822:A23403G node_744157:G28881A node_744158:G28883C node_744159:G28882A node_805276:C21846T node_805284:C23604A node_805285:G23012A node_807210:A23063T node_807213:T22882G,C22995A,A23013C,C23525T node_807215:C10029T,C21762T,G22578A,T22673C,C22674T,T22679C,C22686T,G22813T,G22898A,G22992A,A23012G,A23040G,G23048A,A23055G,T23075C,C23202A,T23599G,A27259C,C27807T node_807216:C10449A,A18163G,C25000T,C25584T,C26270T,C26577G,G26709A node_807219:T5386G,G8393A,A11537G,T13195C,C15240T node_807220:A2832G,A26530G,A28271T,C28311T node_807221:C23075T,G23948T,C24130A,A24424T node_807222:C23854A,T24469A,C24503T 
+#678     Austria/MUIV-0229/2021|EPI_ISL_6825546|2021-11-27       node_4706:C14408T node_4820:C241T node_4821:C3037T node_4822:A23403G node_744157:G28881A node_744158:G28883C node_744159:G28882A node_805276:C21846T node_805284:C23604A node_805285:G23012A node_807210:A23063T node_807213:T22882G,C22995A,A23013C,C23525T node_807215:C10029T,C21762T,G22578A,T22673C,C22674T,T22679C,C22686T,G22813T,G22898A,G22992A,A23012G,A23040G,G23048A,A23055G,T23075C,C23202A,T23599G,A27259C,C27807T node_807216:C10449A,A18163G,C25000T,C25584T,C26270T,C26577G,G26709A node_807219:T5386G,G8393A,A11537G,T13195C,C15240T node_807220:A2832G,A26530G,A28271T,C28311T node_807221:C23075T,G23948T,C24130A,A24424T node_807222:C23854A,T24469A,C24503T node_807223:T23075C 
+#...
+# --> node_807222
+echo -e "BA.1\tnode_807222" >> pango.nodesToReassign
+
+# Node for BA.2 (Omicron outlier / Decepticron) - common ancestor of QLD2568 and CERI-KRISP-K032307
+g Australia/QLD2568/2021 sample-paths
+#Australia/QLD2568/2021|EPI_ISL_7190366|2021-12-01       node_4706:C14408T node_4820:C241T node_4821:C3037T node_4822:A23403G node_744157:G28881A node_744158:G28883C node_744159:G28882A node_805276:C21846T node_805284:C23604A node_805285:G23012A node_807210:A23063T node_807213:T22882G,C22995A,A23013C,C23525T node_807215:C10029T,C21762T,G22578A,T22673C,C22674T,T22679C,C22686T,G22813T,G22898A,G22992A,A23012G,A23040G,G23048A,A23055G,T23075C,C23202A,T23599G,A27259C,C27807T node_807216:C10449A,A18163G,C25000T,C25584T,C26270T,C26577G,G26709A node_807217:T670G,C2790T,G4184A,C4321T,C9344T,A9424G,C9534T,C10198T,G10447A,C12880T,C15714T,C17410T,C19955T,A20055G,C21618T,T21762C,T21846C,T22200G,C22673T,A22688G,G22775A,A22786C,A22898G,A23048G,A23202C,C23854A,G23948T,A24424T,T24469A,C26060T,C26858T,G27382C,A27383T,T27384C,A29510C node_807218:C9866T,A28271T,C28311T 
+# --> node_807217
+echo -e "BA.2\tnode_807217" >> pango.nodesToReassign
+
+$matUtils annotate -T 50 -i gisaidAndPublic.$today.masked.pb -l -C nextclade.nodesToReassign \
+    -o gisaidAndPublic.$today.masked.nextclade.pb
+$matUtils annotate -T 50 -i gisaidAndPublic.$today.masked.nextclade.pb -C pango.nodesToReassign \
+    -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths.final
+diff <(cut -f 1 clade-paths.orig | sort) <(cut -f 1 clade-paths.final | sort)
+#1401a1402,1403
+#> BA.1
+#> BA.2
+mv clade-paths.final clade-paths
+
+# Redo updateCombinedTree.sh steps after annotation.

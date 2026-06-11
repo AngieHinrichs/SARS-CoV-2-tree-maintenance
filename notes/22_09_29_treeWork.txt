@@ -1,0 +1,367 @@
+Branches to exclude from reversion-masking in BA.2...
+BA.2 has a couple misc branches:
+ * miscBA1BA2Pre4321, rep: Belgium/ULG-25258/2022
+ * miscBA2BA1PostSpike, rep: Canada/AB-ABPHL-70500/2022
+Many recombinants are on those branches, but there are others:
+ * XAJ: England/LSPA-3EAC63A/2022
+ * XAK: Germany/NI-RKI-I-930233/2022
+ * XAS: Chile/RM-68539/2022
+ * XBB: USA/NY-PRL-220907_01F03/2022 (NF-1, ignore its muts)
+
+Important: we want to inhibit rev-masking not only from those nodes forward, but also on the path from BA.2 to those nodes.  matUtils can trace that path for each specified node and exempt all those in-between nodes.  We'll just count on those nodes being pretty skinny aside from the recombinants... but this will have the effect of making them even stronger magnets for sequences with those reversions, which will then be exempted from masking, so we may get mini-lineage garbage raft problems.  Cross that bridge when we come to it though??
+
+Meanwhile, even without needing to modify matUtils mask, I could mask BA.4 reversions and BA.2 reversions in some major BA.2 lineages that do not have recombinant branches:
+* BA.2.3
+* BA.2.12.1
+* BA.2.9
+-- meh, not sure if those are worth it honestly, so much BA.2 mess outside them.  BA.2.10 is *awful* but has XBB.
+
+BA.2.23 is defined by reversion on 670 so it needs to be exempted from that. (England/LSPA-3D9FF12/2022)
+
+OMG BA.2.12.1 is badly split.  ugh!
+Annotated on BA.2 polytomy >
+C25416T > C23673T (BA.2.12) > C11674T > T22917A
+-- but most of it is now on
+C23673T > T15009C > C11674T > C25416T > T22917A
+Get rid of the 258248 - 257540 samples that have C23673T...C11674T without C25416T.
+
+BA.2.75 upstream needs more cleanup: BA.2 reversions, 4586, 22001.  
+There's a big BA.2.75 > 22200 rev branch.
+Maybe use upstream India/DL-ILBSWGS6075/2022 as the head for BA.2.75 masking.
+
+Fede spotted a split-off part of BA.5.2.6 on a branch that has two to four of the four mutation undesignated polytomy.  There may be other splits on there as well... mask 27012 and 27513 if it gets worse?  Meanwhile, prune from England/PHEP-YYFSKRH/2022, keep from England/PHEC-YYG5XRC/2022.
+
+today=2022-09-28
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# Fede's BA.5.2.6 split
+g Israel/ICH-741186421/2022 sample-paths
+#... node_2216708:G22599C node_2216709:T27360C ...
+g Denmark/DCGC-558664/2022 sample-paths
+#... node_2216708:G22599C node_2216709:T27360C node_2216710:C27012T
+g node_2216709: sample-paths | g -v node_2216710: | cut -f 1 > pruneForBA.5.2.6
+wc -l pruneForBA.5.2.6
+#5 pruneForBA.5.2.6
+
+# BA.2.12.1 freaking disaster split
+g Canada/MB-CPL-428394/2022 sample-paths
+#... node_1675243:C2790T node_1799615:C23673T
+g USA/NY-PRL-0502_01M19/2022 sample-paths
+#... node_1675243:C2790T node_1799615:C23673T node_1799630:T15009C node_1845477:C21721T node_1845478:C25416T
+g USA/TX-HMH-MCoV-97144/2022 sample-paths
+#... node_1675243:C2790T node_1799615:C23673T node_1799630:T15009C node_1799631:C11674T node_1799632:C25416T
+g node_1799615: sample-paths | g -v node_1845478: | g -v node_1799632: | cut -f 1 \
+    > pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#183 pruneForBA.2.12.1
+
+# Permanently exclude the ones that have 11674 but not 25416
+g USA/CA-HLX-STM-RRPD8VF64/2022 sample-paths
+#... node_1675243:C2790T node_1799615:C23673T node_1799630:T15009C node_1799631:C11674T
+g node_1799631: sample-paths | g -v node_1799632: | cut -f 1 \
+    > excludeForBA.2.12.1
+wc -l excludeForBA.2.12.1
+#13 excludeForBA.2.12.1
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' excludeForBA.2.12.1 | g ^EPI_ISL \
+    > badBranchSeeds.BA.2.12.1.epis
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' excludeForBA.2.12.1 | g -v ^EPI_ISL \
+    > badBranchSeeds.BA.2.12.1.pub
+g -Fwf badBranchSeeds.BA.2.12.1.epis $epiToPublic | wc -l
+#0
+g -Fwf badBranchSeeds.BA.2.12.1.pub $epiToPublic | cut -f 1 >> badBranchSeeds.BA.2.12.1.epis 
+cat badBranchSeeds.BA.2.12.1.epis badBranchSeeds.BA.2.12.1.pub >> ../badBranchSeed.ids
+
+# The brand new BA.5.1.23 is split...
+g USA/RI-CDC-LC0872896/2022 sample-paths
+#... node_2061261:C29666T node_2089889:T27696C
+g Chile/RM-88003/2022 sample-paths
+#... node_2061261:C29666T node_2089889:T27696C node_2089890:C1170T
+g node_2089889: sample-paths | g -v node_2089890: | cut -f 1 > pruneForBA.5.1.23
+wc -l pruneForBA.5.1.23
+#64 pruneForBA.5.1.23
+
+# The new BA.5.1.24 is too, fragments up in the BA.5.1-but-no-29666 branch.
+# Not sure it's worth it.  Probably want to keep that branch out of lineageTree, though. 
+
+# BA.2.75 upstream cleanup
+maskFile=maskForBA.2.75
+BA275Node=$(grep India/WB-INSACOG-1931503209307/2022 sample-paths \
+          | awk '{print $NF;}' | sed -re 's/:.*//;')
+for backMut in G670T T2790C T3037C T4321C G9424A T9534C T10198C G18163A T19955C G20055A T21618C \
+    G22200T A22578G T22674C C22679T T22686C G22688A A22775G T22813G A22992G A22995C C23013A G23055A \
+    T23063A C23075T G23403A T23525C G23599T A23604C T23948G T24424A A24469T T25000C G26577C T27807C \
+    T28271A C29510A ; do
+    echo -e "$backMut\t$BA275Node"
+done > $maskFile
+# These are BA.2.75-defining but prone to dropout.  Make sure we just wipe out reversions,
+# not the BA.2.75 alleles that we want to keep on that node and subsequent nodes.
+for backMut in T4586C G22001A C22016T A22033C G22190A C22577G G26275A; do
+    echo -e "$backMut\t$BA275Node"
+done >> $maskFile
+# These BA.2.75-defining sites are less bad off, might want to back off on these if/when there
+# are 10s of thousands of BA.2.75 sequences & more chances for recombinants:
+for backMut in T3927C A15451G G22190A A22331G A22898G G22942T C23013A; do
+    echo -e "$backMut\t$BA275Node"
+done >> $maskFile
+
+# Mask first, then prune.
+$matUtils mask -i gisaidAndPublic.$today.masked.pb \
+    -m $maskFile \
+    -o gisaidAndPublic.$today.BA.2.75masked.pb
+
+$matUtils extract -i gisaidAndPublic.$today.BA.2.75masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.BA.2.75masked.pruned.pb
+
+# Use a higher radius this time because IIRC some distant BA.5 things hadn't been moved the
+# way I expected.
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.2.75masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    88m36.370s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Meanwhile set up to look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz >& taxonium.log &
+
+# Hopefully there is now a unified BA.2.12.1:
+g USA/TX-HMH-MCoV-97144/2022 sample-paths.pruned
+#... node_2074465:C2790T node_2703219:C25416T node_2739405:T15009C node_2739406:C23673T node_2739408:C11674T 
+# Yes!  C25416T first.  But... I don't like it that 15009 is still before the others.
+# May need to whack some more -- look in taxonium.
+
+# And a unified BA.5.2.6:
+g Denmark/DCGC-558664/2022 sample-paths.pruned
+#... node_2564581:C1627T node_2564722:C27513T node_2564723:C27012T node_2564781:G12310A node_2564790:C16616A node_2589539:G22599C node_2589714:T27360C
+# Yep, good.
+
+# BA.5.1.23:
+g Chile/RM-88003/2022 sample-paths.pruned
+#... node_2495029:C29666T node_2546537:C1170T node_2547298:T27696C 
+# Yep, good.
+
+# Looking in taxonium, yes we do need to prune some more for BA.2.12.1.
+g env/USA/CA-SEARCH-91106/2022 sample-paths.pruned
+#... node_2074465:C2790T node_2703219:C25416T node_2739405:T15009C
+g USA/IL-CDC-STM-SDHSZDWMG/2022 sample-paths.pruned
+#... node_2074465:C2790T node_2703219:C25416T node_2739405:T15009C node_2739406:C23673T node_2739408:C11674T node_2739409:T22917A
+g node_2739405: sample-paths.pruned | g -v node_2739409: | cut -f 1 >> pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#725 pruneForBA.2.12.1
+# That's a lot, but oh well, they'll be added back.  Might need to permanently exclude more
+# if there's a next time.
+
+$matUtils extract -i gisaidAndPublic.$today.BA.2.75masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.BA.2.75masked.pruned.pb
+
+# Use a higher radius this time because IIRC some distant BA.5 things hadn't been moved the
+# way I expected.
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.2.75masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    95m22.264s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Meanwhile set up to look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz >& taxonium.log &
+
+# Hopefully there is now a unified BA.2.12.1 at C25416T > C23673T > C11674T > T22917A:
+g USA/TX-HMH-MCoV-97144/2022 sample-paths.pruned
+#... Oops, pruned it.  Try this
+g Ireland/KE-NVRL-ecS22IRL00328041/2022 sample-paths.pruned
+#... node_2074441:C2790T node_2807211:C11674T,C21721T,C25416T node_2807212:T15009C,C23673T node_2807213:T22917A node_2807214:T21721C
+# wha?  better look in taxonium.  OMG one sample causing that stupid split.
+
+# And a unified BA.5.2.6:
+g Denmark/DCGC-558664/2022 sample-paths.pruned
+#... node_2564490:C1627T node_2564631:C27513T node_2564632:C27012T node_2564690:G12310A node_2564699:C16616A node_2591852:G22599C node_2592027:T27360C
+# Yep.
+
+# BA.5.1.23:
+g Chile/RM-88003/2022 sample-paths.pruned
+#... node_2494944:C29666T node_2549488:C1170T node_2550249:T27696C
+# Yep.
+
+# Gotta prune & go again.
+g USA/NY-CDC-LC0656512/2022 sample-paths.pruned
+#... node_2074441:C2790T node_2807211:C11674T,C21721T,C25416T
+g node_2807211: sample-paths.pruned | g -v node_2807212: | cut -f 1 >> pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#726 pruneForBA.2.12.1
+
+$matUtils extract -i gisaidAndPublic.$today.BA.2.75masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.BA.2.75masked.pruned.pb
+
+# Use a higher radius this time because IIRC some distant BA.5 things hadn't been moved the
+# way I expected.
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.2.75masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    88m41.515s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Meanwhile set up to look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz >& taxonium.log &
+
+# Hopefully there is now a unified BA.2.12.1 at C25416T > C23673T > C11674T > T22917A:
+g Ireland/KE-NVRL-ecS22IRL00328041/2022 sample-paths.pruned
+#... node_2074455:C2790T node_2807231:C11674T,C23673T,C25416T node_2807232:T15009C,C21721T node_2807233:T22917A node_2807234:T21721C
+# DOH!  I guess always starting over from re-pruning the same masked pb is not getting us there.
+# Every freaking combo appears and is preventing the obvious-to-human collapsing of the big branches.
+
+# And a unified BA.5.2.6:
+g Denmark/DCGC-558664/2022 sample-paths.pruned
+#... node_2564811:C27513T node_2564812:C27012T node_2564870:G12310A node_2564879:C16616A node_2589625:G22599C node_2589800:T27360C
+
+# BA.5.1.23:
+g Chile/RM-88003/2022 sample-paths.pruned
+#... node_2495118:C29666T node_2549658:C1170T node_2550419:T27696C
+
+# This time, prune the optimized tree and then optimize that.
+g USA/UT-UPHL-220716092420/2022 sample-paths.pruned
+#... node_2074455:C2790T node_2807231:C11674T,C23673T,C25416T ...
+g Australia/VIC66161/2022 sample-paths.pruned
+#... node_2074455:C2790T node_2807231:C11674T,C23673T,C25416T node_2807232:T15009C,C21721T node_2807233:T22917A
+g node_2807231: sample-paths.pruned | g -v node_2807233: | cut -f 1 >> pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#1306 pruneForBA.2.12.1
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.BA.2.75masked.pruned.pb
+
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.2.75masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#real    90m2.732s
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Meanwhile set up to look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz >& taxonium.log &
+
+# Can we finally get a C25416T > C23673T > C11674T > T22917A?:
+g Ireland/KE-NVRL-ecS22IRL00328041/2022 sample-paths.pruned
+# node_2074449:C2790T node_2159009:C21721T node_2159010:C25416T node_2159020:T15009C node_2159024:C11674T node_2159025:T22917A,C23673T node_2159026:T21721C
+# Nope.  Geez, matOptimize will do *anything* to avoid fixing BA.2.12.1.  ;)  Keep at it.
+
+g BHR/830421033/2022 sample-paths.pruned
+#... node_2074449:C2790T node_2159009:C21721T
+g USA/AZ-TG1386609/2022 sample-paths.pruned
+#... node_2074449:C2790T node_2159009:C21721T node_2159010:C25416T node_2159020:T15009C node_2159024:C11674T node_2159025:T22917A,C23673T
+g node_2159009: sample-paths.pruned | g -v node_2159025: | cut -f 1 >> pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#1820 pruneForBA.2.12.1
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.BA.2.75masked.pruned.pb
+
+time $matOptimize \
+    -T 50 -r 12 -M 4 -S move_log.pruned \
+    -i gisaidAndPublic.$today.BA.2.75masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Meanwhile set up to look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz >& taxonium.log &
+
+# Can we finally get a C25416T > C23673T > C11674T > T22917A?:
+g Ireland/KE-NVRL-ecS22IRL00328041/2022 sample-paths.pruned
+#node_2074443:C2790T node_2703721:C25416T node_2744052:C23673T node_2744341:C11674T node_2744360:T22917A node_2744361:T15009C,C21721T node_2744362:T21721C 
+# Whew!  Finally!  The T15009C,C21721T > T21721C is a little weird but whatever, I need to
+# share the tree and restart the build.
+
+# Reannotate clades & lineages.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# I added some more lineages... Cornelius is still on a roll.
+#> BA.2.75.9
+#> BA.2.85
+#> BA.5.1.22
+#> BA.5.1.23
+#...
+#> CE.1
+#> CF.1
+#> proposed1137
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.
+# Then restart the 2022-09-30 build with prevDate=2022-09-28 .
+# Then make the gisaidNames tree for sharing.
+

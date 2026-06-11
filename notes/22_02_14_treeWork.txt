@@ -1,0 +1,222 @@
+# Use Nextclade's count of substitutions to exclude sequences with implausibly few mutations
+# given their sampling dates.
+
+today=2022-02-13
+cd $ottoDir/$today
+
+# refBackfill.ids have been used to exclude new sequences, but I can also use the file to prune
+# sequences that were already in the tree.
+wc -l refBackfill.ids
+#137975 refBackfill.ids
+g -Fwf refBackfill.ids samples.$today > refBackfillToPrune
+wc -l refBackfillToPrune
+#18173 refBackfillToPrune
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s refBackfillToPrune \
+    -o gisaidAndPublic.$today.masked.refBackfillPruned.pb
+#Large sample input; building subtree by pruning all but 7776386 samples.
+
+# Run some optimization.
+$matOptimize -T 50 -r 8 -M 1 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.refBackfillPruned.pb \
+    -o gisaidAndPublic.$today.masked.refBackfillPruned.opt.pb \
+    >& matOptimize.pruned.log
+# Oh geez I meant to use radius 40 instead of 8 but typed 8 out of habit.  and now the next
+# daily build is merging... which means in half an hour will be a perfect opportunity to
+# interrupt the build, prune, optimize, and let the build continue with the pruning locked in...
+# well, that might be enough for a proper re-opt with -r 40...
+$matOptimize -T 50 -r 40 -M 1 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.refBackfillPruned.pb \
+    -o gisaidAndPublic.$today.masked.refBackfillPruned.opt.r40.pb \
+    >& matOptimize.pruned.r40.log
+# It timed out before finishing its optimizing, but see how it did anyway:
+g arsimony matOptimize.pruned.r40.log
+#original parsimony score:6659346
+#parsimony score after optimizing: 6658112,with radius 40, second from start 2093 
+#Final Parsimony score 6658112
+$matUtils summary -i gisaidAndPublic.$today.masked.pb
+#Total Nodes in Tree: 9478964
+#Total Samples in Tree: 7776386
+#Total Condensed Nodes in Tree: 1017176
+#Total Samples in Condensed Nodes: 5237130
+#Total Tree Parsimony: 6658112
+#Number of Clade Annotations: 2
+#Max Tree Depth: 96
+#Mean Tree Depth: 37.055973
+$matUtils summary -i gisaidAndPublic.$today.masked.refBackfillPruned.opt.pb
+#Total Nodes in Tree: 9479024
+#Total Samples in Tree: 7776386
+#Total Condensed Nodes in Tree: 1017176
+#Total Samples in Condensed Nodes: 5237130
+#Total Tree Parsimony: 6658902
+#Number of Clade Annotations: 2
+#Max Tree Depth: 73
+#Mean Tree Depth: 37.614811
+$matUtils summary -i gisaidAndPublic.$today.masked.refBackfillPruned.opt.r40.pb
+#Total Nodes in Tree: 9478964
+#Total Samples in Tree: 7776386
+#Total Condensed Nodes in Tree: 1017176
+#Total Samples in Condensed Nodes: 5237130
+#Total Tree Parsimony: 6658112
+#Number of Clade Annotations: 2
+#Max Tree Depth: 96
+#Mean Tree Depth: 37.055973
+
+# Meanwhile, interrupt today's daily build while it's still today...
+today=2022-02-14
+cd $ottoDir/$today
+wc -l refBackfill.ids
+#138008 refBackfill.ids
+$matUtils extract -i merged.deltaMasked.pb -u samples.$today
+g -Fwf refBackfill.ids samples.$today > refBackfillToPrune
+wc -l refBackfillToPrune
+#18176 refBackfillToPrune
+
+# kill the matOptimize process -- make sure the cron job terminated (got the email)
+
+# Prune the merge (& deltaMask) result pb:
+$matUtils extract -i merged.deltaMasked.pb \
+    -p -s refBackfillToPrune \
+    -o merged.deltaMasked.refBackfillPruned.pb
+
+# Now matOptimize (with -r40, but on the cluster so it doesn't time out before it's done)
+# the pruned pb to generate the preTrim.pb:
+
+cd reserveKuNodes
+jobCount=16
+threadCount=16
+reserveHours=2
+reserveSeconds=$((3600 * $reserveHours))
+ssh ku "cd $ottoDir/$today/reserveKuNodes && para create -cpu=$threadCount jobList && para push"
+
+# Wait for all jobs to start (i.e. all nodes to be reserved):
+echo "Waiting for parasol to assign ku nodes"
+while (( $(ssh ku "parasol list jobs | grep $USER | grep sleep" | awk '$2 != "none"' | wc -l) < $jobCount )); do
+    sleep 10
+    # Just in case there was a crash (we seem to have some borderline nodes):
+    ssh ku "cd $ottoDir/$today/reserveKuNodes && para push"
+done
+# Make hostfile for mpirun
+cd $ottoDir/$today
+ssh ku "parasol list jobs | grep $USER | grep sleep" \
+| awk '{print $2;}' \
+| sort \
+| uniq -c \
+| awk '{print $2, "slots=" '$threadCount'*$1;}' \
+    > hostfile
+
+# mpirun matOptimize on first host in hostfile
+headNode=$(head -1 hostfile | awk '{print $1;}')
+radius=40
+ssh $headNode "cd $ottoDir/$today && \
+               $scriptDir/kuRunMatOptimize.sh -T $threadCount -r $radius -M $reserveHours \
+                   -S move_log.cluster.pruned.r40 -i merged.deltaMasked.refBackfillPruned.pb \
+                   -o gisaidAndPublic.$today.masked.preTrim.pb \
+                   >& matOptimize.cluster.pruned.r40.log"
+#...
+#7 finished12 finished4 finishedSearch took 39.221217 min 
+#...
+#[ku-26:24683] *** Process received signal ***
+#[ku-26:24683] Signal: Segmentation fault (11)
+#[ku-26:24683] Signal code:  (128)
+#[ku-26:24683] Failing at address: (nil)
+#[ku-26:24683] [ 0] /lib64/libpthread.so.0(+0xf5e0)[0x7f540adf55e0]
+#[ku-26:24683] [ 1] /cluster/home/angie/github/usher/build.ku/matOptimize(+0xb6d7f)[0x559c61122d7f]
+#[ku-26:24683] [ 2] /cluster/home/angie/github/usher/build.ku/matOptimize(+0xb7e9b)[0x559c61123e9b]
+#[ku-26:24683] [ 3] /cluster/home/angie/github/usher/build.ku/matOptimize(+0x72ea1)[0x559c610deea1]
+#[ku-26:24683] [ 4] /cluster/home/angie/github/usher/build.ku/matOptimize(+0x7f467)[0x559c610eb467]
+#[ku-26:24683] [ 5] /cluster/home/angie/github/usher/build.ku/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x29b55)[0x7f540b2f7b55]
+#[ku-26:24683] [ 6] /cluster/home/angie/github/usher/build.ku/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x2286e)[0x7f540b2f086e]
+#[ku-26:24683] [ 7] /cluster/home/angie/github/usher/build.ku/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x210d9)[0x7f540b2ef0d9]
+#[ku-26:24683] [ 8] /cluster/home/angie/github/usher/build.ku/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x1d84c)[0x7f540b2eb84c]
+#[ku-26:24683] [ 9] /cluster/home/angie/github/usher/build.ku/tbb_cmake_build/tbb_cmake_build_subdir_release/libtbb_preview.so.2(+0x1da5a)[0x7f540b2eba5a]
+#[ku-26:24683] [10] /lib64/libpthread.so.0(+0x7e25)[0x7f540adede25]
+#[ku-26:24683] [11] /lib64/libc.so.6(clone+0x6d)[0x7f540a68e34d]
+#[ku-26:24683] *** End of error message ***
+# DOH!  :(
+
+# Well, try again but with radius=20...  repeat the cluster job and hostfile creation steps above...
+radius=20
+ssh $headNode "cd $ottoDir/$today && \
+               $scriptDir/kuRunMatOptimize.sh -T $threadCount -r $radius -M $reserveHours \
+                   -S move_log.cluster.pruned.r20 -i merged.deltaMasked.refBackfillPruned.pb \
+                   -o gisaidAndPublic.$today.masked.preTrim.pb \
+                   >& matOptimize.cluster.pruned.r20.log"
+
+# Release the ku nodes by stopping the parasol batch
+ssh ku "cd $ottoDir/$today/reserveKuNodes && para stop || true"
+
+chmod g+rw gisaidAndPublic.$today.masked.preTrim.pb*
+chmod a+r gisaidAndPublic.$today.masked.preTrim.pb*
+
+# Continue the build
+problematicSitesVcf=/hive/data/genomes/wuhCor1/bed/problematicSites/21-11-01/problematic_sites_sarsCov2.vcf 
+time $scriptDir/updateCombinedTree.sh 2022-02-13 2022-02-14 $problematicSitesVcf \
+    >& updateCombinedTree.continue.log
+
+# Meanwhile, compare matUtils summary & make protobuf for inspection...
+$matUtils summary -i merged.deltaMasked.pb
+#Total Nodes in Tree: 9539652
+#Total Samples in Tree: 7831410
+#Total Condensed Nodes in Tree: 0
+#Total Samples in Condensed Nodes: 0
+#Total Tree Parsimony: 6767924
+#Number of Clade Annotations: 0
+#Max Tree Depth: 82
+#Mean Tree Depth: 37.743412
+$matUtils summary -i merged.deltaMasked.refBackfillPruned.pb
+#Total Nodes in Tree: 9519876
+#Total Samples in Tree: 7813234
+#Total Condensed Nodes in Tree: 1026222
+#Total Samples in Condensed Nodes: 5277040
+#Total Tree Parsimony: 6753165
+#Number of Clade Annotations: 0
+#Max Tree Depth: 82
+#Mean Tree Depth: 37.802109
+$matUtils summary -i gisaidAndPublic.$today.masked.preTrim.pb
+#Total Nodes in Tree: 9518955
+#Total Samples in Tree: 7813234
+#Total Condensed Nodes in Tree: 1026222
+#Total Samples in Condensed Nodes: 5277040
+#Total Tree Parsimony: 6745422
+#Number of Clade Annotations: 0
+#Max Tree Depth: 99
+#Mean Tree Depth: 37.590164
+# -- looks like the max tree depth got extended with some probable-garbage, but the mean tree depth
+# got a little better.
+
+# We really, really need back-mutation filtering in the tree to catch the garbage that can't
+# be screened out up front.
+
+# Use previous day's metadata since it will be hours before we have metadata with pango_lineage_usher
+# in this directory.
+zcat ../2022-02-13/gisaidAndPublic.2022-02-13.metadata.tsv.gz > metadata.tmp.tsv
+
+zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+| grep -v '"ORF1a"' > ncbiGenes.gtf
+zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+time $matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -f wuhCor1.fa \
+    -g ncbiGenes.gtf \
+    -M metadata.tmp.tsv \
+    --extra-fields pango_lineage_usher \
+    --write-taxodium gisaidAndPublic.$today.masked.taxodium.pb
+rm metadata.tmp.tsv wuhCor1.fa
+gzip -f gisaidAndPublic.$today.masked.taxodium.pb
+
+# Garbage raft is still there... need to do another round of adding branch seqs to
+# badBranchSeeds.ids.  And work in back-mutation density as a tree filter!
+
+# Meanwhile, masking S:496,498,501,505 would help to clean up BA.1...
+# Maybe also 764.
+
+# Also should run Theo's treeShears script, get the list of sequences to prune, add a
+# metadata column for prune/no-prune, and color nodes by that in taxonium to see what
+# would be pruned.
+
+# I bet harshly pruning by back-mutation density before making lineageTree.pb would help.
+# Maybe also before giving trees to Chris!
+
+# If there were a way to slightly penalize reversions in usher & matOptimize that would be awesome.
+

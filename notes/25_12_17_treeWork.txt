@@ -1,0 +1,100 @@
+today=2025-12-17
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+
+# PQ.25 is placed on 21627 flip-flop by 2 seqs
+g SouthKorea/KDCA299179/2025 sample-paths
+#... node_2521790:G22865T node_2531685:A21627C node_2531760:T24903C,C28957T node_2531761:C21627A
+g node_2531760: sample-paths | g -v node_2531761: | cut -f 1 > pruneForPQ.25
+wc -l pruneForPQ.25
+#2 pruneForPQ.25
+
+
+# PQ.25.1 is placed off by itself by two sequences
+g Singapore/Y25R23MSC77/2025 sample-paths
+#... node_2521790:G22865T node_2523611:T29524C node_2523613:T24903C
+g node_2523611: sample-paths | g -v node_2523613: | cut -f 1 > pruneForPQ.25.1
+wc -l pruneForPQ.25.1
+#2 pruneForPQ.25.1
+
+
+# PQ.17.7.1 is placed in PQ.17.3 by 3 sequences that don't have A26046G
+g Japan/EIS13-439/2025 sample-paths
+#... node_2530090:T22995C node_2530113:C23601T node_2530114:A21343G node_2530115:A26046G
+g node_2530114: sample-paths | g -v node_2530115: | cut -f 1 > pruneForPQ.17.7.1
+wc -l pruneForPQ.17.7.1
+#3 pruneForPQ.17.7.1
+
+
+# Xu doesn't like the placement of this branch, trim the two upstream seqs
+# https://github.com/cov-lineages/pango-designation/issues/3056#issuecomment-3648938164
+g Japan/FR066-0057/2025 sample-paths
+#... node_2521790:G22865T node_2522514:C3874G node_2522515:G7791A,C25578T node_2522516:C25961T,T25969C
+# trim starting at C3874G
+g node_2522514: sample-paths | g -v node_2522516: | cut -f 1 > pruneForPD3056
+wc -l pruneForPD3056
+#2 pruneForPD3056
+
+
+wc -l pruneFor*
+#  2 pruneForPD3056
+#  3 pruneForPQ.17.7.1
+#  2 pruneForPQ.25
+#  2 pruneForPQ.25.1
+#  9 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    102m2.651s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+
+# Check paths
+
+# No more 21627 flip-flop?
+g SouthKorea/KDCA299179/2025 sample-paths.pruned
+#... node_2521792:G22865T node_2532575:T24903C node_2532582:C28957T
+# Good.
+
+# PQ.25.1 in PQ.25?  (G22865T > T24903C > T29524C?)
+g Singapore/Y25R23MSC77/2025 sample-paths.pruned
+#... node_2521792:G22865T node_2532575:T24903C node_2532576:T29524C
+# Good.
+
+# PQ.17.7.1 in PQ.17.7? (A21343G > C23601T?)
+g Japan/EIS13-439/2025 sample-paths.pruned
+#... node_2530133:A21343G node_2530146:A26046G node_2530147:C23601T
+# Good, but check tomorrow.
+
+# C25961T,T25969C before C3874G, G7791A,C25578T ?
+g Japan/FR066-0057/2025 sample-paths.pruned
+#... node_2521792:G22865T node_2528116:T25969C node_2528218:G7791A node_2528219:C3874G,C25578T,C25961T
+# Hmmm, not quite, check tomorrow too.  Might be some more partials.

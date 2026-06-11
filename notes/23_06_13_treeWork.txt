@@ -1,0 +1,259 @@
+today=2023-06-13
+cd $ottoDir/$today
+# Skip the -c B.1.1.529 this time so we can fix up the mini-Omicron in B
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+# FedeGueli reported a mini-Omicron in B:
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/156
+# It's anchored on partial-B.1: it has three of the four B.1 mutations but not A23403G (S:D614G).
+# Lop the whole thing for replacement (in case of Ns), permanently exclude the anchoring sequences.
+
+# The BA.1 part to not permanently exclude:
+g BEN/696703/2021 sample-paths
+#... node_9690:C14408T node_9885:C241T node_9886:C3037T node_3288885:C10029T node_3288886:A18163G node_3288887:G22578A,T22679C node_3288888:C10449A,C22674T,C22686T node_3292600:T22673C node_3292601:A2832G,C15240T node_3292602:T5386G node_3292603:A11537G node_3292604:C21846T node_3292605:T13195C node_3292606:G8393A node_3292607:C21762T
+# That's only 19 mutations.... how was it not excluded by nextclade omicron reversion filter?
+# Crud, nextclade sees 47 substitutions:
+#A2832G,C3037T,G8393A,C10029T,C10449A,T13195C,C14408T,C15240T,C21762T,G22578A,T22673C,C22674T,T22679C,C22686T,G22813T,T22882G,G22898A,G22992A,C22995A,A23013C,A23040G,G23048A,A23055G,A23063T,T23075C,C23202A,A23403G,C23525T,T23599G,C23604A,C23854A,G23948T,C24130A,T24469A,C24503T,C25584T,C26270T,A26530G,G26709A,A27259C,C27807T,A28271T,C28311T,A28553G,G28881A,G28882A,G28883C
+# --> Did matOptimize lose some?  Trace BEN/696703/2021's history in the tree...
+
+# The BA.2 & beyond part to not permanently exclude:
+g Australia/NSW-ICPMR-21474/2022 sample-paths
+#... node_9690:C14408T node_9885:C241T node_9886:C3037T node_3288885:C10029T node_3288886:A18163G node_3288887:G22578A,T22679C node_3288888:C10449A,C22674T,C22686T node_3288889:A22688G node_3288890:C12880T node_3288891:G4184A,G10447A,T22200G node_3288892:T670G,C2790T node_3288893:C21618T node_3288894:C9344T node_3288895:C17410T node_3288896:A20055G node_3288897:C19955T node_3288898:A9424G node_3288899:C9534T node_3288900:C10198T node_3288901:C4321T node_3288902:C15714T
+# 27 muts according to tree -- but 59 according to nextclade:
+#T670G,C2790T,C3037T,G4184A,C4321T,C9344T,G10447A,C10449A,C12880T,C14408T,C15714T,C17410T,A18163G,C19955T,A20055G,C21618T,G21987A,T22200G,G22578A,C22674T,T22679C,C22686T,A22688G,G22775A,A22786C,G22813T,T22882G,G22992A,C22995A,A23013C,A23040G,A23055G,A23063T,T23075C,A23403G,C23525T,T23599G,C23604A,C23854A,G23948T,A24424T,T24469A,C25000T,C25584T,C26060T,C26270T,C26577G,G26709A,C26858T,A27259C,G27382C,A27383T,T27384C,C27684T,C27807T,G28881A,G28882A,G28883C,A29510C
+
+# Actually, since I don't trust the mutation paths there, don't permanently exclude anything yet,
+# just lop & let all be replaced & see what happens.  But also figure out how the heck it got there.
+
+# It's not just the mini-omicron anchored at node_3288885:C10029T that's problematic --
+# everything on that node just upstream of B.1 proper is a pango-rainbow with lots of B.1.1.
+# Whack everything on that node except B.1 proper:
+g AUS/VIC635/2020 sample-paths
+#...node_9690:C14408T node_9885:C241T node_9886:C3037T node_10050:A23403G
+g node_9886: sample-paths | g -v node_10050 | cut -f 1 > pruneForLD156
+wc -l pruneForLD156
+#26595 pruneForLD156
+
+
+# This is also a mess with a lineage A branch and a mini-Delta branch... whack all but 2020 seqs:
+g Germany/BE-ChVir3087/2020 sample-paths
+#... node_9690:C14408T node_9691:A23403G
+g node_9691: sample-paths | g -vF '|2020' | cut -f 1 > pruneForB.1BasalMess
+wc -l pruneForB.1BasalMess
+#331 pruneForB.1BasalMess
+
+
+# DV.8 is placed on a child of DV.1 with rev on DV.1-defining mut.
+g Sweden/01_SE100_23CS500758/2023 sample-paths
+#... node_2342431:C22088T node_2342432:G23401T node_2342835:C19602T node_2342836:C8299T node_2342838:T22088C
+g node_2342835: sample-paths | g -v node_2342838: | cut -f 1 > pruneForDV.8
+wc -l pruneForDV.8
+#6 pruneForDV.8
+
+
+# FE.1.1.2 is not placed on FE.1.1 -- prune & replace some seqs that might have N for 28093
+g USA/FL-CDC-VSX-A063864/2023 sample-paths
+#... node_2165552:T4579A node_2165704:A3238C,C11956T,A24819G node_2165705:C28093T
+g node_2165704: sample-paths | g -v node_2165705: | cut -f 1 > pruneForFE.1.1.2
+wc -l pruneForFE.1.1.2
+#5 pruneForFE.1.1.2
+
+
+# This could use some help getting into FE.1.1 too.
+g France/PAC-HCL-723000776001/2023 sample-paths
+#... node_2165552:T4579A node_2165715:C24912T,A27983T,C28507T node_2165716:C28093T
+g node_2165715: sample-paths | g -v node_2165716: | cut -f 1 > pruneForFE.1.1
+wc -l pruneForFE.1.1
+#1 pruneForFE.1.1
+
+
+# XBB.2.12 is placed on XBB polytomy due to two sequences on a 22200 rev branch
+g India/KA-RFNB-18802/2022 sample-paths
+#... node_2256998:A22200T node_2257005:C4090T,G21255T,G23401C,T24194C node_2257006:T22200A node_2257007:A22320G 
+g node_2257005: sample-paths | g -v node_2257007: | cut -f 1 > pruneForXBB.2.12
+wc -l pruneForXBB.2.12
+#2 pruneForXBB.2.12
+
+
+wc -l pruneFor*
+#    331 pruneForB.1BasalMess
+#      6 pruneForDV.8
+#      1 pruneForFE.1.1
+#      5 pruneForFE.1.1.2
+#  26595 pruneForLD156
+#      2 pruneForXBB.2.12
+#  26940 total
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb
+
+time $matOptimize \
+    -T 50 -m 0.00000001 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.pruned.pb \
+    -o gisaidAndPublic.$today.pruned.opt.pb \
+    >& matOptimize.pruned.log
+#TODO
+
+g radius matOptimize.pruned.log 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb -c B.1.1.529 -S sample-paths.pruned
+    
+# Check paths
+
+# DV.8 is placed on a child of DV.1 with rev on DV.1-defining mut.
+g Sweden/01_SE100_23CS500758/2023 sample-paths.pruned
+#... node_2341722:T4402A node_2343636:G23401T node_2343637:C8299T,C19602T
+# Yep, good
+
+# FE.1.1.2 is not placed on FE.1.1 -- prune & replace some seqs that might have N for 28093
+g USA/FL-CDC-VSX-A063864/2023 sample-paths.pruned
+#... node_2165247:T4579A node_2165248:C28093T node_2165249:A3238C,C11956T,A24819G
+# 28093 first, good.
+
+# This could use some help getting into FE.1.1 too.
+g France/PAC-HCL-723000776001/2023 sample-paths.pruned
+#... node_2165247:T4579A node_2165248:C28093T node_2165257:C24912T,A27983T,C28507T
+# 28093 first, good.
+
+# XBB.2.12 is placed on XBB polytomy due to two sequences on a 22200 rev branch
+g India/KA-RFNB-18802/2022 sample-paths.pruned
+#... node_2131909:G22599C node_2250296:A22320G node_2256192:G23401C node_2256193:C4090T,G21255T,T24194C
+# On XBB.2, good.
+
+# OK, use for tomorrow's build and see what happens when the 25k Omicron sequences are added back.
+ln -s gisaidAndPublic.$today.pruned.opt.O.pb gisaidAndPublic.$today.masked.useMe.pb
+
+# But first see how they got to have so few mutations in path compared to what nextclade found.
+ls ../2023-05-*/sample-paths*
+g ^BEN/696703/2021 ../2023-05-*/sample-paths*
+# Wow, no matches, so it's pretty new.  Try June:
+#../2023-06-12/sample-paths.full:BEN/696703/2021|OP537270.1|2021-12-23   node_9687:C14408T node_9882:C241T node_9883:C3037T node_3288315:C10029T node_3288316:A18163G node_3288317:G22578A,T22679C node_3288318:C10449A,C22674T,C22686T node_3292030:T22673C node_3292031:A2832G,C15240T node_3292032:T5386G node_3292033:A11537G node_3292034:C21846T node_3292035:T13195C node_3292036:G8393A node_3292037:C21762T
+#../2023-06-13/sample-paths:BEN/696703/2021|OP537270.1|2021-12-23        node_9690:C14408T node_9885:C241T node_9886:C3037T node_3288885:C10029T node_3288886:A18163G node_3288887:G22578A,T22679C node_3288888:C10449A,C22674T,C22686T node_3292600:T22673C node_3292601:A2832G,C15240T node_3292602:T5386G node_3292603:A11537G node_3292604:C21846T node_3292605:T13195C node_3292606:G8393A node_3292607:C21762T
+
+# Or maybe I should be looking for its gisaid name:
+g BEN/696703/2021 $epiToPublic 
+#EPI_ISL_16014242        OP537270.1      BEN/696703/2021 2021-12-23
+g ^Benin/ChVir696703/2021 ../2023-05-*/sample-paths*
+# OK, no matches there either (of course I didn't have full sample-paths for many dates... but
+# this is a chunk-1601 sequence so should have been there...
+# Ah OK, it just had too many EPPs until more recently:
+g OP537270 ../2023-05-15/usher.addNew.log 
+#Current tree size (#nodes): 17930230    Sample name: BEN/696703/2021|OP537270.1|2021-12-23      Parsimony score: 1      Number of parsimony-optimal placements: 6
+#WARNING: Number of parsimony-optimal placements exceeds maximum allowed value (5). Ignoring sample BEN/696703/2021|OP537270.1|2021-12-23.
+
+g OP537270 ../2023-06-*/usher.addNew.log
+#...
+#../2023-06-06/usher.addNew.log:Current tree size (#nodes): 18122381     Sample name: BEN/696703/2021|OP537270.1|2021-12-23      Parsimony score: 1      Number of parsimony-optimal placements: 6
+#../2023-06-06/usher.addNew.log:WARNING: Number of parsimony-optimal placements exceeds maximum allowed value (5). Ignoring sample BEN/696703/2021|OP537270.1|2021-12-23.
+#../2023-06-07/usher.addNew.log:Current tree size (#nodes): 18117196     Sample name: BEN/696703/2021|OP537270.1|2021-12-23      Parsimony score: 0      Number of parsimony-optimal placements: 1
+
+# OK, so something changed on 06-07 and then it was added with a unique placement.
+# Did the sequence change or the tree?
+g OP537270 ~/chris_ncov/hashSeqs/output/2023-06-06/2023-06-06.hashes 
+#592ae41d997c5bf4aafe60e53628ea50        ['OP537270.1 |BEN/696703/2021']                 ['Benin/ChVir696703/2021']
+g OP537270 ~/chris_ncov/hashSeqs/output/2023-06-07/2023-06-07.hashes 
+#592ae41d997c5bf4aafe60e53628ea50        ['OP537270.1 |BEN/696703/2021']                 ['Benin/ChVir696703/2021']
+g OP537270 ~/chris_ncov/hashSeqs/output/2023-06-13/2023-06-13.hashes 
+#592ae41d997c5bf4aafe60e53628ea50        ['OP537270.1 |BEN/696703/2021']                 ['Benin/ChVir696703/2021']
+
+# OK, the sequence did not change, must have been the tree.
+echo 'BEN/696703/2021|OP537270.1|2021-12-23' > test.sample
+$matUtils extract -i ../2023-06-07/gisaidAndPublic.2023-06-07.masked.pb -s test.sample -S test.sample-path
+cat test.sample-path 
+#BEN/696703/2021|OP537270.1|2021-12-23   node_9696:C14408T node_9893:C241T node_9894:C3037T node_3281723:C10029T node_3281724:A18163G node_3281725:G22578A,T22679C node_3281726:C10449A,C22674T,C22686T node_3285445:T22673C node_3285446:A2832G,C15240T node_3285447:T5386G node_3285448:A11537G node_3285449:C21846T node_3285450:T13195C node_3285451:G8393A node_3285452:C21762T 
+# Well there it is, a shortie path.  Just to be extra sure, check the pre-matOptimize .pb.
+$matUtils extract -i ../2023-06-07/merged.pb -s test.sample -S test.sample-path
+cat test.sample-path 
+#BEN/696703/2021|OP537270.1|2021-12-23   node_9746:C14408T node_10022:C241T node_10023:C3037T node_3283346:C10029T node_3283347:A18163G node_3283348:G22578A,T22679C node_3283349:C10449A,C22674T node_3283350:C22686T node_3288401:T22673C node_3288402:C15240T node_3288403:A2832G node_3288404:T5386G node_3288405:A11537G node_3288406:C21846T node_3288407:T13195C node_3288408:G8393A node_3288409:C21762T 
+# OK, definitely cannot blame it on matOptimize.  :)
+
+# Is nextclade imputing Ns now???
+epiFa EPI_ISL_16014242 > /data/tmp/angie/ChVir696703.fa
+faSize -veryDetailed /data/tmp/angie/ChVir696703.fa
+#hCoV-19/Benin/ChVir696703/2021|EPI_ISL_16014242|2021-12-23      29680   254     29426   29426   0
+# OK, so only 254 Ns total...
+pushd /data/tmp/angie
+bash ~/github/sarscov2phylo/scripts/global_profile_alignment.sh -i ChVir696703.fa -t 1 -o ChVir696703.aligned.fa
+faFrag -mixed ChVir696703.aligned.fa 23402 23403 stdout
+#>hCoV-19/Benin/ChVir696703/2021|EPI_ISL_16014242|2021-12-23:23402-23403
+#g
+# So... it does have A23403G... why is that not in the path?!  So confusing.
+# Minimap2 finds 47 substitutions like nextclade.
+# Check the VCF.
+popd
+zcat ../2023-06-07/new.masked.vcf.gz | head | g '^#CHROM' | tl | g BEN/696703/2021
+#21987   BEN/696703/2021|OP537270.1|2021-12-23
+zcat ../2023-06-07/new.masked.vcf.gz | cut -f 1-9,21987 | tawk '$10 != 0' | less
+# Wow... some no-calls as expected but very few alts.  WTH?
+# Did the VCF look like that the day before?
+zcat ../2023-06-06/new.masked.vcf.gz | head | g '^#CHROM' | tl | g BEN/696703/2021
+#36671   BEN/696703/2021|OP537270.1|2021-12-23
+zcat ../2023-06-06/new.masked.vcf.gz | cut -f 1-9,36671 | tawk '$10 != 0' | less
+# Yes it did!  On 2023-06-06, the VCF had 47 subst, but on 2023-06-07, it had only 14!
+# What happened?  And how many sequences has it happened to?!
+# Damn, updateCombinedTree.log was apparently a restart because it begins with an existing
+# new.masked.vcf.gz and immediately runs usher.
+# new.aligned.fa is still there uncompressed...
+faOneRecord ../2023-06-07/new.aligned.fa OP537270.1 > /data/tmp/angie/OP537270.1.aligned.2023-06-07.fa
+faFrag -mixed /data/tmp/angie/OP537270.1.aligned.2023-06-07.fa 23402 23403 stdout
+#>OP537270.1:23402-23403
+#g
+faCmp /data/tmp/angie/OP537270.1.aligned.2023-06-07.fa /data/tmp/angie/ChVir696703.aligned.fa
+#/data/tmp/angie/OP537270.1.aligned.2023-06-07.fa and /data/tmp/angie/ChVir696703.aligned.fa are the same
+# OK, so the aligned fa was the same as ever, it's just the VCF... why?!
+
+l -rt ../2023-06-07 | less
+#...
+#-rw-rw-r-- 1 angie genecats 1195465528 Jun  7 08:52 new.fa
+#-rw-rw-r-- 1 angie genecats 1203314004 Jun  7 08:59 new.aligned.fa
+#-rw-rw-r-- 1 angie genecats    2733396 Jun  7 09:00 oldAndNewNames
+#-rw-rw-r-- 1 angie genecats      32580 Jun  7 09:00 mask.vcf
+#-rw-rw-r-- 1 angie genecats   50259968 Jun  7 09:06 new.masked.vcf.gz
+#-rw-rw-r-- 1 angie genecats    2436984 Jun  7 14:38 placement_stats.tsv
+#...
+
+# So it really looks like new.masked.vcf was created around the usual time, by the usual flow,
+# but I must have restarted in order to get the previous day's treeWork in...
+zcat ../2023-06-07/new.masked.vcf.gz | cut -f 1-5 | tail
+#...
+#NC_045512v2     22719   A22719G,A22719C,A22719T A       G,C,T
+#NC_045512v2     22720   A22720G,A22720C,A22720T,A22720W A       G,C,T,W
+#NC_045512v2     22721   T22721G,T22721C,T22721A T       G,C,A
+#NC_045512v2     22722   T22722C,T22722A,T22722G,T22722W T       C,A,G,W
+
+# OMG!  I must have killed the job making VCF.  But the VCF was not regenerated because the
+# file had already been created, just not completed.  DUH!  I had better remove every sequence
+# that was added that day... maybe that explains the whole mini-Omicron???
+# It is late and I am tired, to be continued tomorrow.
+
+# 2023-06-14
+# Make a list of sequences added on 2023-06-07 that still need to be removed.
+cd $ottoDir/2023-06-07
+comm -13 <(sort ../2023-06-06/samples.2023-06-06) <(sort samples.2023-06-07) \
+    > /data/tmp/angie/new.2023-06-07
+wc -l /data/tmp/angie/new.2023-06-07
+#30100 /data/tmp/angie/new.2023-06-07
+comm -23 /data/tmp/angie/new.2023-06-07 <(sort ../2023-06-13/pruneForLD156) \
+    > /data/tmp/angie/pruneFor2023-06-07
+wc -l /data/tmp/angie/pruneFor2023-06-07
+#4099 /data/tmp/angie/pruneFor2023-06-07
+
+# Put it in place for next treeWork....
+mv /data/tmp/angie/pruneFor2023-06-07 $ottoDir/2023-06-14/

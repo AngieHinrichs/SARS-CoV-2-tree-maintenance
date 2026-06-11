@@ -1,0 +1,84 @@
+# Ugh the BA.2.12.1 split is back.  Need to permanently exclude more sequences, apparently.
+
+today=2022-10-01
+cd $ottoDir/$today
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb -S sample-paths
+
+g Canada/MB-CPL-428394/2022 sample-paths
+#... node_1675665:C2790T node_2280418:C23673T
+g Australia/ACT7214/2022 sample-paths
+#... node_1675665:C2790T node_2280418:C23673T node_2280419:T15009C node_2280422:C25416T node_2280423:C11674T node_2280424:C21721T node_2280425:T22917A
+g node_2280418: sample-paths | g -v node_2280425: | cut -f 1 > pruneForBA.2.12.1
+wc -l pruneForBA.2.12.1
+#560 pruneForBA.2.12.1
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb \
+    -p -s <(cat pruneFor*) \
+    -O -o gisaidAndPublic.$today.masked.pruned.pb
+
+time $matOptimize \
+    -T 50 -r 8 -M 2 -S move_log.pruned \
+    -i gisaidAndPublic.$today.masked.pruned.pb \
+    -o gisaidAndPublic.$today.masked.pruned.opt.pb \
+    >& matOptimize.pruned.log
+
+# Meanwhile permanently exclude all those.
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' pruneForBA.2.12.1 | g ^EPI_ISL \
+    > badBranchSeeds.BA.2.12.1.epis
+awk -F\| '{ if ($3 == "") { print $1; } else { print $2; } }' pruneForBA.2.12.1 | g -v ^EPI_ISL \
+    > badBranchSeeds.BA.2.12.1.pub
+g -Fwf badBranchSeeds.BA.2.12.1.epis $epiToPublic | wc -l
+#0
+g -Fwf badBranchSeeds.BA.2.12.1.pub $epiToPublic | cut -f 1 >> badBranchSeeds.BA.2.12.1.epis 
+cat badBranchSeeds.BA.2.12.1.epis badBranchSeeds.BA.2.12.1.pub >> ../badBranchSeed.ids
+
+# Check paths
+$matUtils extract -i gisaidAndPublic.$today.masked.pruned.opt.pb -C clade-paths.pruned \
+    -S sample-paths.pruned
+
+# Meanwhile set up to look at it in taxonium
+usher_to_taxonium --input gisaidAndPublic.$today.masked.pruned.opt.pb \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz >& taxonium.log &
+
+# Please let it be C25416T > C23673T > C11674T > T22917A:
+g Australia/ACT7214/2022 sample-paths.pruned
+#... node_2075030:C2790T node_2713824:C25416T node_2754446:C23673T node_2754735:C11674T node_2754754:T22917A node_2754755:T15009C,C21721T
+# Whew.  OK then, replace.
+# Reannotate clades & lineages.
+tail -n+2 clade-paths.pruned \
+| grep -E '^[12]' \
+| cut -f 1,3 > cladeToPath.update
+tail -n+2 clade-paths.pruned \
+| grep -E '^[A-Za-z]' \
+| cut -f 1,3 > lineageToPath.update
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.masked.pruned.opt.pb \
+    -l \
+    -P cladeToPath.update \
+    -M $scriptDir/nextstrain.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pb
+
+$matUtils annotate -T 80 -i gisaidAndPublic.$today.treeWork.nextclade.pb \
+    -P lineageToPath \
+    -M $scriptDir/pango.clade-mutations.tsv \
+    -o gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb
+
+$matUtils extract -i gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb -C clade-paths.treeWork
+diff <(cut -f 1 clade-paths | sort) <(cut -f 1 clade-paths.treeWork | sort) | less
+# I just added this one to help assign BA.2.75 to sequences that don't have quite enough BA.2.75
+# mutations to make it all the way to the main branch.
+#> BA.2.75_dropout
+
+# Ship it.
+ln -f gisaidAndPublic.$today.treeWork.nextclade.pangolin.pb \
+    gisaidAndPublic.$today.masked.pb
+mv sample-paths{,.orig}
+mv clade-paths{,.orig}
+mv sample-paths{.pruned,}
+mv clade-paths{.treeWork,}
+
+# Copy-paste commands from updateCombinedTree.sh to update metadata, path files etc.

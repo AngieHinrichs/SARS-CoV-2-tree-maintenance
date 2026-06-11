@@ -1,0 +1,56 @@
+today=2025-04-10
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Fede says none of his samples of interest have Orf10:L37F (C29666T) but are placed
+# on a branch with it (3 with reversion, 1 without), and maybe other samples are also
+# getting placed there because of Ns?
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/2199#issuecomment-2785662338
+# Try pruning everything with A23598G (S:K679R) that also has C29666T, leaving only the
+# seqs with reversions, in hopes that they get placed somewhere else, and then sequences with
+# 29666N can be attracted to them instead of the C29666T branch.
+g USA/CA-LACPHL-AY11205/2025 sample-paths
+#...node_2417427:C29666T node_2417443:A23598G node_2417444:T17088A,G18703T,C28289A node_2417445:A22893G,T29666C
+g node_2417443: sample-paths | g -v node_2417445: | cut -f 1 > pruneForLP2199
+wc -l pruneForLP2199
+#5 pruneForLP2199
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    101m45.261s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -C clade-paths.pruned &
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+    
+# Check paths
+
+g USA/CA-LACPHL-AY11205/2025 sample-paths.pruned
+#... node_2416770:G22132T node_2418020:C28289A node_2418021:G18703T,A22893G node_2418022:A23598G
+# Good.

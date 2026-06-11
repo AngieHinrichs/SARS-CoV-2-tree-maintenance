@@ -1,0 +1,203 @@
+# I found that Nextstrain clade 21A (Delta) was skipped in annotations from 10-27 through 11-04
+# due to including A28461G (probably because I was using a public tree where nodes got collapsed
+# in a different way instead of using the main tree).  Also, P.1.3 was skipped 10-27 and 10-28
+# and AY.34 was skipped 11-02 (9053 inconsistently detected, needs to be N in mutations file).
+# Missing Delta in clade annotations is... eek.  So go back, reannotate and regenerate public
+# download files for 10-27 - 11-04.  However, at that point the pango designation version was
+# v1.2.91 so don't use the latest pango.clade-mutations.tsv -- remove the lineages added after that.
+
+g skip $ottoDir/2021-1*/annotate.nextclade
+#/hive/data/outside/otto/sarscov2phylo/2021-10-27/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-10-28/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-10-29/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-10-30/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-10-31/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-11-01/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-11-02/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-11-03/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-11-04/annotate.nextclade:WARNING: skipping clade 21A(Delta) because the parsimony score is 1
+
+g skip $ottoDir/2021-1*/annotate.pango
+#/hive/data/outside/otto/sarscov2phylo/2021-10-27/annotate.pango:WARNING: skipping clade P.1.3 because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-10-28/annotate.pango:WARNING: skipping clade P.1.3 because the parsimony score is 1
+#/hive/data/outside/otto/sarscov2phylo/2021-11-02/annotate.pango:WARNING: skipping clade AY.34 because the parsimony score is 1
+
+# AUGH $prevDate was set to something newer so the v1.2.93 lineages sneaked in from
+# $prevDate/lineageToName!!!
+# Make a special lineageToName.v1.2.91 and redo.  Just strip out all AYs because those come from
+# pango.clade-mutations.tsv now, and also remove B.1.639.  This is how we should have done this
+# the first time around.
+cd $ottoDir
+grep -v '^AY.' 2021-10-27/lineageToName | grep -v '^B\.1\.639' \
+    > lineageToName.v1.2.91
+
+# Then again, that is crazy inefficient because matUtils annotate bogs down hgwdev for hours per
+# run, but we already know the annotations nodes/paths that we want -- we just want to get rid of
+# the v1.2.93 lineages that slipped into the annotations.  We can simply dump paths, grep out the
+# paths for lineages that don't belong, and then reassign.  See loop below this big initial one...
+
+# Test on first date:
+for today in 2021-10-27; do
+#TODO
+# Run on remaining dates:
+for today in 2021-10-28 2021-10-29 2021-10-30 2021-10-31 2021-11-01 2021-11-02 2021-11-03 2021-11-04; do
+    cd $ottoDir/$today
+
+    # Reassign Nextstrain clades w/latest nextstrain.clade-mutations.tsv:
+    time $matUtils annotate -T 50 \
+        -l \
+        -i gisaidAndPublic.$today.masked.pb \
+        -M $scriptDir/nextstrain.clade-mutations.tsv \
+        -D details.nextclade \
+        -o gisaidAndPublic.$today.masked.nextclade.pb \
+        >& annotate.nextclade
+
+    # Reassign Pango lineages with $ottoDir/pango.clade-mutations.v1.2.91.tsv:
+    rm gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+    time $matUtils annotate -T 50 \
+        -i gisaidAndPublic.$today.masked.nextclade.pb \
+        -M $ottoDir/pango.clade-mutations.v1.2.91.tsv \
+        -c $ottoDir/lineageToName.v1.2.91 \
+        -f 0.95 \
+        -D details.pango \
+        -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb \
+        >& annotate.pango
+
+    ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+    # Re-dump cladeToName and lineageToName
+    $matUtils summary -i gisaidAndPublic.$today.masked.pb -C sample-clades
+    tail -n+2 sample-clades \
+    | tawk '{print $2, $1;}' \
+    | sort > cladeToName
+    tail -n+2 sample-clades \
+    | tawk '{print $3, $1;}' \
+    | sort > lineageToName
+
+    # Add new clade & lineage from tree to metadata.
+    zcat gisaidAndPublic.$today.metadata.tsv.gz \
+    | tail -n+2 \
+    | cut -f 1-9 \
+    | sort > tmp1
+    tail -n+2 sample-clades \
+    | sort > tmp2
+    paste <(zcat gisaidAndPublic.$today.metadata.tsv.gz | cut -f 1-9 | head -1) \
+        <(echo -e "Nextstrain_clade_usher\tpango_lineage_usher") \
+        > gisaidAndPublic.$today.metadata.tsv
+    join -t$'\t' tmp1 tmp2 \
+        >> gisaidAndPublic.$today.metadata.tsv
+    gzip -f gisaidAndPublic.$today.metadata.tsv
+    rm tmp1 tmp2
+
+    # Rebuild Taxodium-formatted protobuf for display
+    zcat /hive/data/genomes/wuhCor1/goldenPath/bigZips/genes/ncbiGenes.gtf.gz \
+    | grep -v '"ORF1a"' > ncbiGenes.gtf
+    zcat /hive/data/genomes/wuhCor1/wuhCor1.fa.gz > wuhCor1.fa
+    zcat gisaidAndPublic.$today.metadata.tsv.gz > metadata.tmp.tsv
+    time $matUtils extract -i gisaidAndPublic.$today.masked.pb \
+        -f wuhCor1.fa \
+        -g ncbiGenes.gtf \
+        -M metadata.tmp.tsv \
+        --write-taxodium gisaidAndPublic.$today.masked.taxodium.pb
+    rm metadata.tmp.tsv wuhCor1.fa
+    gzip -f gisaidAndPublic.$today.masked.taxodium.pb
+
+    # Update public download files.  This has the side-effect of also updating the links to
+    # latest on hgwdev which is not great, but it will be temporary.
+    $scriptDir/extractPublicTree.sh $today
+done
+
+g skip $ottoDir/2021-1*/annotate.nextclade
+g skip $ottoDir/2021-1*/annotate.pango
+# No output, good.
+
+# But v1.2.93 lineages slipped in via ../$prevDate/lineageToName with prevDate not set appropriately,
+# see comments and revised -c file above.
+
+# Now we go back and strip out the lineages that don't belong.
+
+
+for today in 2021-10-27; do
+# Run on remaining dates:
+for today in 2021-10-28 2021-10-29 2021-10-30 2021-10-31 2021-11-01 2021-11-02 2021-11-03 2021-11-04; do
+    cd $ottoDir/$today
+
+    # Dump out clade-paths so we can remove post-v1.2.91 lineages.
+    $matUtils extract -i gisaidAndPublic.$today.masked.pb -C clade-paths.oopsV93
+
+    # Remove the lineages from the future and make a node-reassignment file.
+    tail -n+2 clade-paths.oopsV93 \
+    | egrep '^[A-Z]' \
+    | tawk '$1 != "B.1.639" && $1 !~ /^AY\.(4\.2\.1|10[3-9](\.[0-9])?|1[12][0-9]([.0-9]+)?)/ {print $1, $2;}' \
+        > nodesToReassign
+
+    # Reassign the v1.2.91 lineages:
+    rm gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+    $matUtils annotate -T 30 \
+        -i gisaidAndPublic.$today.masked.nextclade.pb \
+        -C nodesToReassign \
+        -o gisaidAndPublic.$today.masked.nextclade.pangolin.pb
+
+    ln -f gisaidAndPublic.$today.masked.nextclade.pangolin.pb gisaidAndPublic.$today.masked.pb
+
+    # Re-dump cladeToName and lineageToName
+    $matUtils summary -i gisaidAndPublic.$today.masked.pb -C sample-clades
+    tail -n+2 sample-clades \
+    | tawk '{print $2, $1;}' \
+    | sort > cladeToName
+    tail -n+2 sample-clades \
+    | tawk '{print $3, $1;}' \
+    | sort > lineageToName
+
+    # Add new clade & lineage from tree to metadata.
+    zcat gisaidAndPublic.$today.metadata.tsv.gz \
+    | tail -n+2 \
+    | cut -f 1-9 \
+    | sort > tmp1
+    tail -n+2 sample-clades \
+    | sort > tmp2
+    paste <(zcat gisaidAndPublic.$today.metadata.tsv.gz | cut -f 1-9 | head -1) \
+        <(echo -e "Nextstrain_clade_usher\tpango_lineage_usher") \
+        > gisaidAndPublic.$today.metadata.tsv
+    join -t$'\t' tmp1 tmp2 \
+        >> gisaidAndPublic.$today.metadata.tsv
+    gzip -f gisaidAndPublic.$today.metadata.tsv
+    rm tmp1 tmp2
+
+    # Do the same efficient reannotation for the public lineages.
+    $matUtils extract -i public-$today.all.masked.pb -C clade-paths.public.oopsV93
+    tail -n+2 clade-paths.public.oopsV93 \
+    | egrep '^[A-Z]' \
+    | tawk '$1 != "B.1.639" && $1 !~ /^AY\.(4\.2\.1|10[3-9](\.[0-9])?|1[12][0-9]([.0-9]+)?)/ {print $1, $2;}' \
+        > nodesToReassign.public
+    rm public-$today.all.masked.nextclade.pangolin.pb
+    $matUtils annotate -T 30 \
+        -i public-$today.all.masked.nextclade.pb \
+        -C nodesToReassign.public \
+        -o public-$today.all.masked.nextclade.pangolin.pb
+    ln -f public-$today.all.masked.nextclade.pangolin.pb public-$today.all.masked.pb
+
+    # Update metadata
+    zcat gisaidAndPublic.$today.metadata.tsv.gz \
+    | grep -v EPI_ISL_ \
+    | gzip -c \
+        > public-$today.metadata.tsv.gz
+
+    # Update *ToPublicName files for downloads
+    grep -v EPI_ISL cladeToName > cladeToPublicName
+    grep -v EPI_ISL lineageToName > lineageToPublicName
+
+    # Update download files affected by lineage annotation
+    archiveRoot=/hive/users/angie/publicTrees
+    read y m d < <(echo $today | sed -re 's/-/ /g')
+    archive=$archiveRoot/$y/$m/$d
+    mkdir -p $archive
+    ln -f `pwd`/public-$today.all.masked.{pb,vcf.gz} $archive/
+    gzip -c public-$today.all.masked.pb > $archive/public-$today.all.masked.pb.gz
+    ln -f `pwd`/public-$today.metadata.tsv.gz $archive/
+    gzip -c public-$today.all.masked.nextclade.pangolin.pb \
+        > $archive/public-$today.all.masked.nextclade.pangolin.pb.gz
+    gzip -c lineageToPublicName > $archive/lineageToPublicName.tsv.gz
+    gzip -c cladeToPublicName > $archive/cladeToPublicName.tsv.gz
+
+done
