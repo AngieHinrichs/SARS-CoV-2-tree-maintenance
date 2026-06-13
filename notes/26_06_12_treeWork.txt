@@ -1,0 +1,73 @@
+today=2026-06-12
+cd $ottoDir/$today
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Proposed PQ.5 sublineage is placed in PQ.17
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3278
+g Gansu/QYCDC-0144/2025 sample-paths
+#... node_2546957:T22995C node_2547247:C25413T node_2547248:C4540T,A6444G,A12065G,C15546T,C18946T,A20351G,G20931T,C22286T,C22522T,C25672T
+g node_2547247: sample-paths | g -v node_2547248: | cut -f 1 > pruneForLP3278
+wc -l pruneForLP3278
+#1 pruneForLP3278
+
+
+# Proposed recombinant's donor branch is placed in XFG.5.1 but they want it in XFG.5.1.7.
+# It is missing one of the defining muts (ORF8:D63G, A28081G) - Fede says it's deleted.
+# https://github.com/sars-cov-2-variants/lineage-proposals/issues/3460
+g Canada/ON-SHL-202610847/2026 sample-paths
+#... node_2379928:C6543T node_2381571:C29311T node_2381572:G2577A,T10084C,A16938G,A23598G,G25352T,G26834T ...
+g node_2381571: sample-paths | g -v node_2381572: | cut -f 1 > pruneForLP3460
+wc -l pruneForLP3460
+#1 pruneForLP3460
+
+
+wc -l pruneFor*
+#  1 pruneForLP3278
+#  1 pruneForLP3460
+#  2 total
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#TODO
+#real    64m52.875s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned
+
+# Check paths
+
+# PQ.5-defining C25672T before C25413T?
+g Gansu/QYCDC-0144/2025 sample-paths.pruned
+#... node_2539572:G22865T node_2550899:C25672T node_2550973:G20931T node_2550974:C4540T,A6444G,A12065G,C15546T,C18946T,A20351G,C22286T,C22522T,T22995C,C25413T
+# Yep.
+
+# A23598G before C29311T?
+g Canada/ON-SHL-202610847/2026 sample-paths.pruned
+#... node_2379942:C6543T node_2381434:A23598G node_2381435:G2577A,T10084C,A16938G,G25352T,G26834T,C29311T ...
+# Yep.
