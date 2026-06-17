@@ -1,0 +1,113 @@
+today=2026-06-17
+cd $ottoDir/$today
+
+# Run find_split_lineages.py again to see how stable the 26_06_15 fixes are.
+
+conda activate bte
+
+time python ~/kent/src/hg/utils/otto/sarscov2phylo/find_split_lineages.py \
+     -i gisaidAndPublic.$today.masked.pb.gz \
+     -e G22599C,G22927T,T22928C,A23598G \
+     -p pruneForSplitLineages \
+     > split_lineages.txt
+#Finished 'from_pb' in 142.6082 seconds
+
+wc -l split_lineages.txt
+#1772 split_lineages.txt
+
+wc -l pruneForSplitLineages
+#29 pruneForSplitLineages
+
+grep prune\  split_lineages.txt
+#JN.1.7.5 node_2514041 sibling node_2513544  (C10030T, 29) child node_2513545 (28, 0.966) has mutations C4878T C10448T A20298C, superset of lineage mutations C10448T --> prune 1 (0.034)
+#BQ.1.1.3 node_2233973 sibling node_2225076  (C7844T, 78) child node_2225077 (74, 0.949) has mutations C2061T C10537T A15111G G18697A T24073C, superset of lineage mutations A15111G --> prune 4 (0.051)
+#BQ.1.1.31 node_2242985 sibling node_2254956  (T28098C, 46) child node_2254957 (40, 0.870) has mutations C9803T C22329T, superset of lineage mutations C22329T --> prune 6 (0.130)
+#XFG.4.1 node_2375128 sibling node_2374665  (C25658T, 21) child node_2374666 (18, 0.857) has mutations C16457T, superset of lineage mutations C16457T --> prune 3 (0.143)
+#XBB.1_27915T node_1054076 sibling node_1053268  (A22995G, 72) child node_1053273 (60, 0.833) has mutations G27915T, superset of lineage mutations G27915T --> prune 12 (0.167)
+#XBB.1_27915T node_1054076 sibling node_1052892  (T1854C, 17) child node_1052893 (14, 0.824) has mutations G27915T, superset of lineage mutations G27915T --> prune 3 (0.176)
+
+# That's a pretty small count, give it a try and check again tomorrow.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 60 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    108m28.545s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15365584,with radius 1, second from start 183 
+#parsimony score after optimizing: 15365572,with radius 2, second from start 280 
+#parsimony score after optimizing: 15365561,with radius 4, second from start 840 
+#parsimony score after optimizing: 15365555,with radius 8, second from start 3565 
+#parsimony score after optimizing: 15365551,with radius 16, second from start 5551 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+# Check paths -- first identify a sequence from each of the above split branches to check.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c BA.2 -S sample-paths
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c BA.2 -S sample-paths.pruned
+
+# JN.1.7.5 C10448T > C10030T?
+grep node_2513545: sample-paths | head -1 | cut -f 1
+#USA/AZ-CDC-LC1103903/2024|PP762331.1|2024-04-16
+grep ^USA/AZ-CDC-LC1103903/2024 sample-paths.pruned
+#... node_2511753:C23277T node_2514035:C10448T node_2514036:C4878T,C10030T,A20298C  ...
+# Yes, good.
+
+# BQ.1.1.3 A15111G > C7844T ?
+grep node_2225077: sample-paths | head -1 | cut -f 1
+#Portugal/PT45144/2022|EPI_ISL_16443598|2022-12-20
+grep ^Portugal/PT45144/2022 sample-paths.pruned
+#... node_2168906:A17039G node_2257117:C2061T node_2257118:C7844T,C10537T,A15111G,G18697A,T24073C
+# No, looks like it got snagged on something else.  Seems like each of its mutations have singlet branches,
+# will have to find and prune them all at once.
+
+# BQ.1.1.31 C22329T > T28098C ?
+grep node_2254957: sample-paths | head -1 | cut -f 1
+#USA/CA-SCPHL-22WGS02648/2022|EPI_ISL_16289816|2022-12-08
+grep ^USA/CA-SCPHL-22WGS02648/2022 sample-paths.pruned
+#... node_2168906:A17039G node_2242969:C22329T node_2242970:C9803T,T28098C ...
+# Good.
+
+# XFG.4.1 C16457T > C25658T ?
+grep node_2374666: sample-paths | head -1 | cut -f 1
+#Canada/SK-RRPL-795807/2026|EPI_ISL_20414089|2026-02-12
+grep ^Canada/SK-RRPL-795807/2026 sample-paths.pruned
+#... node_2374668:C683T node_2375128:C16457T node_2375129:C25658T ...
+# Good.
+
+# XBB.1_27915T > A22995G ?
+grep node_1053273: sample-paths | head -1 | cut -f 1
+#USA/NY-NYULH-14612/2023|EPI_ISL_17653849|2023-04-20
+grep ^USA/NY-NYULH-14612/2023 sample-paths.pruned
+#... node_1051551:G22317T node_1054055:G27915T node_1371824:A22995G ...
+# Good.
+
+# XBB.1_27915T > T1854C ?
+grep node_1052893: sample-paths | head -1 | cut -f 1
+#USA/CA-CDPH-500103201/2023|OR002493.1|2023-02-23
+grep ^USA/CA-CDPH-500103201/2023 sample-paths.pruned
+#... node_1051551:G22317T node_1054055:G27915T node_1371843:T1854C ...
+# Good.
+
+# And of course check tomorrow's build.

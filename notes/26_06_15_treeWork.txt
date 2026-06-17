@@ -1,0 +1,195 @@
+today=2026-06-15
+cd $ottoDir/$today
+
+# Try out my new script find_split_lineages.py.
+
+conda activate bte
+
+# Exempt several recurrent spike muts from pruning (unless there's only one sequence keeping the branch out of the main lineage):
+# G22927T (HK.3 sibs), A23598G (LP.8.1.1 sibs), T22928C (JN.1.16 sibs), G22599C (KP.2 sibs & others).
+time python ~/kent/src/hg/utils/otto/sarscov2phylo/find_split_lineages.py \
+     -i gisaidAndPublic.$today.masked.pb.gz \
+     -e G22599C,G22927T,T22928C,A23598G \
+     -p pruneForSplitLineages \
+     > split_lineages.txt
+#Finished 'from_pb' in 84.0129 seconds
+#real    2m9.385s
+
+# Take a look at the output and reasons given for pruning or not:
+less split_lineages.txt
+
+g prune split_lineages.txt | wc -l
+#315
+
+wc -l pruneForSplitLineages
+#4707 pruneForSplitLineages
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 80 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    112m32.838s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15357261,with radius 1, second from start 323
+#parsimony score after optimizing: 15357233,with radius 2, second from start 433
+#parsimony score after optimizing: 15357216,with radius 4, second from start 929
+#parsimony score after optimizing: 15357204,with radius 8, second from start 3434
+#parsimony score after optimizing: 15357200,with radius 16, second from start 5561
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+# Now use the same script to see if there are still split lineages that meet the prune criteria.
+# Ideally there should be none, i.e. prune & opt would fix all.
+time python ~/kent/src/hg/utils/otto/sarscov2phylo/find_split_lineages.py \
+     -i gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+     -e G22599C,G22927T,T22928C,A23598G \
+     -p pruneForSplitLineagesPostOpt \
+     > split_lineages.postOpt.txt
+#Finished 'from_pb' in 133.5301 seconds
+#real    3m31.363s
+# hgwdev is a little busy now
+
+
+# 2026-06-16
+
+g prune split_lineages.postOpt.txt | wc -l
+#8
+# Not 0, but a big reduction
+
+wc -l pruneForSplitLineagesPostOpt
+#8145 pruneForSplitLineagesPostOpt
+# Seems like... a lot.
+
+grep prune split_lineages.postOpt.txt
+#BQ.1_17039 node_2256587 sibling node_2166216  (G22599C, 359827) child node_2167898 (353110, 0.981) has mutations A17039G, superset of lineage mutations A17039G --> prune 6717 (0.019)
+#JN.1.7.5 node_2512755 sibling node_2512258  (C10030T, 29) child node_2512259 (28, 0.966) has mutations C4878T C10448T A20298C, superset of lineage mutations C10448T --> prune 1 (0.034)
+#BQ.1.1.3 node_2232910 sibling node_2224014  (C7844T, 78) child node_2224015 (74, 0.949) has mutations C2061T C10537T A15111G G18697A T24073C, superset of lineage mutations A15111G --> prune 4 (0.051)
+#BQ.1.1.47 node_2204241 sibling node_2203495  (C28677T, 1223) child node_2203516 (1143, 0.935) has mutations A22002T, superset of lineage mutations A22002T --> prune 80 (0.065)
+#BQ.1.1.31 node_2244036 sibling node_2256002  (T28098C, 46) child node_2256003 (40, 0.870) has mutations C9803T C22329T, superset of lineage mutations C22329T --> prune 6 (0.130)
+#XFG.4.1 node_2374034 sibling node_2373572  (C25658T, 21) child node_2373573 (18, 0.857) has mutations C16457T, superset of lineage mutations C16457T --> prune 3 (0.143)
+#JN.1.8 node_2507427 sibling node_2508068  (C23277T, 5934) child node_2508403 (4600, 0.775) has mutations C27476T, superset of lineage mutations C27476T --> prune 1334 (0.225)
+#Writing 8145 seqs to pruneForSplitLineagesPostOpt.
+
+# Ah, the BQ.1.1 annotation might have been lost, contributing to 6717 of those.
+
+# What's up with BQ.1.1.47?  See if it turned up in the initial run:
+grep BQ.1.1.47 split_lineages.txt
+#BQ.1.1.47 node_2205746 sibling node_2204995  (C28677T, 1224) child node_2205009 (1132, 0.925) has mutations A22002T, superset of lineage mutations A22002T -- but child is annotated as BQ.1.1.65
+# -- OK, BQ.1.1.65 annotation was probably lost.
+
+# And JN.1.8 with 1334:
+grep ^JN.1.8\  split_lineages.txt | grep C23277T
+#JN.1.8 node_2510583 sibling node_2511224 JN.1.32 (C23277T, 5923) child node_2511555 (4600, 0.777) has mutations C27476T, superset of lineage mutations C27476T -- but sibling is annotated as JN.1.32
+# -- yep, another lost annotation.
+
+# So really we need to reannotate before running find_split_lineages.py again.
+# The real test is what happens in the 2026-06-16 run that uses this as input, but just to see how it goes
+# after re-annotating:
+
+# Don't bother with annotating nextstrain clades, just clear it and see what happens with pango lineages only.
+time $matUtils annotate -T 32 -i gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+     -l \
+     -P lineageToPath \
+     -M $scriptDir/pango.clade-mutations.tsv \
+     -o gisaidAndPublic.$today.pruned.opt.O.pangoOnly.pb.gz
+#Annotated 5747 clades; failed to find paths for 186 clades
+#WARNING: Could not assign a node to clade XBB.1.27 with 0 samples since placement node(s) did not overlap with enough clade samples!
+#WARNING: Could not assign a node to clade XBB.1.12 with 0 samples since placement node(s) did not overlap with enough clade samples!
+#WARNING: Could not assign a node to clade XBB.1.12.1 with 0 samples since placement node(s) did not overlap with enough clade samples!
+#real    48m14.439s
+# -- interesting, I wonder if I accidentally nuked some branches that had lineages further down.  Again, the real test is
+# how the 26_06_16 build turns out.
+
+time python ~/kent/src/hg/utils/otto/sarscov2phylo/find_split_lineages.py \
+     -i gisaidAndPublic.$today.pruned.opt.O.pangoOnly.pb.gz \
+     -e G22599C,G22927T,T22928C,A23598G \
+     -p pruneForSplitLineagesPostOpt \
+     > split_lineages.postOpt.txt
+
+g prune\  split_lineages.postOpt.txt | wc -l
+#4
+wc -l pruneForSplitLineagesPostOpt
+#14 pruneForSplitLineagesPostOpt
+# That's more like what I would expect.
+
+grep prune\  split_lineages.postOpt.txt
+#JN.1.7.5 node_2512755 sibling node_2512258  (C10030T, 29) child node_2512259 (28, 0.966) has mutations C4878T C10448T A20298C, superset of lineage mutations C10448T --> prune 1 (0.034)
+#BQ.1.1.3 node_2232910 sibling node_2224014  (C7844T, 78) child node_2224015 (74, 0.949) has mutations C2061T C10537T A15111G G18697A T24073C, superset of lineage mutations A15111G --> prune 4 (0.051)
+#BQ.1.1.31 node_2244036 sibling node_2256002  (T28098C, 46) child node_2256003 (40, 0.870) has mutations C9803T C22329T, superset of lineage mutations C22329T --> prune 6 (0.130)
+#XFG.4.1 node_2374034 sibling node_2373572  (C25658T, 21) child node_2373573 (18, 0.857) has mutations C16457T, superset of lineage mutations C16457T --> prune 3 (0.143)
+
+# Were those detected in the first round or are they new?
+
+grep ^JN.1.7.5 split_lineages.txt | grep prune
+#JN.1.7.5 node_2515933 sibling node_2514353  (C4878T, 29) child node_2514354 (28, 0.966) has mutations C10030T C10448T A20298C, superset of lineage mutations C10448T --> prune 1 (0.034)--> 1146
+# -- Interesting, there was another sibling with one of the muts waiting to pull it in.
+
+grep ^BQ.1.1.3\  split_lineages.txt | grep prune
+#BQ.1.1.3 node_2236979 sibling node_2203068  (C10537T, 87) child node_2203069 (74, 0.851) has mutations C2061T C7844T A15111G G18697A T24073C, superset of lineage mutations A15111G --> prune 13 (0.149)--> 2261
+# -- Same deal, yet another sibling with one of the multi-muts.
+
+grep ^BQ.1.1.31 split_lineages.txt | grep prune
+#BQ.1.1.31 node_2251616 sibling node_2226651  (C9803T, 46) child node_2226653 (40, 0.870) has mutations C22329T T28098C, superset of lineage mutations C22329T --> prune 6 (0.130)--> 1947
+# -- Same
+
+grep ^XFG.4.1\  split_lineages.txt | grep prune
+# Not there in the first round... did matOptimize make a new one all by itself or influenced by pruning?
+grep C16457T split_lineages.txt
+# No output
+grep C25658T split_lineages.txt | grep prune
+#XFG.4 node_2376636 sibling node_2372262  (C25658T, 25) child node_2372265 (21, 0.840) has mutations C683T, superset of lineage mutations C683T --> prune 4 (0.160)--> 3145
+# So there was a C683T (XFG.4) sibling C25658T with a child C683T and we pruned the C25658T-onlies to join the C683Ts.
+# Now there's a C16457T (XFG.4.1) sibling C25658T w/child C16457T and we want to prune the (probably C683T and) C25658T-onlies to join the C16457Ts.
+# Yeah, I think moving the C683T+C25658T could make that situation.
+
+
+# The 2026-06-16 build hasn't yet made the taxonium file, but we can run the script to see how it went with the
+# addition of the pruned samples...
+
+today=2026-06-16
+cd $ottoDir/$today
+time python ~/kent/src/hg/utils/otto/sarscov2phylo/find_split_lineages.py \
+     -i gisaidAndPublic.$today.masked.pb.gz \
+     -e G22599C,G22927T,T22928C,A23598G \
+     -p pruneForSplitLineages \
+     > split_lineages.txt
+#Finished 'from_pb' in 122.8753 seconds
+#real    3m22.340s
+
+wc -l split_lineages.txt 
+#1774 split_lineages.txt
+
+g prune\  split_lineages.txt
+#XBB.1.22 node_1364215 sibling node_1318822  (C11956T, 142496) child node_1318834 (142431, 1.000) has mutations T28297C, superset of lineage mutations T28297C --> prune 65 (0.000)
+#JN.1.7.5 node_2513811 sibling node_2513314  (C10030T, 29) child node_2513315 (28, 0.966) has mutations C4878T C10448T A20298C, superset of lineage mutations C10448T --> prune 1 (0.034)
+#BQ.1.1.3 node_2233825 sibling node_2224928  (C7844T, 78) child node_2224929 (74, 0.949) has mutations C2061T C10537T A15111G G18697A T24073C, superset of lineage mutations A15111G --> prune 4 (0.051)
+#BQ.1.1.31 node_2242837 sibling node_2254806  (T28098C, 46) child node_2254807 (40, 0.870) has mutations C9803T C22329T, superset of lineage mutations C22329T --> prune 6 (0.130)
+#XFG.4.1 node_2374927 sibling node_2374464  (C25658T, 21) child node_2374465 (18, 0.857) has mutations C16457T, superset of lineage mutations C16457T --> prune 3 (0.143)
+#XBB.1_27915T node_1054046 sibling node_1053241  (A22995G, 72) child node_1053246 (60, 0.833) has mutations G27915T, superset of lineage mutations G27915T --> prune 12 (0.167)
+#XBB.1_27915T node_1054046 sibling node_1052865  (T1854C, 17) child node_1052866 (14, 0.824) has mutations G27915T, superset of lineage mutations G27915T --> prune 3 (0.176)
+
+# Any missing lineages?
+less +G annotate.pango
+# Nope, good.
+
