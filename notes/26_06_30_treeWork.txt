@@ -1,0 +1,70 @@
+today=2026-06-30
+cd $ottoDir/$today
+
+# Run find_split_lineages.py again to see how stable the 26_06_17 fixes are.
+
+conda activate bte
+
+time python ~/kent/src/hg/utils/otto/sarscov2phylo/find_split_lineages.py \
+     -i gisaidAndPublic.$today.masked.pb.gz \
+     -e G22599C,G22927T,T22928C,A23598G \
+     -p pruneForSplitLineages \
+     > split_lineages.txt
+#Finished 'from_pb' in 94.8189 seconds
+#real    2m33.096s
+
+wc -l split_lineages.txt
+#1769 split_lineages.txt
+wc -l pruneForSplitLineages
+#65 pruneForSplitLineages
+grep prune\  split_lineages.txt
+#XBB.1.22 node_1364784 sibling node_1319380  (C11956T, 142551) child node_1319392 (142486, 1.000) has mutations T28297C, superset of lineage mutations T28297C --> prune 65 (0.000)
+
+# That's a new old one... evidence that matOptimize is a source of these.
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 60 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    110m14.848s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15416777,with radius 1, second from start 175 
+#parsimony score after optimizing: 15416768,with radius 2, second from start 268 
+#parsimony score after optimizing: 15416757,with radius 4, second from start 770 
+#parsimony score after optimizing: 15416751,with radius 8, second from start 3738 
+#parsimony score after optimizing: 15416750,with radius 16, second from start 5574 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+# Check paths -- first identify a sequence from each of the above split branches to check.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c XBB.1 -S sample-paths.XBB.1
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c XBB.1 -S sample-paths.pruned.XBB.1
+
+# XBB.1.22 T28297C > C11956T ?
+grep node_1319392: sample-paths.XBB.1 | head -1 | cut -f 1
+#Iceland/L-4922/2023|EPI_ISL_18784182|2023-11-20
+grep ^Iceland/L-4922/2023 sample-paths.pruned.XBB.1
+#... node_1314756:T23018C node_1319381:T28297C node_1319382:C11956T ...
+# Yep.
