@@ -56,7 +56,7 @@ start date	notes file	tree dates	pruning	force moves	name changes	clade/lineage 
 2022-10-31	notes/22_10_31_treeWork.txt	2022-10-31	y	n	n	n	pruned to fix BQ.1.1 branches, BQ.1.1.11
 2022-11-15	notes/22_11_15_treeWork.txt	2022-11-15	y	n	n	n	added BSM for BA.2, BA.2.75; pruned to fix BQ.1.1 branches, BA.2.56, BA.5.3.3, BA.2.9, BE.8, BQ.1.25
 2022-11-17	notes/22_11_17_treeWork.txt	2022-11-17	y	n	n	n	pruned to fix split BA.2.75.2, BA.5.3, BA.5.1
-2022-12-08	notes/22_12_08_treeWork.txt	2022-12-08	y	n	n	n	pruned to fix split BA.5.5, "CK.1-like", BA.2.64
+2022-12-08	notes/22_12_08_treeWork.txt	2022-12-08	y	n	n	n	pruned to fix split BA.5.5, 'CK.1-like', BA.2.64
 2022-12-09	notes/22_12_09_treeWork.txt	2022-12-09	y	n	n	n	pruned to fix split BA.4.6
 2022-12-13	notes/22_12_13_treeWork.txt	2022-12-12	y	n	n	n	pruned to fix BQ.1.1, BA.4.6.2
 2022-12-29	notes/22_12_29_treeWork.txt	2022-12-29,2022-12-30	y	n	n	n	pruned to fix pango-designation#1470, #1471, XBB.1, BN.1.3
