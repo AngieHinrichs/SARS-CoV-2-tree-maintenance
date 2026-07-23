@@ -1,0 +1,57 @@
+today=2026-07-17
+cd $ottoDir/$today
+
+# find_split_lineages.py is now part of the daily build.  Some splits have come and gone, but there is a persistent
+# split of JN.1.4 so fix that.
+
+wc -l pruneForSplitLineages
+#1 pruneForSplitLineages
+
+grep prune\  split_lineages.txt
+#JN.1.4 node_2512517 sibling node_2560160  (C27143T, 11) child node_2560161 (10, 0.909) has mutations C774T, superset of lineage mutations C774T --> prune 1 (0.091)
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 60 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    109m16.918s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15425081,with radius 1, second from start 182
+#parsimony score after optimizing: 15425074,with radius 2, second from start 285
+#parsimony score after optimizing: 15425073,with radius 4, second from start 894
+#parsimony score after optimizing: 15425071,with radius 8, second from start 3898
+#parsimony score after optimizing: 15425070,with radius 16, second from start 5558
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+# Check paths -- first identify a sequence from each of the above split branches to check.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths.JN.1
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c JN.1 -S sample-paths.pruned.JN.1
+
+# Child in JN.1.4 with C774T > C27143T?
+grep node_2560161: sample-paths.JN.1 | head -1 | cut -f 1
+#Russia/PRI-RII-MH175794S/2024|EPI_ISL_19060746|2024-01-31
+grep ^Russia/PRI-RII-MH175794S/2024 sample-paths.pruned.JN.1
+#... node_2301375:T27810C node_2512523:C774T node_2512524:C27143T ...
+# Good.

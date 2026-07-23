@@ -1,0 +1,74 @@
+today=2026-07-01
+cd $ottoDir/$today
+
+# Run find_split_lineages.py again to see how stable the 26_06_30 fixes are.
+# I added find_split_lineages.py to updateCombinedTree.sh, and a grep to updatePublic.sh, so it's part of the
+# daily build now and won't need to be run manually again.
+
+conda activate bte
+
+time python ~/kent/src/hg/utils/otto/sarscov2phylo/find_split_lineages.py \
+     -i gisaidAndPublic.$today.masked.pb.gz \
+     -e G22599C,G22927T,T22928C,A23598G \
+     -p pruneForSplitLineages \
+     > split_lineages.txt
+#Finished 'from_pb' in 90.7386 seconds
+#real    2m27.793s
+
+wc -l split_lineages.txt
+#1760 split_lineages.txt
+# That is a drop from yesterday's 1769 lines... maybe matOptimize fixes some too?
+wc -l pruneForSplitLineages
+#1 pruneForSplitLineages
+grep prune\  split_lineages.txt
+#23H (HK.3), HK.3 node_1182198 sibling node_1169097  (A23539T, 340) child node_1169098 (339, 0.997) has mutations G22927T, superset of lineage mutations G22927T --> prune 1 (0.003)
+
+# Another new old one that must be from matOptimize.
+
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 60 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    110m14.848s
+
+g radius matOptimize.pruned.log
+#parsimony score after optimizing: 15416942,with radius 1, second from start 184 
+#parsimony score after optimizing: 15416933,with radius 2, second from start 283 
+#parsimony score after optimizing: 15416931,with radius 4, second from start 860 
+#parsimony score after optimizing: 15416927,with radius 8, second from start 3840 
+#parsimony score after optimizing: 15416927,with radius 16, second from start 5546 
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+# Check paths -- first identify a sequence from each of the above split branches to check.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c EG.5.1.1 -S sample-paths.EG.5.1.1
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c EG.5.1.1 -S sample-paths.pruned.EG.5.1.1
+
+# Child in HK.3 with G22927T > A23539T?
+grep node_1169098: sample-paths.EG.5.1.1 | head -1 | cut -f 1
+#Australia/TAS006282/2023|EPI_ISL_18510978|2023-11-10
+grep ^Australia/TAS006282/2023 sample-paths.pruned.EG.5.1.1
+#... node_1160204:C6541T node_1182095:G22927T node_1182096:A23539T ...
+# Yep.
+
