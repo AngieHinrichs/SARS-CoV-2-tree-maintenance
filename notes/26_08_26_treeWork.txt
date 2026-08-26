@@ -1,0 +1,53 @@
+today=2026-08-26
+cd $ottoDir/$today
+
+# Cornelius has identified some legit G23599T reversions in descendant sublineages of XFG (TJ.1.1 and TK.1),
+# and Fede pointed out that there are meaningful S mutations inside a range of bases masked in BA.2.86
+# (21610-21624 are masked, but mutations at 21617 and 21618 make S:I19V in XFG.3.1).
+# I have added exclusions to branchSpecificMask.yml, but sequences need to be pruned and added back in order
+# to reflect those mutations in the tree.
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c JN.1 -S sample-paths
+
+# Prune all of XFJ.3.1
+g England/CLIMB-CM7YJM45/2025 sample-paths
+#... node_3568014:G25352T node_3568041:C4893T
+g node_3568041: sample-paths | cut -f 1 > pruneForXFJ.3.1
+wc -l pruneForXFJ.3.1
+#730 pruneForXFJ.3.1
+
+
+# Prune all of TJ.1.1's grandparent branch (in case there are other less specific paths with G23599T)
+g Australia/QLD0x016038/2026 sample-paths
+#... node_3535511:A14964G node_3535526:G17193A,C28093T
+g node_3535526: sample-paths | cut -f 1 > pruneForTJ.1.1
+wc -l pruneForTJ.1.1
+#43 pruneForTJ.1.1
+
+
+# Prune all of TK.1's parent branch
+g Canada/AB-ABPHL-136828/2026 sample-paths
+#... node_3532397:C15848T,G22899A node_3532398:A18000G ...
+g node_3532398: sample-paths | cut -f 1 > pruneForTK.1
+wc -l pruneForTK.1
+#16 pruneForTK.1
+
+
+wc -l pruneFor*
+#    0 pruneForSplitLineages
+#   43 pruneForTJ.1.1
+#   16 pruneForTK.1
+#  730 pruneForXFJ.3.1
+#  789 total
+
+
+# Prune, no need to reoptimize, use as starter tree for tomorrow so the branches will be added back
+# without masking of important S mutations.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# When tomorrow's build is done, check if XFJ.3.1 has S:I19V and if TJ.1.1 and TK.1 have G23599T.
