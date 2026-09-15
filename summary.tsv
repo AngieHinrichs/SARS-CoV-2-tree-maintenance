@@ -179,3 +179,5 @@ start date	notes file	tree dates	pruning	force moves	name changes	clade/lineage 
 2026-07-01	notes/26_07_01_treeWork.txt	2026-07-01	y	n	n	n	pruned to fix 1 split lineage branch identified by find_split_lineages.py
 2026-07-17	notes/26_07_17_treeWork.txt	2026-07-17	y	n	n	n	pruned to fix 1 split lineage branch identified by find_split_lineages.py
 2026-08-26	notes/26_08_26_treeWork.txt	2026-08-26	y	n	n	n	pruned to restore bases excepted from branch-specific masking in XFJ.3.1, TJ.1.1, TK.1
+2026-08-27	notes/26_08_27_fix.txt	2026-08-27	n	n	n	n	repeated build steps from branch-specific masking onward to fix XFJ.3.1.1 that wasn't excluded correctly
+2026-09-14	notes/26_09_14_treeWork.txt	2026-09-14	y	n	n	n	pruned to fix 2 split lineage branches identified by find_split_lineages.py

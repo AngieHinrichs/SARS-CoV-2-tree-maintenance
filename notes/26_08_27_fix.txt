@@ -1,0 +1,87 @@
+# XFJ.3.1.1 and its child RA.1 disappeared from the tree because the XFJ.3.1.1-defining reversion G23599T was masked
+# even though XFJ.3.1 is supposed to be excluded from masking at 23599.  Why?  Because the exclusion representative,
+# England/CLIMB-CM7YJM45/2025, was removed from the tree yesterday and when it was added back today, it got put on
+# a little reversion branch for some other reversion, and then only that little reversion branch got excluded, not all
+# of XFJ.3.1 as intended.
+# The pre-masking tree from today's build still has info about the reversions that we don't want masked on that branch.
+# So we can redo the masking, this time going back one node from where England/CLIMB-CM7YJM45/2025 has been re-added.
+# I added "representativeBacktrack: 1" for it to branchSpecificMask.yml -- now to redo the build from the
+# branch-specific masking step onward.
+
+today=2026-08-27
+cd $ottoDir/$today
+
+# Make sure the G23599T rev was in its expected place before branch-specific masking:
+$matUtils extract -i merged.pb.gz -c XFJ.3 -S sample-paths.merged.XFJ.3
+g France/ARA-HCL025153107901/2025 sample-paths.merged.XFJ.3 
+#node_3571472:C4893T node_3571473:A21617G node_3571627:G23599T node_3571628:C4021T ...
+# Yep, G23599T is there as expected before branch-specific masking.
+
+# See that it was gone after branch-specific masking even though it should have been excluded (in XFJ.3):
+$matUtils extract -i merged.deltaMasked.pb.gz -c XFJ.3 -S sample-paths.merged.deltaMasked.XFJ.3
+g France/ARA-HCL025153107901/2025 sample-paths.merged.deltaMasked.XFJ.3 
+#... node_3571284:C4893T node_3571285:A21617G node_3571449:C4021T ...
+# -- doh, no G23599T
+
+g Excluding /hive/data/outside/otto/sarscov2phylo/2026-08-27/updateCombinedTree.log 
+#Excluding node_3571443 for position 21617
+#Excluding node_3571443 for position 21618
+#Excluding node_3533103 for position 23599
+#Excluding node_3571708 for position 23599
+#-- 23599 had two exclusions, that's not the problem -- but node_3571708 was not on the path to France/ARA-HCL025153107901/2025.
+
+# Check the path to representative England/CLIMB-CM7YJM45/2025 before BSM:
+g England/CLIMB-CM7YJM45/2025 sample-paths.merged.XFJ.3 
+#node_3571472:C4893T node_3571708:G21641T
+# -- doh, that last node with G21641T (that gets masked) puts it on its own little branch, not base of XFJ.3 as intended.
+# --> add "representativeBacktrack: 1" to branchSpecificMask.yml, make sure branchSpecificMask.py applies it for exclusions.
+# After this round of masking is applied, in future versions of the tree the backtrack will probably inhibit the masking in
+# all of XFJ.3... but that's not a bad thing, there's not much to XFJ.3 besides XFJ.3.1.
+
+
+# Test branch-specific masking with the updated branchSpecificMask.yml
+time $scriptDir/maskDelta.sh merged.pb.gz merged.deltaMasked2.pb.gz
+#real    11m13.105s
+$matUtils extract -i merged.deltaMasked2.pb.gz -c XFJ.3 -S sample-paths.merged.deltaMasked2.XFJ.3
+g France/ARA-HCL025153107901/2025 sample-paths.merged.deltaMasked2.XFJ.3 
+#... node_3571284:C4893T node_3571285:A21617G node_3571418:G23599T node_3571419:C4021T ...
+# -- yay, G23599T survived masking.
+
+# Use the re-masked tree in place of original.
+mv merged.deltaMasked.pb.gz merged.deltaMasked.orig.pb.gz
+mv merged.deltaMasked2.pb.gz merged.deltaMasked.pb.gz
+
+# Repeat steps after branch-specific masking:
+$matUtils extract -i merged.deltaMasked.pb.gz \
+        --max-parsimony 25 \
+        --max-branch-length 75 \
+        --max-path-length 250 \
+        -O -o merged.deltaMasked.filtered.pb.gz
+# Dang, now we need to re-optimize and everything...
+time $matOptimize \
+        -T 64 -m 0.00000001 -M 2 -S move_log.filtered \
+        -i merged.deltaMasked.filtered.pb.gz \
+        -o gisaidAndPublic.$today.masked.preTrim.pb.gz \
+        >& matOptimize.filtered.log
+#real    107m34.179s
+
+$matUtils fix -i gisaidAndPublic.$today.masked.preTrim.pb.gz -c 10 \
+        -o gisaidAndPublic.$today.masked.preTrim.fix.pb.gz
+$matUtils extract -i gisaidAndPublic.$today.masked.preTrim.fix.pb.gz \
+        --max-parsimony 25 \
+        --max-branch-length 75 \
+        --max-path-length 250 \
+        -O -o gisaidAndPublic.$today.masked.pb.gz
+
+# After this point we can re-run the main script, which picks up after first creation of gisaidAndPublic.$today.masked.pb.gz.
+# Yes, I know, if this were snakemake then it would redo the right steps automatically.
+
+prevDate=2026-08-26
+$scriptDir/updateCombinedTree.sh $prevDate $today $problematicSitesVcf >& updateCombinedTree.redoAfterBSM.log
+
+# Make sure XFJ.3.1.1 and RA.1 were restored (with G23599T) and properly annotated:
+g ^XFJ.3.1.1 clade-paths
+#... C4893T > A21617G > G23599T
+g ^RA.1 clade-paths
+#... C4893T > A21617G > G23599T > C4021T > A22268T
+# Good.

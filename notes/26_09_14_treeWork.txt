@@ -1,0 +1,61 @@
+today=2026-09-14
+cd $ottoDir/$today
+
+# find_split_lineages.py has reported split SV.2.3 and MC.24 for several days now, so prune to fix those.
+
+wc -l pruneForSplitLineages
+#10 pruneForSplitLineages
+
+grep prune\  split_lineages.txt
+#SV.2.3 node_3718067 sibling node_3718030  (A21627C, 26) child node_3718031 (24, 0.923) has mutations C15024T, superset of lineage mutations C15024T --> prune 2 (0.077)
+#MC.24 node_3626975 sibling node_3595667  (C13329T, 34) child node_3595669 (26, 0.765) has mutations G25595T, superset of lineage mutations G25595T --> prune 8 (0.235)
+
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz \
+    -p -s <(sort -u pruneFor*) \
+    -O -o gisaidAndPublic.$today.pruned.pb.gz
+
+time $matOptimize -i gisaidAndPublic.$today.pruned.pb.gz \
+    -T 60 -m 0.00000001 -M 2 -S move_log.pruned \
+    -o gisaidAndPublic.$today.pruned.opt.pb.gz \
+    >& matOptimize.pruned.log
+#real    109m16.918s
+
+g radius matOptimize.pruned.log
+
+# Recondense after matOptimize in hopes of finding more lineages by path.
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.pb.gz \
+    -O -o gisaidAndPublic.$today.pruned.opt.O.pb.gz
+
+# Use the result as the basis of tomorrow's build:
+ln -f gisaidAndPublic.$today.pruned.opt.O.pb.gz gisaidAndPublic.$today.masked.useMe.pb.gz
+
+# Make taxonium & check paths
+usher_to_taxonium --input gisaidAndPublic.$today.pruned.opt.O.pb.gz \
+    --metadata gisaidAndPublic.$today.metadata.tsv.gz \
+    --genbank ~angie/github/taxonium/taxoniumtools/test_data/hu1.gb \
+    --columns genbank_accession,country,date,pangolin_lineage,pango_lineage_usher \
+    --clade_types=nextstrain,pango \
+    --name_internal_nodes \
+    --title "$today tree after prune & opt" \
+    --output gisaidAndPublic.$today.treeWork.jsonl.gz \
+    >& utt.log &
+
+# Check paths -- first identify a sequence from each of the above split branches to check.
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c SV.2 -S sample-paths.SV.2
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c SV.2 -S sample-paths.pruned.SV.2
+$matUtils extract -i gisaidAndPublic.$today.masked.pb.gz -c KP.3.1.1 -S sample-paths.KP.3.1.1
+$matUtils extract -i gisaidAndPublic.$today.pruned.opt.O.pb.gz -c KP.3.1.1 -S sample-paths.pruned.KP.3.1.1
+
+# Child in SV.2.3 with C15024T > A21627C?
+grep node_3718031: sample-paths.SV.2 | head -1
+#Singapore/Y26R25MSC7/2026|EPI_ISL_20508779|2026-07-30 ...
+grep ^Singapore/Y26R25MSC7/2026 sample-paths.pruned.SV.2
+#... node_3717901:G28223A node_3718062:C15024T node_3718063:A21627C ...
+# Good.
+
+# Child in MC.24 with G25595T > C13329T?
+grep node_3595669: sample-paths.KP.3.1.1 | head -1
+#USA/NY-SUNYQB-X1144594/2024|EPI_ISL_19592957|2024-11-09 ...
+grep ^USA/NY-SUNYQB-X1144594/2024 sample-paths.pruned.KP.3.1.1
+#... node_3591409:A13121T node_3626970:G25595T node_3626971:C13329T ...
+# Good.
