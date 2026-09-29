@@ -1,0 +1,80 @@
+site_name: SARS-CoV-2 Tree Maintenance
+site_description: Daily pipeline and manual curation procedures for maintaining the SARS-CoV-2 phylogenetic tree
+repo_url: https://github.com/AngieHinrichs/SARS-CoV-2-tree-maintenance
+repo_name: AngieHinrichs/SARS-CoV-2-tree-maintenance
+edit_uri: edit/main/docs/                           # enables "edit this page" links
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs        # top-level sections as tabs
+    - navigation.sections    # expand sections in the sidebar
+    - navigation.top         # "back to top" button
+    - navigation.tracking
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Daily Update Pipeline:
+      - Overview: daily-pipeline/overview.md
+      - Scripts Reference: daily-pipeline/scripts.md
+  - Manual Curation:
+      - Overview: manual-curation/overview.md
+      - Inspecting the Tree in Taxonium: manual-curation/taxonium-inspection.md
+      - Fixing branches in the daily build: manual-curation/build-fixes.md
+      - Fixing branches manually: manual-curation/manual-fixes.md
+  - Annotating Lineages: annotation/overview.md
+# - Pangolin Data Release: pangolin-data/overview.md
+#  - Reference:
+#      - Glossary: reference/glossary.md
+#      - Bibliography: reference/references.md
+
+markdown_extensions:
+  - toc:
+      permalink: true          # clickable anchor links on headings
+      title: On this page
+  - admonition                 # !!! note / !!! warning callout boxes
+  - pymdownx.details           # collapsible admonitions
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+  - footnotes                  # for [^1] style references
+  - tables
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/AngieHinrichs/SARS-CoV-2-tree-maintenance
