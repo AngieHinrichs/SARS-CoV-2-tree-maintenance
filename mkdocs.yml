@@ -1,5 +1,6 @@
 site_name: SARS-CoV-2 Tree Maintenance
 site_description: Daily pipeline and manual curation procedures for maintaining the SARS-CoV-2 phylogenetic tree
+site_url: https://angiehinrichs.github.io/SARS-CoV-2-tree-maintenance/
 repo_url: https://github.com/AngieHinrichs/SARS-CoV-2-tree-maintenance
 repo_name: AngieHinrichs/SARS-CoV-2-tree-maintenance
 edit_uri: edit/main/docs/                           # enables "edit this page" links
